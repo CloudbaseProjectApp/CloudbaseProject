@@ -12,11 +12,15 @@
 		4553BEDD2E2150C3002CC762 /* SDWebImageMapKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4553BEDC2E2150C3002CC762 /* SDWebImageMapKit */; };
 		4553BEE02E2150D8002CC762 /* SDWebImageSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 4553BEDF2E2150D8002CC762 /* SDWebImageSwiftUI */; };
 		4553BEE42E215250002CC762 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 4553BEE32E215250002CC762 /* .gitignore */; };
+		45E705A62E217548002F24D6 /* CloudbaseConfig.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 45E705A42E217548002F24D6 /* CloudbaseConfig.xcconfig */; };
+		45E705A72E217548002F24D6 /* service-account.json in Resources */ = {isa = PBXBuildFile; fileRef = 45E705A52E217548002F24D6 /* service-account.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		4553BE5C2E214F98002CC762 /* Cloudbase Project.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Cloudbase Project.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4553BEE32E215250002CC762 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		45E705A42E217548002F24D6 /* CloudbaseConfig.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = CloudbaseConfig.xcconfig; sourceTree = "<group>"; };
+		45E705A52E217548002F24D6 /* service-account.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "service-account.json"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -58,6 +62,8 @@
 		4553BE532E214F98002CC762 = {
 			isa = PBXGroup;
 			children = (
+				45E705A42E217548002F24D6 /* CloudbaseConfig.xcconfig */,
+				45E705A52E217548002F24D6 /* service-account.json */,
 				4553BEE32E215250002CC762 /* .gitignore */,
 				4553BE5E2E214F98002CC762 /* Cloudbase Project */,
 				4553BE5D2E214F98002CC762 /* Products */,
@@ -145,6 +151,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				45E705A62E217548002F24D6 /* CloudbaseConfig.xcconfig in Resources */,
+				45E705A72E217548002F24D6 /* service-account.json in Resources */,
 				4553BEE42E215250002CC762 /* .gitignore in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
