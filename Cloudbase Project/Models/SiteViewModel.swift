@@ -27,16 +27,19 @@ class SiteViewModel: ObservableObject {
     @Published var sites: [Site] = []
     private var cancellables = Set<AnyCancellable>()
     
-    func getSites(completion: @escaping () -> Void) {
+    func getSites(appRegion: String,
+                  completion: @escaping () -> Void) {
         let rangeName = "Sites"
-        let sitesURLString = "https://sheets.googleapis.com/v4/spreadsheets/\(googleSpreadsheetID)/values/\(rangeName)?alt=json&key=\(googleApiKey)"
-        guard let url = URL(string: sitesURLString) else {
-            print("Invalid URL")
+        
+        // Build region sheet URL
+        guard let regionGoogleSheetID = getRegionGoogleSheet(appRegion: appRegion),
+              let regionURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)") else {
+            print("Invalid or missing region Google Sheet ID for region: \(appRegion)")
             DispatchQueue.main.async { completion() }
             return
         }
-        
-        URLSession.shared.dataTaskPublisher(for: url)
+
+        URLSession.shared.dataTaskPublisher(for: regionURL)
             .map { $0.data }
             .decode(type: SitesResponse.self, decoder: JSONDecoder())
             .map { response in

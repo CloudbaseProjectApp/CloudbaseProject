@@ -9,7 +9,32 @@ struct AboutView: View {
     
     var body: some View {
         backgroundColor.edgesIgnoringSafeArea(.all)
+        
         List {
+            
+            Section(header: Text("Region Select")
+                .font(.subheadline)
+                .foregroundColor(sectionHeaderColor)
+                .bold())
+            {
+                ForEach(appRegions, id: \.appRegion) { region in
+                    Button(action: {
+                        userSettingsViewModel.appRegion = region.appRegion
+                        userSettingsViewModel.saveToStorage()
+                    }) {
+                        HStack {
+                            Text(region.appRegionName)
+                            Spacer()
+                            if userSettingsViewModel.appRegion == region.appRegion {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+            }
+            
             Section(header: Text("About Cloudbase Utah")
                 .font(.subheadline)
                 .foregroundColor(sectionHeaderColor)
@@ -67,7 +92,19 @@ struct AboutView: View {
                         .font(.subheadline)
                         .foregroundColor(rowHeaderColor)
                 }
-                                
+                
+                // Reset to defaults (clear user settings)
+                Button(action: {
+                    userSettingsViewModel.clearUserSettings() {
+                        // Trigger a change to appRefreshID to reload metadata by making BaseAppView reappear
+                        refreshMetadata = true
+                    }
+                }) {
+                    Text("Clear user settings (reset to defaults)")
+                        .font(.subheadline)
+                        .foregroundColor(rowHeaderColor)
+                }
+
             }
             
             if devMenuAvailable {

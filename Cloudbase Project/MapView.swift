@@ -68,7 +68,7 @@ class ArrowOverlayRenderer: MKOverlayRenderer {
 }
 
 struct MapView: UIViewRepresentable {
-    @Binding var region: MKCoordinateRegion
+    @Binding var mapRegion: MKCoordinateRegion
     @Binding var zoomLevel: Double
     @Binding var mapStyle: CustomMapStyle
     @Binding var mapDisplayMode: MapDisplayMode
@@ -95,7 +95,7 @@ struct MapView: UIViewRepresentable {
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
-        mapView.setRegion(region, animated: false)
+        mapView.setRegion(mapRegion, animated: false)
         mapView.showsUserLocation = false
         mapView.isZoomEnabled = true
         mapView.isScrollEnabled = true
@@ -288,8 +288,8 @@ struct MapView: UIViewRepresentable {
             DispatchQueue.main.async {
                 self.parent.zoomLevel = newZoom
                 
-                // Set region to retain setting when user switches map modes
-                self.parent.region = mapView.region
+                // Set map region to retain setting when user switches map modes
+                self.parent.mapRegion = mapView.region
             }
         }
         
@@ -762,7 +762,7 @@ struct MapContainerView: View {
                   : []
 
                 MapView(
-                    region:             $userSettingsViewModel.region,
+                    mapRegion:          $userSettingsViewModel.mapRegion,
                     zoomLevel:          $userSettingsViewModel.zoomLevel,
                     mapStyle:           $userSettingsViewModel.selectedMapType,  // Standard or hybrid
                     mapDisplayMode:     $userSettingsViewModel.mapDisplayMode,   // Weather or track
@@ -848,6 +848,7 @@ struct MapContainerView: View {
                             }
                             .sheet(isPresented: $isLayerSheetPresented) {
                                 MapSettingsView(
+                                    appRegion:          $userSettingsViewModel.appRegion,
                                     selectedMapType:    $userSettingsViewModel.selectedMapType,
                                     pilotTrackDays:     $userSettingsViewModel.pilotTrackDays,
                                     mapDisplayMode:     $userSettingsViewModel.mapDisplayMode,
@@ -924,10 +925,11 @@ struct MapContainerView: View {
                         stationAnnotationViewModel.siteViewModel = siteViewModel
                     }
                     DispatchQueue.main.async {
-                        stationLatestReadingViewModel.getLatestReadingsData (sitesOnly: false) {
+                        stationLatestReadingViewModel.getLatestReadingsData (appRegion: userSettingsViewModel.appRegion,
+                                                                             sitesOnly: false) {
                             stationAnnotationViewModel.stationLatestReadingViewModel = stationLatestReadingViewModel
                             stationAnnotationViewModel.updateStationAnnotations {
-                                stationAnnotationViewModel.clusterStationAnnotations(regionSpan: userSettingsViewModel.region.span)
+                                stationAnnotationViewModel.clusterStationAnnotations(mapRegionSpan: userSettingsViewModel.mapRegion.span)
                             }
                         }
                     }
@@ -978,10 +980,11 @@ struct MapContainerView: View {
                             stationAnnotationViewModel.siteViewModel = siteViewModel
                         }
                         DispatchQueue.main.async {
-                            stationLatestReadingViewModel.getLatestReadingsData (sitesOnly: false) {
+                            stationLatestReadingViewModel.getLatestReadingsData (appRegion: userSettingsViewModel.appRegion,
+                                                                                 sitesOnly: false) {
                                 stationAnnotationViewModel.stationLatestReadingViewModel = stationLatestReadingViewModel
                                 stationAnnotationViewModel.updateStationAnnotations {
-                                    stationAnnotationViewModel.clusterStationAnnotations(regionSpan: userSettingsViewModel.region.span)
+                                    stationAnnotationViewModel.clusterStationAnnotations(mapRegionSpan: userSettingsViewModel.mapRegion.span)
                                 }
                             }
                         }
@@ -1062,10 +1065,11 @@ struct MapContainerView: View {
                         stationAnnotationViewModel.siteViewModel = siteViewModel
                     }
                     DispatchQueue.main.async {
-                        stationLatestReadingViewModel.getLatestReadingsData (sitesOnly: false) {
+                        stationLatestReadingViewModel.getLatestReadingsData (appRegion: userSettingsViewModel.appRegion,
+                                                                             sitesOnly: false) {
                             stationAnnotationViewModel.stationLatestReadingViewModel = stationLatestReadingViewModel
                             stationAnnotationViewModel.updateStationAnnotations {
-                                stationAnnotationViewModel.clusterStationAnnotations(regionSpan: userSettingsViewModel.region.span)
+                                stationAnnotationViewModel.clusterStationAnnotations(mapRegionSpan: userSettingsViewModel.mapRegion.span)
                             }
                         }
                     }
@@ -1083,10 +1087,10 @@ struct MapContainerView: View {
             // Do nothing; pilot map changes handled elsewhere
         } else {
             Timer.scheduledTimer(withTimeInterval: mapBatchProcessingInterval, repeats: true) { _ in
-                let currentSpan = userSettingsViewModel.region.span
+                let currentSpan = userSettingsViewModel.mapRegion.span
                 if hasRegionSpanChanged(from: lastRegionSpan, to: currentSpan) {
                     lastRegionSpan = currentSpan
-                    stationAnnotationViewModel.clusterStationAnnotations(regionSpan: currentSpan)
+                    stationAnnotationViewModel.clusterStationAnnotations(mapRegionSpan: currentSpan)
                 }
             }
         }

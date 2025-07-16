@@ -6,7 +6,7 @@ import SDWebImageSwiftUI
 
 struct UDOTCameraListView: View {
     @StateObject private var camerasViewModel = UDOTCamerasViewModel()
-    @State private var region = MKCoordinateRegion(
+    @State private var mapRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: mapInitLatitude, longitude: mapInitLongitude),
         span: MKCoordinateSpan(latitudeDelta: mapInitLatitudeSpan, longitudeDelta: mapInitLongitudeSpan)
     )
@@ -22,7 +22,7 @@ struct UDOTCameraListView: View {
                 assert(camera.longitude >= -180 && camera.longitude <= 180, "Invalid longitude: \(camera.longitude)")
             }
             
-            Map(coordinateRegion: $region, annotationItems: camerasViewModel.clusteredCameras) { camera in
+            Map(coordinateRegion: $mapRegion, annotationItems: camerasViewModel.clusteredCameras) { camera in
                 MapAnnotation(coordinate: CLLocationCoordinate2D(latitude: camera.latitude, longitude: camera.longitude)) {
                     Button {
                         selectedCamera = camera
@@ -53,10 +53,10 @@ struct UDOTCameraListView: View {
 
     private func startMonitoringRegion() {
         Timer.scheduledTimer(withTimeInterval: mapBatchProcessingInterval, repeats: true) { _ in
-            let currentSpan = region.span
+            let currentSpan = mapRegion.span
             if hasRegionSpanChanged(from: lastRegionSpan, to: currentSpan) {
                 lastRegionSpan = currentSpan
-                camerasViewModel.updateClusters(regionSpan: currentSpan)
+                camerasViewModel.updateClusters(mapRegionSpan: currentSpan)
             }
         }
     }

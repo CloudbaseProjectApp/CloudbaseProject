@@ -57,7 +57,9 @@ struct DevInactivePilotsView: View {
 struct PilotTrackInfoView: View {
     let pilot: Pilot
     let allTracks: [PilotTrack]
+    
     @EnvironmentObject var pilotViewModel: PilotViewModel
+    @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     
     // Only this pilot’s tracks
     private var tracks: [PilotTrack] {
@@ -91,8 +93,10 @@ struct PilotTrackInfoView: View {
                         .font(.caption)
                         .foregroundColor(.orange)
                     Button("Activate Pilot") {
-                        pilotViewModel.setPilotActiveStatus(pilot: pilot, isInactive: false)
-                        pilotViewModel.getPilots {}
+                        pilotViewModel.setPilotActiveStatus(appRegion: userSettingsViewModel.appRegion,
+                                                            pilot: pilot,
+                                                            isInactive: false)
+                        pilotViewModel.getPilots(appRegion: userSettingsViewModel.appRegion) {}
                     }
                     .font(.caption)
                     .buttonStyle(BorderlessButtonStyle())
@@ -116,8 +120,10 @@ struct PilotTrackInfoView: View {
                             .foregroundColor(.yellow)
                             .foregroundColor(.orange)
                         Button("Deactivate Pilot") {
-                            pilotViewModel.setPilotActiveStatus(pilot: pilot, isInactive: true)
-                            pilotViewModel.getPilots {}
+                            pilotViewModel.setPilotActiveStatus(appRegion: userSettingsViewModel.appRegion,
+                                                                pilot: pilot,
+                                                                isInactive: true)
+                            pilotViewModel.getPilots(appRegion: userSettingsViewModel.appRegion) {}
                         }
                         .font(.caption)
                         .buttonStyle(BorderlessButtonStyle())

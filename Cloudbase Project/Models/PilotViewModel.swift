@@ -19,22 +19,28 @@ class PilotViewModel: ObservableObject {
     @Published var pilots: [Pilot] = []
     private var cancellables = Set<AnyCancellable>()
     
-    func getPilots(completion: @escaping () -> Void) {
+    func getPilots(appRegion: String,
+                   completion: @escaping () -> Void) {
+        
         let rangeName = "Pilots"
-        let sitesURLString = "https://sheets.googleapis.com/v4/spreadsheets/\(googleSpreadsheetID)/values/\(rangeName)?alt=json&key=\(googleApiKey)"
-        guard let url = URL(string: sitesURLString) else {
-            print("Invalid URL")
+        
+        // Build region sheet pilots URL
+        guard let regionGoogleSheetID = getRegionGoogleSheet(appRegion: appRegion),
+              let regionURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)")
+        else {
+            print("Invalid or missing region Google Sheet ID for region: \(appRegion)")
             DispatchQueue.main.async { completion() }
             return
         }
         
-        URLSession.shared.dataTaskPublisher(for: url)
+        URLSession.shared.dataTaskPublisher(for: regionURL)
             .map { $0.data }
             .decode(type: PilotsResponse.self, decoder: JSONDecoder())
             .map { response in
                 response.values.dropFirst().compactMap { row -> Pilot? in
                     // Skip row if data missing
-                    guard row.count >= 2 else {
+                    guard row.count >= 2
+                    else {
                         print("Skipping malformed pilot row: \(row)")
                         return nil
                     }
@@ -46,7 +52,8 @@ class PilotViewModel: ObservableObject {
                     let inactive = (row.count > 2 && row[2].lowercased() == "yes")
                     
                     // Check for a valid share URL format
-                    guard trackingShareURL.contains("https://share.garmin.com/") else {
+                    guard trackingShareURL.contains("https://share.garmin.com/")
+                    else {
                         print("Skipping malformed InReach share URL for row: \(row)")
                         return nil
                     }
@@ -78,11 +85,14 @@ class PilotViewModel: ObservableObject {
         return pilots.first(where: { $0.pilotName == pilotName })?.trackingShareURL
     }
 
-    func addPilot(pilotName: String, trackingShareURL: String) {
+    func addPilot(appRegion: String,
+                  pilotName: String,
+                  trackingShareURL: String) {
         
         // Get an OAuth token
         fetchAccessToken { token in
-            guard let token = token else {
+            guard let token = token
+            else {
                 DispatchQueue.main.async {
                     print("Failed to get access token")
                 }
@@ -91,19 +101,20 @@ class PilotViewModel: ObservableObject {
             
             // Construct append URL
             let range = "Pilots"
-            let urlString = "https://sheets.googleapis.com/v4/spreadsheets/\(googleSpreadsheetID)/values/\(range):append?valueInputOption=RAW"
-            guard let url = URL(string: urlString) else {
-                print("Invalid URL for API to append pilot")
+            guard let regionGoogleSheetID = getRegionGoogleSheet(appRegion: appRegion),
+                  let regionURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(range):append?valueInputOption=RAW")
+            else {
+                print("Cannot append pilot; invalid or missing region Google Sheet ID for region: \(appRegion)")
                 return
             }
-            
+
             // Construct append data
             let values = [[ pilotName, trackingShareURL ]]
             let body: [String: Any] = ["values": values]
             let jsonData = try! JSONSerialization.data(withJSONObject: body)
             
             // Structure API call
-            var request = URLRequest(url: url)
+            var request = URLRequest(url: regionURL)
             request.httpMethod = "POST"
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -117,18 +128,23 @@ class PilotViewModel: ObservableObject {
                     } else if let code = (resp as? HTTPURLResponse)?.statusCode, code == 200 {
                         // Pilot added successfully
                     } else {
-                        print("Failed to add pilot")
+                        print("Failed to add pilot: \(pilotName)")
+                        print("Status code: \(String(describing: (resp as? HTTPURLResponse)?.statusCode))")
+                        print("Posting to URL: \(regionURL)")
                     }
                 }
             }.resume()
         }
     }
     
-    func setPilotActiveStatus(pilot: Pilot, isInactive: Bool) {
+    func setPilotActiveStatus(appRegion: String,
+                              pilot: Pilot,
+                              isInactive: Bool) {
         
         // Get an OAuth token
         fetchAccessToken { token in
-            guard let token = token else {
+            guard let token = token
+            else {
                 DispatchQueue.main.async {
                     print("Failed to get access token")
                 }
@@ -136,9 +152,13 @@ class PilotViewModel: ObservableObject {
             }
 
             // Read the existing Pilots sheet to find the row index
-            let readRange = "Pilots"
-            let readURLstr = "https://sheets.googleapis.com/v4/spreadsheets/\(googleSpreadsheetID)/values/\(readRange)"
-            guard let readURL = URL(string: readURLstr) else { return }
+            let range = "Pilots"
+            guard let regionGoogleSheetID = getRegionGoogleSheet(appRegion: appRegion),
+                  let readURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(range)")
+            else {
+                print("Cannot get pilot data; invalid or missing region Google Sheet ID for region: \(appRegion)")
+                return
+            }
 
             var readReq = URLRequest(url: readURL)
             readReq.httpMethod = "GET"
@@ -166,7 +186,7 @@ class PilotViewModel: ObservableObject {
 
                     // Update column C ("Inactive") of that row
                     let updateRange = "Pilots!C\(sheetRow)"   // column C = row[2]
-                    let updateURLstr = "https://sheets.googleapis.com/v4/spreadsheets/\(googleSpreadsheetID)/values/\(updateRange)?valueInputOption=RAW"
+                    let updateURLstr = "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(updateRange)?valueInputOption=RAW"
                     guard let updateURL = URL(string: updateURLstr) else { return }
 
                     // Set inactive status to "Yes" or empty (cleared out)

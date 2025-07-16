@@ -18,22 +18,24 @@ class WeatherCamViewModel: ObservableObject {
     @Published var groupedWeatherCams: [String: [WeatherCam]] = [:]
     @Published var isLoading: Bool = false
     
-    func fetchWeatherCams() {
+    func fetchWeatherCams(appRegion: String) {
         DispatchQueue.main.async {
             self.isLoading = true
         }
         
         let rangeName = "WeatherCams"
-        let urlString = "https://sheets.googleapis.com/v4/spreadsheets/\(googleSpreadsheetID)/values/\(rangeName)?alt=json&key=\(googleApiKey)"
-        guard let url = URL(string: urlString) else {
-            // Bad URL → hide spinner
+        
+        // Build region sheet URL
+        guard let regionGoogleSheetID = getRegionGoogleSheet(appRegion: appRegion),
+              let regionURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)") else {
+            print("Invalid or missing region Google Sheet ID for region: \(appRegion)")
             DispatchQueue.main.async {
                 self.isLoading = false
             }
             return
         }
-        
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+
+        URLSession.shared.dataTask(with: regionURL) { [weak self] data, response, error in
             guard let self = self else { return }
             
             defer {

@@ -71,7 +71,6 @@ class DailyForecastViewModel: ObservableObject {
                             formattedMinTemp[index] = String(Int(dailyForecastData.daily.temperature_2m_min[index].rounded()))
                             
                             // Set weather code image
-                            // Set weather code image
                             weatherCodeImage[index] = self?.weatherCodesViewModel.weatherCodeImage (
                                 weatherCode: Int(dailyForecastData.daily.weather_code[index]),
                                 cloudcover: Double(dailyForecastData.daily.cloud_cover_mean[index]),

@@ -113,14 +113,15 @@ class StationLatestReadingViewModel: ObservableObject {
         
         self.stationParameters = mesonetStations.map { "&stid=\($0.readingsStation)" }.joined()
         
-        // Only fetch site readings at init
-        self.getLatestReadingsData(sitesOnly: true) {}
+        // Note:  Not fetching any readings at init; will be fetched by siteView
     }
     
     // sitesOnly determines whether to only get Mesonet readings for stations associated with sites (SiteView)
     // or all stations in Utah (MapView)
     // These are published as separate structures with separate refresh timers
-    func getLatestReadingsData(sitesOnly: Bool, completion: @escaping () -> Void) {
+    func getLatestReadingsData(appRegion: String,
+                               sitesOnly: Bool,
+                               completion: @escaping () -> Void) {
         
         // Pick the correct last fetch timestamp
         let now = Date()
@@ -139,9 +140,21 @@ class StationLatestReadingViewModel: ObservableObject {
         isLoading = true
         var combinedReadings: [StationLatestReading] = []
         let group = DispatchGroup()
-
+        
+        // Determine country and state parameters if not limited to sites only
+        var stationParams = ""
+        if sitesOnly {
+            stationParams = self.stationParameters
+        } else {
+            let regionCountry = getRegionCountry(appRegion: appRegion)
+            if regionCountry == "US" {
+                stationParams = "&state=\(appRegion)"
+            } else {
+                stationParams = "&country=\(regionCountry ?? "")"
+            }
+        }
+            
         group.enter()
-        let stationParams = sitesOnly ? self.stationParameters : ""
         self.getLatestMesonetReadings(stationParameters: stationParams) { mesonetReadings in
             combinedReadings.append(contentsOf: mesonetReadings)
             group.leave()
@@ -165,9 +178,11 @@ class StationLatestReadingViewModel: ObservableObject {
     }
     
     func getLatestMesonetReadings(stationParameters: String, completion: @escaping ([StationLatestReading]) -> Void) {
-        let urlString = latestReadingsAPIHeader + stationParameters + latestReadingsAPITrailer + mesowestAPIToken
+        let urlString = latestReadingsAPIHeader + stationParameters + latestReadingsAPITrailer + synopticsAPIToken
         guard let url = URL(string: urlString) else { return }
-        if printReadingsURL { print(url) }
+        if printReadingsURL {
+            print("URL: \(url)")
+        }
         URLSession.shared.dataTask(with: url) { data, response, error in
             DispatchQueue.main.async {
                 guard let data = data, error == nil else { return }

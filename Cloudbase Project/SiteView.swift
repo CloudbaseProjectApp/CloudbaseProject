@@ -99,7 +99,8 @@ struct SiteView: View {
          }
         .onAppear {
             isActive = true
-            stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {}
+            stationLatestReadingViewModel.getLatestReadingsData(appRegion: userSettingsViewModel.appRegion,
+                                                                sitesOnly: true) {}
             startTimer()
         }
         .onDisappear {
@@ -110,7 +111,8 @@ struct SiteView: View {
           item: $selectedSite,
           onDismiss: {
             // refresh when they close it
-            stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) { }
+            stationLatestReadingViewModel.getLatestReadingsData(appRegion: userSettingsViewModel.appRegion,
+                                                                sitesOnly: true) { }
           }
         ) { site in
             SiteDetailView(site: site)
@@ -119,7 +121,8 @@ struct SiteView: View {
           .onChange(of: scenePhase) { oldValue, newValue in
             if newValue == .active {
                 isActive = true
-                stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {}
+                stationLatestReadingViewModel.getLatestReadingsData(appRegion: userSettingsViewModel.appRegion,
+                                                                    sitesOnly: true) {}
                 startTimer()
             } else {
                 isActive = false
@@ -134,7 +137,8 @@ struct SiteView: View {
     private func startTimer() {
         DispatchQueue.main.asyncAfter(deadline: .now() + readingsRefreshInterval) {
             if isActive {
-                stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {
+                stationLatestReadingViewModel.getLatestReadingsData(appRegion: userSettingsViewModel.appRegion,
+                                                                    sitesOnly: true) {
                     // Once completed, restart timer
                     startTimer()
                 }

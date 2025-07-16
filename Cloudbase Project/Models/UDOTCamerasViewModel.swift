@@ -62,7 +62,7 @@ class UDOTCamerasViewModel: ObservableObject {
                 let decodedData = try JSONDecoder().decode([UDOTCameraData].self, from: data)
                 DispatchQueue.main.async {
                     self?.cameras = decodedData
-                    self?.updateClusters(regionSpan: MKCoordinateSpan(latitudeDelta: mapInitLatitudeSpan, longitudeDelta: mapInitLongitudeSpan))
+                    self?.updateClusters(mapRegionSpan: MKCoordinateSpan(latitudeDelta: mapInitLatitudeSpan, longitudeDelta: mapInitLongitudeSpan))
                 }
             } catch {
                 print("Error decoding JSON: \(error)")
@@ -70,8 +70,8 @@ class UDOTCamerasViewModel: ObservableObject {
         }.resume()
     }
 
-    func updateClusters(regionSpan: MKCoordinateSpan) {
-        let thresholdDistance = max(regionSpan.latitudeDelta, regionSpan.longitudeDelta) * mapClusterThresholdFactor
+    func updateClusters(mapRegionSpan: MKCoordinateSpan) {
+        let thresholdDistance = max(mapRegionSpan.latitudeDelta, mapRegionSpan.longitudeDelta) * mapClusterThresholdFactor
         clusteredCameras = []
 
         for camera in cameras {

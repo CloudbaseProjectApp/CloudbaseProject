@@ -1,6 +1,7 @@
 import SwiftUI
 import MapKit
 import UIKit
+
 let timeChangeNotification = UIApplication.significantTimeChangeNotification
 
 @main
@@ -15,7 +16,7 @@ struct Cloudbase_ProjectApp: App {
     @StateObject private var pilotTrackViewModel:             PilotTrackViewModel
     @StateObject private var stationLatestReadingViewModel:   StationLatestReadingViewModel
     @StateObject private var userSettingsViewModel          = UserSettingsViewModel(
-        region: MKCoordinateRegion(
+        mapRegion: MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: mapInitLatitude, longitude: mapInitLongitude),
             span: MKCoordinateSpan(latitudeDelta: mapInitLatitudeSpan, longitudeDelta: mapInitLongitudeSpan)
         ),
@@ -36,21 +37,22 @@ struct Cloudbase_ProjectApp: App {
         let pilotVM             = PilotViewModel()
         let stationVM           = StationLatestReadingViewModel(siteViewModel: siteVM)
         let userSettingsVM      = UserSettingsViewModel(
-            region: MKCoordinateRegion(
-                center: CLLocationCoordinate2D(
-                    latitude: mapInitLatitude,
-                    longitude: mapInitLongitude
+            appRegion:          "",
+            mapRegion: MKCoordinateRegion(
+                    center:     CLLocationCoordinate2D(
+                    latitude:   mapInitLatitude,
+                    longitude:  mapInitLongitude
                 ),
                 span: MKCoordinateSpan(
-                    latitudeDelta: mapInitLatitudeSpan,
+                    latitudeDelta:  mapInitLatitudeSpan,
                     longitudeDelta: mapInitLongitudeSpan
                 )
             ),
-            selectedMapType: defaultmapType,
-            pilotTrackDays: defaultPilotTrackDays,
-            mapDisplayMode: defaultmapDisplayMode,
-            showSites: defaultShowSites,
-            showStations: defaultShowStations
+            selectedMapType:    defaultmapType,
+            pilotTrackDays:     defaultPilotTrackDays,
+            mapDisplayMode:     defaultmapDisplayMode,
+            showSites:          defaultShowSites,
+            showStations:       defaultShowStations
         )
         userSettingsVM.loadFromStorage()
           _userSettingsViewModel = StateObject(wrappedValue: userSettingsVM)
@@ -98,6 +100,7 @@ struct BaseAppView: View {
     @Binding var refreshMetadata: Bool
     @State private var isActive = false
     @State private var metadataLoaded = false
+    @State private var showAppRegionSelector: Bool = false
     @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
@@ -105,13 +108,25 @@ struct BaseAppView: View {
     @EnvironmentObject var pilotTrackViewModel: PilotTrackViewModel
     @EnvironmentObject var siteViewModel: SiteViewModel
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
+    @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
 
     var body: some View {
+        
         ZStack {
             backgroundColor.edgesIgnoringSafeArea(.all)
             VStack {
                 if isActive && metadataLoaded {
-                    MainView(refreshMetadata: $refreshMetadata)
+                    
+                    if self.userSettingsViewModel.appRegion.isEmpty {
+                        // Empty view or placeholder while waiting for selection
+                        Color.clear
+                            .onAppear {
+                                showAppRegionSelector = true
+                            }
+                    } else {
+                        MainView(refreshMetadata: $refreshMetadata)
+                    }
+                    
                 } else {
                     SplashScreenView()
                         .onAppear {
@@ -122,48 +137,77 @@ struct BaseAppView: View {
                 }
             }
         }
+    
         .onAppear {
-            loadInitialMetadata()
-
+            if !userSettingsViewModel.appRegion.isEmpty && !metadataLoaded {
+                loadInitialMetadata()
+            } else {
+                showAppRegionSelector = true
+            }
         }
-        .onChange(of: refreshMetadata) { oldValue, newValue in
+        
+        .onChange(of: userSettingsViewModel.appRegion) { _, newRegion in
+            if !newRegion.isEmpty && !metadataLoaded {
+                loadInitialMetadata()
+            }
+        }
+        
+        .onChange(of: refreshMetadata) { _, newValue in
             if newValue {
                 isActive = false
                 metadataLoaded = false
-                loadInitialMetadata()
+                if !userSettingsViewModel.appRegion.isEmpty {
+                    loadInitialMetadata()
+                }
                 refreshMetadata = false
             }
         }
+    
+        .sheet(isPresented: $showAppRegionSelector) {
+            AppRegionView()
+                .interactiveDismissDisabled(true)
+                .environmentObject(userSettingsViewModel)
+        }
+    
     }
-
+    
     private func loadInitialMetadata() {
         let group = DispatchGroup()
+        
         group.enter()
         liftParametersViewModel.getLiftParameters {
             group.leave()
         }
+        
         group.enter()
         weatherCodesViewModel.getWeatherCodes {
             group.leave()
         }
+        
         group.enter()
-        sunriseSunsetViewModel.getSunriseSunset {
+        sunriseSunsetViewModel.getSunriseSunset(appRegion: userSettingsViewModel.appRegion) {
             group.leave()
         }
+        
         group.enter()
-        siteViewModel.getSites {
+        pilotViewModel.getPilots(appRegion: userSettingsViewModel.appRegion) {
             group.leave()
         }
+        
+        // Don't enter `group` for siteViewModel – handle its completion separately
         group.enter()
-        pilotViewModel.getPilots {
-            group.leave()
-        }
-        initializeLoggingFile()
-        group.notify(queue: .main) {
-            stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {
-                metadataLoaded = true
-                checkIfReadyToTransition()
+        siteViewModel.getSites(appRegion: userSettingsViewModel.appRegion) {
+            // Once site data is available, load stations using it
+            stationLatestReadingViewModel.getLatestReadingsData(appRegion: userSettingsViewModel.appRegion, sitesOnly: true) {
+                group.leave()
             }
+        }
+
+        initializeLoggingFile()
+        
+        group.notify(queue: .main) {
+            metadataLoaded = true
+            checkIfReadyToTransition()
         }
     }
 

@@ -4,6 +4,8 @@ struct PilotActivateView: View {
     var pilot: Pilot
     
     @EnvironmentObject var pilotViewModel: PilotViewModel
+    @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
+
     @State private var statusMessage = ""
     @Environment(\.dismiss) private var dismiss
     
@@ -52,10 +54,12 @@ struct PilotActivateView: View {
                             Button(action: {
                                 
                                 // Update Google sheets to activate pilot
-                                pilotViewModel.setPilotActiveStatus(pilot: pilot, isInactive: false)
+                                pilotViewModel.setPilotActiveStatus(appRegion: userSettingsViewModel.appRegion,
+                                                                    pilot: pilot,
+                                                                    isInactive: false)
 
                                 // Force update to pilot listing
-                                pilotViewModel.getPilots {
+                                pilotViewModel.getPilots(appRegion: userSettingsViewModel.appRegion) {
 
                                     // Dismiss sheet and return to map settings
                                     DispatchQueue.main.async {

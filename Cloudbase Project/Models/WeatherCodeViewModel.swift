@@ -16,7 +16,7 @@ class WeatherCodeViewModel: ObservableObject {
     let sheetName = "WeatherCodes"
     
     func getWeatherCodes(completion: @escaping () -> Void) {
-        let weatherCodesURLString = "https://sheets.googleapis.com/v4/spreadsheets/\(googleSpreadsheetID)/values/\(sheetName)?alt=json&key=\(googleApiKey)"
+        let weatherCodesURLString = "https://sheets.googleapis.com/v4/spreadsheets/\(googleSpreadsheetID)/values/\(sheetName)?alt=json&key=\(googleAPIKey)"
         guard let url = URL(string: weatherCodesURLString) else {
             print("Invalid URL for weather codes")
             DispatchQueue.main.async { completion() }

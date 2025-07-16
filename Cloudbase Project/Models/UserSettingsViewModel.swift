@@ -36,7 +36,8 @@ struct UserFavoriteSite: Identifiable, Codable, Equatable {
 }
 
 class UserSettingsViewModel: ObservableObject {
-    @Published var region: MKCoordinateRegion
+    @Published var appRegion: String
+    @Published var mapRegion: MKCoordinateRegion
     @Published var zoomLevel: Double
     @Published var selectedMapType: CustomMapStyle
     @Published var pilotTrackDays: Double
@@ -49,7 +50,8 @@ class UserSettingsViewModel: ObservableObject {
     @Published var selectedPilots: [Pilot]
     @Published var userFavoriteSites: [UserFavoriteSite]
     
-    init(region: MKCoordinateRegion,
+    init(appRegion:         String = "",
+         mapRegion:         MKCoordinateRegion,
          zoomLevel:            Double = defaultMapZoomLevel,
          selectedMapType:   CustomMapStyle = defaultmapType,
          pilotTrackDays:    Double = defaultPilotTrackDays,
@@ -62,18 +64,19 @@ class UserSettingsViewModel: ObservableObject {
          selectedPilots:    [Pilot] = [],
          userFavoriteSites: [UserFavoriteSite] = []
     ) {
-        self.region = region
-        self.zoomLevel = zoomLevel
-        self.selectedMapType = selectedMapType
-        self.pilotTrackDays = pilotTrackDays
-        self.mapDisplayMode = mapDisplayMode
-        self.showSites = showSites
-        self.showStations = showStations
-        self.showRadar = showRadar
-        self.showInfrared = showInfrared
-        self.radarColorScheme = radarColorSchme
-        self.selectedPilots = selectedPilots
-        self.userFavoriteSites = userFavoriteSites
+        self.appRegion          = appRegion
+        self.mapRegion          = mapRegion
+        self.zoomLevel          = zoomLevel
+        self.selectedMapType    = selectedMapType
+        self.pilotTrackDays     = pilotTrackDays
+        self.mapDisplayMode     = mapDisplayMode
+        self.showSites          = showSites
+        self.showStations       = showStations
+        self.showRadar          = showRadar
+        self.showInfrared       = showInfrared
+        self.radarColorScheme   = radarColorSchme
+        self.selectedPilots     = selectedPilots
+        self.userFavoriteSites  = userFavoriteSites
     }
     
     var isMapWeatherMode:           Bool { mapDisplayMode == .weather }
@@ -86,6 +89,7 @@ class UserSettingsViewModel: ObservableObject {
     // Persistent storage
     private let storageKey = "UserSettings"
     private struct PersistedSettings: Codable {
+        let appRegion:          String
         let centerLatitude:     Double
         let centerLongitude:    Double
         let spanLatitude:       Double
@@ -238,6 +242,7 @@ struct MapSettingsState: Equatable {
 
 // Functions to handle persistent storage
 extension UserSettingsViewModel {
+    
     // Call this once on launch
     func loadFromStorage() {
         let defaults = UserDefaults.standard
@@ -249,7 +254,8 @@ extension UserSettingsViewModel {
         }
         
         // Apply loaded values back into @Published properties
-        region = MKCoordinateRegion(
+        appRegion = stored.appRegion
+        mapRegion = MKCoordinateRegion(
             center: CLLocationCoordinate2D(
                 latitude: stored.centerLatitude,
                 longitude: stored.centerLongitude
@@ -275,10 +281,11 @@ extension UserSettingsViewModel {
     // Call this to store persistence (e.g. on background/inactive)
     func saveToStorage() {
         let settings = PersistedSettings(
-            centerLatitude:    region.center.latitude,
-            centerLongitude:   region.center.longitude,
-            spanLatitude:      region.span.latitudeDelta,
-            spanLongitude:     region.span.longitudeDelta,
+            appRegion:         appRegion,
+            centerLatitude:    mapRegion.center.latitude,
+            centerLongitude:   mapRegion.center.longitude,
+            spanLatitude:      mapRegion.span.latitudeDelta,
+            spanLongitude:     mapRegion.span.longitudeDelta,
             zoomLevel:         zoomLevel,
             selectedMapType:   selectedMapType.rawValue,
             pilotTrackDays:    pilotTrackDays,
@@ -295,5 +302,32 @@ extension UserSettingsViewModel {
         if let data = try? JSONEncoder().encode(settings) {
             UserDefaults.standard.set(data, forKey: storageKey)
         }
+    }
+    
+    // Reset to app defaults (clear local storage and in-memory settings)
+    func clearUserSettings(completion: @escaping () -> Void) {
+
+        // Remove from local storage
+        UserDefaults.standard.removeObject(forKey: storageKey)
+
+        // Remove from memory
+        appRegion          = ""
+        mapRegion          = MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: mapInitLatitude, longitude: mapInitLongitude),
+            span: MKCoordinateSpan(latitudeDelta: mapInitLatitudeSpan, longitudeDelta: mapInitLongitudeSpan)
+        )
+        zoomLevel          = defaultMapZoomLevel
+        selectedMapType    = defaultmapType
+        pilotTrackDays     = defaultPilotTrackDays
+        mapDisplayMode     = defaultmapDisplayMode
+        showSites          = defaultShowSites
+        showStations       = defaultShowStations
+        showRadar          = defaultShowRadar
+        showInfrared       = defaultShowInfrared
+        radarColorScheme   = defaultRadarColorScheme
+        selectedPilots     = []
+        userFavoriteSites  = []
+        
+        completion()
     }
 }

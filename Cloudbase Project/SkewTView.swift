@@ -325,7 +325,7 @@ struct SkewTChartView: View {
             .frame(width: manager.screenWidth, height: manager.proportionalHeight)
             .background(tableBackgroundColor)
             .overlay {
-                // Print text in front of Skew-T chart
+                // Display text in front of Skew-T chart
                 VStack (alignment: .trailing) {
                     Text("Top of Lift:  \(convertMetersToFeet(manager.skewTLiftParameters.tol)) ft")
                         .font(.headline)

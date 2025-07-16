@@ -71,7 +71,8 @@ class StationAnnotationViewModel: ObservableObject {
             // Define another dispatch group for to ensure station annotations aren't added until prior calls complete
             let readingsGroup = DispatchGroup()
             readingsGroup.enter()
-            stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: false) {
+            stationLatestReadingViewModel.getLatestReadingsData(appRegion: userSettingsViewModel.appRegion,
+                                                                sitesOnly: false) {
                 readingsGroup.leave()
             }
 
@@ -106,8 +107,8 @@ class StationAnnotationViewModel: ObservableObject {
         }
     }
     
-    func clusterStationAnnotations(regionSpan: MKCoordinateSpan) {
-        let threshold = max(regionSpan.latitudeDelta, regionSpan.longitudeDelta)
+    func clusterStationAnnotations(mapRegionSpan: MKCoordinateSpan) {
+        let threshold = max(mapRegionSpan.latitudeDelta, mapRegionSpan.longitudeDelta)
                       * mapClusterThresholdFactor
         clusteredStationAnnotations = []
 

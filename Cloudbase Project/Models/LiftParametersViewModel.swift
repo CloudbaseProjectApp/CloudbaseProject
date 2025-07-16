@@ -28,7 +28,7 @@ class LiftParametersViewModel: ObservableObject {
     func getLiftParameters(completion: @escaping () -> Void) {
         var liftParameters: LiftParameters = .init(thermalLapseRate: 0, thermalVelocityConstant: 0, initialTriggerTempDiff: 0, ongoingTriggerTempDiff: 0, thermalRampDistance: 0, thermalRampStartPct: 0, cloudbaseLapseRatesDiff: 0, thermalGliderSinkRate: 0)
         let rangeName = "LiftParameters"
-        let liftParameterURLString = "https://sheets.googleapis.com/v4/spreadsheets/\(googleSpreadsheetID)/values/\(rangeName)?alt=json&key=\(googleApiKey)"
+        let liftParameterURLString = "https://sheets.googleapis.com/v4/spreadsheets/\(globalGoogleSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)"
         guard let liftParameterURL = URL(string: liftParameterURLString) else {
             print("invalid URL for thermal lift parameters")
             completion() // Call completion even on error

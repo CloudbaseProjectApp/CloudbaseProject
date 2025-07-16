@@ -2,6 +2,8 @@ import SwiftUI
 
 struct PilotAppendView: View {
     @EnvironmentObject var pilotViewModel: PilotViewModel
+    @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
+    
     @State private var pilotName = ""
     @State private var inreachURL: String = "https://share.garmin.com/" // Prefilled with default URL prefix
     @State private var statusMessage = ""
@@ -115,11 +117,12 @@ struct PilotAppendView: View {
                         hideKeyboard()
                         
                         // Add pilot to Google sheets
-                        pilotViewModel.addPilot(pilotName: trimmedName,
+                        pilotViewModel.addPilot(appRegion: userSettingsViewModel.appRegion,
+                                                pilotName: trimmedName,
                                                 trackingShareURL: trimmedURL)
 
                         // Force update to pilot listing
-                        pilotViewModel.getPilots {
+                        pilotViewModel.getPilots(appRegion: userSettingsViewModel.appRegion) {
 
                             // Dismiss sheet and return to map settings
                             DispatchQueue.main.async {

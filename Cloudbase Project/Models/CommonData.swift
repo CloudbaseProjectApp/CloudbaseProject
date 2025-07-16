@@ -11,8 +11,11 @@ let printForecastURL: Bool = false
 let printPilotTracksTimings: Bool = false
 let printPilotTrackURLs: Bool = false
 
+let googleAPIKey = Bundle.main.object(forInfoDictionaryKey: "GoogleSheetsAPIKey") as? String ?? ""
+let synopticsAPIToken = "&token=\(Bundle.main.object(forInfoDictionaryKey: "SynopticsAPIToken") as? String ?? "")"
+
 // Page navigation values
-enum NavBarSelectedView:Int {
+enum NavBarSelectedView: Int {
     case site = 0
     case weather = 1
     case map = 2
@@ -21,13 +24,7 @@ enum NavBarSelectedView:Int {
     case dev = 9
 }
 
-// Metadata parameters
-let googleSpreadsheetID = "1s72R3YCHxNIJVLVa5nmsTphRpqRsfG2QR2koWxE19ls"
-let googleApiKey = "AIzaSyDSro1lDdAQsNEZq06IxwjOlQQP1tip-fs"
-
 // App parameters
-let sunriseLatitude: Double = 40.7862                   // SLC airport coordinates
-let sunriseLongitude: Double = -111.9801
 let skewTButtonWidth: CGFloat = 100
 let defaultTopOfLiftAltitude = 18000.0                  // Use in lift area graph when top of lift isn't reached in calculations
 let readingsRefreshInterval: TimeInterval = 120         // Time in seconds to refresh wind readings (300 for 5 min)
@@ -113,9 +110,6 @@ let latestReadingsAPITrailer =  "&recent=420&vars=air_temp,altimeter,wind_direct
 // historyReadings API is header + parameters (station) + trailer + token
 let historyReadingsAPIHeader = "https://api.mesowest.net/v2/station/timeseries?"
 let historyReadingsAPITrailer = "&recent=420&vars=air_temp,wind_direction,wind_gust,wind_speed&units=english,speed|mph,temp|F&within=120&obtimezone=local&timeformat=%-I:%M %p"
-
-// NOTE:  THIS HAS A PREFIX....THE XCCONFIG IS ONLY THE TOKEN VALUE!!! //
-let mesowestAPIToken = "&token=ef3b9f4584b64e6da12d8688f19d9f4a"
 
 // Grid structure sizing parameters
 let headingHeight: CGFloat = 16               // Day, date, time rows

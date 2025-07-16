@@ -40,7 +40,7 @@ class StationReadingsHistoryDataModel: ObservableObject {
         switch readingsSource {
         case "Mesonet":
             let parameters = "&stid=\(stationID)"
-            let urlString = historyReadingsAPIHeader + parameters + historyReadingsAPITrailer + mesowestAPIToken
+            let urlString = historyReadingsAPIHeader + parameters + historyReadingsAPITrailer + synopticsAPIToken
             let url = URL(string: urlString)!
             if printReadingsURL { print(url) }
             cancellable = URLSession.shared.dataTaskPublisher(for: url)

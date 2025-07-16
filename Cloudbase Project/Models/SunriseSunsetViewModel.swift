@@ -20,10 +20,18 @@ struct SunriseSunset: Codable {
 class SunriseSunsetViewModel: ObservableObject {
     @Published var sunriseSunset: SunriseSunset?
     
-    // Get sunrise / sunset for SLC airport
-    func getSunriseSunset(completion: @escaping () -> Void) {
+    // Get sunrise / sunset for region
+    func getSunriseSunset(appRegion: String,
+                          completion: @escaping () -> Void) {
         var sunriseSunset: SunriseSunset = .init(sunrise: "", sunset: "")
-        let urlString = "https://api.sunrise-sunset.org/json?lat=\(sunriseLatitude)&lng=\(sunriseLongitude)&formatted=0"
+        
+        // Get coordinates for region
+        guard let coords = getRegionSunriseCoordinates(appRegion: "UT") else {
+            print("Region not found fetching sunrise coordinates: \(appRegion)")
+            return
+        }
+        
+        let urlString = "https://api.sunrise-sunset.org/json?lat=\(coords.latitude)&lng=\(coords.longitude)&formatted=0"
         guard let url = URL(string: urlString) else {
             print("Invalid URL for sunrise and sunset times")
             DispatchQueue.main.async { completion() }

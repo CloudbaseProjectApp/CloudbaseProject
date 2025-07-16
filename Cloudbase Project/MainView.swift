@@ -18,6 +18,11 @@ struct MainView: View {
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
 
+    private var appRegionName: String {
+        appRegions.first(where: { $0.appRegion == userSettingsViewModel.appRegion })?.appRegionName
+        ?? "Unknown Region"
+    }
+    
     var body: some View {
         NavigationView {
             ZStack {
@@ -77,9 +82,17 @@ struct MainView: View {
                             linkViewActive = false
                             devViewActive = true
                         } label: {
-                            Text("Cloudbase Project")
-                                .bold()
-                                .foregroundColor(titleFontColor)
+                            HStack {
+                                Text("Cloudbase: \(appRegionName)")
+                                    .font(.subheadline)
+                                    .bold()
+                                    .foregroundColor(titleFontColor)
+                                Image(systemName: "chevron.down")
+                                    .font(.subheadline)
+                                    .foregroundColor(infoFontColor)
+                                    .imageScale(.medium)
+
+                            }
                         }
 
                     }
