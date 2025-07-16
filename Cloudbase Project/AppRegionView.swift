@@ -1,4 +1,5 @@
 import SwiftUI
+import MapKit
 
 struct AppRegionView: View {
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
@@ -23,15 +24,30 @@ struct AppRegionView: View {
                         ForEach(appRegions, id: \.appRegion) { region in
                             Button(action: {
                                 userSettingsViewModel.appRegion = region.appRegion
+                                userSettingsViewModel.mapRegion = MKCoordinateRegion(
+                                    center: CLLocationCoordinate2D(
+                                        latitude: region.mapInitLatitude,
+                                        longitude: region.mapInitLongitude
+                                    ),
+                                    span: MKCoordinateSpan(
+                                        latitudeDelta: region.mapInitLatitudeSpan,
+                                        longitudeDelta: region.mapInitLongitudeSpan
+                                    )
+                                )
+                                userSettingsViewModel.zoomLevel = region.mapDefaultZoomLevel
+                                
                                 userSettingsViewModel.saveToStorage()
                                 dismiss()
                             }) {
                                 HStack {
                                     Text(region.appRegionName)
+                                        .font(.subheadline)
+                                        .foregroundColor(toolbarActiveFontColor)
                                     Spacer()
                                     if userSettingsViewModel.appRegion == region.appRegion {
                                         Image(systemName: "checkmark")
-                                            .foregroundColor(.blue)
+                                            .font(.subheadline)
+                                            .foregroundColor(toolbarActiveImageColor)
                                     }
                                 }
                             }

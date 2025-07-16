@@ -15,7 +15,7 @@ class TFRViewModel: ObservableObject {
     @Published var tfrs: [TFR] = []
     @Published var isLoading: Bool = false
     
-    func fetchTFRs() {
+    func fetchTFRs(appRegion: String) {
         guard let url = URL(string: TFRAPI) else { return }
         
         isLoading = true
@@ -25,7 +25,7 @@ class TFRViewModel: ObservableObject {
                 do {
                     let tfrList = try JSONDecoder().decode([TFR].self, from: data)
                     DispatchQueue.main.async {
-                        self.tfrs = tfrList.filter { $0.state == "UT" }
+                        self.tfrs = tfrList.filter { $0.state == appRegion }
                         self.isLoading = false
                     }
                 } catch {

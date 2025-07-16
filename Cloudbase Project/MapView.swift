@@ -713,8 +713,8 @@ struct MapContainerView: View {
     @State private var isActive = false
     @State private var refreshWorkItem: DispatchWorkItem?
     @State private var position = MapCameraPosition.region(MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: mapInitLatitude, longitude: mapInitLongitude),
-        span: MKCoordinateSpan(latitudeDelta: mapInitLatitudeSpan, longitudeDelta: mapInitLongitudeSpan)))
+        center: CLLocationCoordinate2D(latitude: mapDefaultLatitude, longitude: mapDefaultLongitude),
+        span: MKCoordinateSpan(latitudeDelta: mapDefaultLatitudeSpan, longitudeDelta: mapDefaultLongitudeSpan)))
     @State private var lastRegionSpan: MKCoordinateSpan = MKCoordinateSpan(latitudeDelta: 0, longitudeDelta: 0)
 
     private var cancellables = Set<AnyCancellable>()

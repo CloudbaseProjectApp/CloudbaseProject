@@ -47,7 +47,7 @@ class UDOTCamerasViewModel: ObservableObject {
     @Published var clusteredCameras: [UDOTCameraData] = []
 
     func fetchCameras() {
-        guard let url = URL(string: "https://www.udottraffic.utah.gov/api/v2/get/cameras?key=6035b1d6b660471a89c9b0c0804a584b&format=json") else {
+        guard let url = URL(string: uDOTCamerasAPI) else {
             print("Invalid URL")
             return
         }
@@ -62,7 +62,7 @@ class UDOTCamerasViewModel: ObservableObject {
                 let decodedData = try JSONDecoder().decode([UDOTCameraData].self, from: data)
                 DispatchQueue.main.async {
                     self?.cameras = decodedData
-                    self?.updateClusters(mapRegionSpan: MKCoordinateSpan(latitudeDelta: mapInitLatitudeSpan, longitudeDelta: mapInitLongitudeSpan))
+                    self?.updateClusters(mapRegionSpan: MKCoordinateSpan(latitudeDelta: mapDefaultLatitudeSpan, longitudeDelta: mapDefaultLongitudeSpan))
                 }
             } catch {
                 print("Error decoding JSON: \(error)")

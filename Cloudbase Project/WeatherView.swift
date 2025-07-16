@@ -27,6 +27,7 @@ struct WeatherAlertAPIResponse: Decodable {
 }
 
 struct WeatherView: View {
+    @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @StateObject private var AFDviewModel = AFDViewModel()
     @StateObject private var windAloftData = WindAloftData()
     @StateObject private var soaringForecastViewModel = SoaringForecastViewModel()
@@ -48,62 +49,82 @@ struct WeatherView: View {
     @State private var isLoadingWeatherAlerts = true
     @State private var isLoadingTFRs = true
 
-    func fetchWeatherAlerts() {
-        guard let url = URL(string: weatherAlertsAPI) else {
-            return
-        }
-        URLSession.shared.dataTask(with: url) { data, response, error in
-            if let data = data {
-                do {
-                    let decodedResponse = try JSONDecoder().decode(WeatherAlertAPIResponse.self, from: data)
-                    DispatchQueue.main.async {
-                        if !decodedResponse.features.isEmpty {
-                            self.weatherAlerts = decodedResponse.features.map { $0.properties }
-                        } else {
-                            self.noWeatherAlerts = true
-                        }
-                        self.isLoadingWeatherAlerts = false
-                    }
-                } catch {
-                    print("Error decoding JSON: \(error)")
-                    DispatchQueue.main.async {
-                        self.isLoadingWeatherAlerts = false
-                    }
-                }
-            } else {
-                DispatchQueue.main.async {
-                    self.isLoadingWeatherAlerts = false
-                }
+    func fetchWeatherAlerts(appRegion: String) {
+        
+        // Only for US states
+        
+        if getRegionCountry(appRegion: appRegion) == "US" {
+            
+            let weatherAlertsURL = "\(weatherAlertsAPI)\(appRegion)"
+            guard let url = URL(string: weatherAlertsURL) else {
+                return
             }
-        }.resume()
+            URLSession.shared.dataTask(with: url) { data, response, error in
+                if let data = data {
+                    do {
+                        let decodedResponse = try JSONDecoder().decode(WeatherAlertAPIResponse.self, from: data)
+                        DispatchQueue.main.async {
+                            if !decodedResponse.features.isEmpty {
+                                self.weatherAlerts = decodedResponse.features.map { $0.properties }
+                            } else {
+                                self.noWeatherAlerts = true
+                            }
+                            self.isLoadingWeatherAlerts = false
+                        }
+                    } catch {
+                        print("Error decoding JSON: \(error)")
+                        DispatchQueue.main.async {
+                            self.noWeatherAlerts = true
+                            self.isLoadingWeatherAlerts = false
+                        }
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        self.noWeatherAlerts = true
+                        self.isLoadingWeatherAlerts = false
+                    }
+                }
+            }.resume()
+        } else {
+            // Not a US state
+            self.noWeatherAlerts = true
+            self.isLoadingWeatherAlerts = false
+        }
     }
-
 
     var body: some View {
         List {
             
             // National forecast map
-            Section(header: Text("National Forecast (12 hour)")
+            Section(header: Text("Forecast (12 hour)")
                 .font(.headline)
                 .foregroundColor(sectionHeaderColor)
                 .bold()) {
                     VStack {
-                        WebImage (url: URL(string: forecastUSMapLink)) { image in image.resizable() }
-                        placeholder: {
-                            Text("Tap to view")
-                                .foregroundColor(infoFontColor)
-                                .multilineTextAlignment(.center)
-                                .frame(maxWidth: .infinity, alignment: .trailing)
+                        let forecastMapURL = getRegionForecastMapURL(appRegion: userSettingsViewModel.appRegion) ?? "<Unknown Region>"
+                        if !forecastMapURL.isEmpty {
+                            WebImage (url: URL(string: forecastMapURL)) { image in image.resizable() }
+                            placeholder: {
+                                Text("Tap to view")
+                                    .foregroundColor(infoFontColor)
+                                    .multilineTextAlignment(.center)
+                                    .frame(maxWidth: .infinity, alignment: .trailing)
+                            }
+                            .onSuccess { image, data, cacheType in }
+                            .indicator(.activity) // Activity Indicator
+                            .transition(.fade(duration: 0.5)) // Fade Transition with duration
+                            .scaledToFit()
+                            .onTapGesture { if let url = URL(string: forecastMapURL) { openLink(url) } }
+                        } else {
+                            let regionName = getRegionName(appRegion: userSettingsViewModel.appRegion) ?? "<Unknown Region>"
+                            Text("No forecast map available for \(regionName)")
+                                .font(.subheadline)
+                                .foregroundColor(rowHeaderColor)
                         }
-                        .onSuccess { image, data, cacheType in }
-                        .indicator(.activity) // Activity Indicator
-                        .transition(.fade(duration: 0.5)) // Fade Transition with duration
-                        .scaledToFit()
                     }
-                    .onTapGesture { if let url = URL(string: forecastUSMapLink) { openLink(url) } }
                 }
             
-            // TFRs for Utah
+            // TFRs
             Section(header: Text("Temporary Flight Restrictions")
                 .font(.headline)
                 .foregroundColor(sectionHeaderColor)
@@ -115,7 +136,8 @@ struct WeatherView: View {
                         .scaleEffect(0.75)
                         .frame(width: 20, height: 20)
                 } else if TFRviewModel.tfrs.isEmpty {
-                    Text("There are no current TFRs for Utah")
+                    let regionName = getRegionName(appRegion: userSettingsViewModel.appRegion) ?? "<Unknown Region>"
+                    Text("No active TFRs for \(regionName)")
                         .font(.subheadline)
                         .foregroundColor(rowHeaderColor)
                 } else {
@@ -138,7 +160,7 @@ struct WeatherView: View {
                 }
             }
             
-            // Weather alerts for Utah
+            // Weather alerts
             Section(header: Text("Weather Alerts")
                 .font(.headline)
                 .foregroundColor(sectionHeaderColor)
@@ -150,7 +172,8 @@ struct WeatherView: View {
                         .scaleEffect(0.75)
                         .frame(width: 20, height: 20)
                 } else if noWeatherAlerts {
-                    Text("There are no current weather alerts for Utah")
+                    let regionName = getRegionName(appRegion: userSettingsViewModel.appRegion) ?? "<Unknown Region>"
+                    Text("No active weather alerts for \(regionName)")
                         .font(.subheadline)
                         .foregroundColor(rowHeaderColor)
                 } else {
@@ -521,9 +544,9 @@ struct WeatherView: View {
             }
             
         }
-        .onAppear (perform: fetchWeatherAlerts)
         .onAppear {
-            TFRviewModel.fetchTFRs()
+            fetchWeatherAlerts(appRegion: userSettingsViewModel.appRegion)
+            TFRviewModel.fetchTFRs(appRegion: userSettingsViewModel.appRegion)
             AFDviewModel.fetchAFD()
             windAloftData.fetchWindAloftData()
         }

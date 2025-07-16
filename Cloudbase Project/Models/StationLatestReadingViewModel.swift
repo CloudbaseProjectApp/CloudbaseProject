@@ -96,73 +96,75 @@ class StationLatestReadingViewModel: ObservableObject {
     @Published var latestAllReadings: [StationLatestReading] = []
     @Published var stationParameters: String = ""
     @Published var isLoading = false
-    
+
     private var lastSiteFetchTime: Date? = nil
     private var lastAllFetchTime: Date? = nil
 
     let siteViewModel: SiteViewModel
-    
-    // sites available in this view model
+
     init(siteViewModel: SiteViewModel) {
         self.siteViewModel = siteViewModel
-        
-        let mesonetStations = siteViewModel.sites.filter {
-            $0.readingsSource == "Mesonet" && !$0.readingsStation.isEmpty
-        }
-        guard !mesonetStations.isEmpty else { return }
-        
-        self.stationParameters = mesonetStations.map { "&stid=\($0.readingsStation)" }.joined()
-        
-        // Note:  Not fetching any readings at init; will be fetched by siteView
     }
-    
+
     // sitesOnly determines whether to only get Mesonet readings for stations associated with sites (SiteView)
     // or all stations in Utah (MapView)
     // These are published as separate structures with separate refresh timers
     func getLatestReadingsData(appRegion: String,
                                sitesOnly: Bool,
                                completion: @escaping () -> Void) {
-        
-        // Pick the correct last fetch timestamp
+
+        // Build list of station parameters based on sites
+        if sitesOnly {
+            let mesonetStations = siteViewModel.sites.filter {
+                $0.readingsSource == "Mesonet" && !$0.readingsStation.isEmpty
+            }
+            self.stationParameters = mesonetStations
+                .map { "&stid=\($0.readingsStation)" }
+                .joined()
+            if self.stationParameters.isEmpty {
+                print("No Mesonet stations available to fetch")
+                completion()
+                return
+            }
+            if printReadingsURL {
+                print("Computed stationParameters: \(self.stationParameters)")
+            }
+        }
+
+        // Only fetch data if refresh interval has passed
         let now = Date()
         let lastFetchTime = sitesOnly ? lastSiteFetchTime : lastAllFetchTime
         if let last = lastFetchTime, now.timeIntervalSince(last) < readingsRefreshInterval {
             completion()
             return
         }
-
-        if sitesOnly {
-            lastSiteFetchTime = now
-        } else {
-            lastAllFetchTime = now
-        }
-
+        if sitesOnly { lastSiteFetchTime = now } else { lastAllFetchTime = now }
         isLoading = true
-        var combinedReadings: [StationLatestReading] = []
-        let group = DispatchGroup()
-        
-        // Determine country and state parameters if not limited to sites only
-        var stationParams = ""
+
+        // Build API call parameters
+        let regionCountry = getRegionCountry(appRegion: appRegion) ?? ""
+        let stationParams: String
         if sitesOnly {
             stationParams = self.stationParameters
         } else {
-            let regionCountry = getRegionCountry(appRegion: appRegion)
-            if regionCountry == "US" {
-                stationParams = "&state=\(appRegion)"
-            } else {
-                stationParams = "&country=\(regionCountry ?? "")"
-            }
+            stationParams = (regionCountry == "US")
+                ? "&state=\(appRegion)"
+                : "&country=\(regionCountry)"
         }
-            
+
+        // Fetch Mesonet & CUASA in parallel
+        var combinedReadings: [StationLatestReading] = []
+        let group = DispatchGroup()
+
         group.enter()
-        self.getLatestMesonetReadings(stationParameters: stationParams) { mesonetReadings in
-            combinedReadings.append(contentsOf: mesonetReadings)
+        getLatestMesonetReadings(stationParameters: stationParams) { readings in
+            combinedReadings.append(contentsOf: readings)
             group.leave()
         }
 
         group.enter()
-        self.getLatestCUASAReadings { cuasaReadings in
-            combinedReadings.append(contentsOf: cuasaReadings)
+        getLatestCUASAReadings { readings in
+            combinedReadings.append(contentsOf: readings)
             group.leave()
         }
 
@@ -176,12 +178,13 @@ class StationLatestReadingViewModel: ObservableObject {
             completion()
         }
     }
-    
+        
     func getLatestMesonetReadings(stationParameters: String, completion: @escaping ([StationLatestReading]) -> Void) {
         let urlString = latestReadingsAPIHeader + stationParameters + latestReadingsAPITrailer + synopticsAPIToken
         guard let url = URL(string: urlString) else { return }
         if printReadingsURL {
-            print("URL: \(url)")
+            print("Latest readings stationParameters: \(stationParameters)")
+            print("Latest readings URL: \(url)")
         }
         URLSession.shared.dataTask(with: url) { data, response, error in
             DispatchQueue.main.async {

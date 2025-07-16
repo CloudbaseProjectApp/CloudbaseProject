@@ -17,8 +17,8 @@ struct Cloudbase_ProjectApp: App {
     @StateObject private var stationLatestReadingViewModel:   StationLatestReadingViewModel
     @StateObject private var userSettingsViewModel          = UserSettingsViewModel(
         mapRegion: MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: mapInitLatitude, longitude: mapInitLongitude),
-            span: MKCoordinateSpan(latitudeDelta: mapInitLatitudeSpan, longitudeDelta: mapInitLongitudeSpan)
+            center: CLLocationCoordinate2D(latitude: mapDefaultLatitude, longitude: mapDefaultLongitude),
+            span: MKCoordinateSpan(latitudeDelta: mapDefaultLatitudeSpan, longitudeDelta: mapDefaultLongitudeSpan)
         ),
         selectedMapType: defaultmapType,
         pilotTrackDays: defaultPilotTrackDays,
@@ -40,12 +40,12 @@ struct Cloudbase_ProjectApp: App {
             appRegion:          "",
             mapRegion: MKCoordinateRegion(
                     center:     CLLocationCoordinate2D(
-                    latitude:   mapInitLatitude,
-                    longitude:  mapInitLongitude
+                    latitude:   mapDefaultLatitude,
+                    longitude:  mapDefaultLongitude
                 ),
                 span: MKCoordinateSpan(
-                    latitudeDelta:  mapInitLatitudeSpan,
-                    longitudeDelta: mapInitLongitudeSpan
+                    latitudeDelta:  mapDefaultLatitudeSpan,
+                    longitudeDelta: mapDefaultLongitudeSpan
                 )
             ),
             selectedMapType:    defaultmapType,

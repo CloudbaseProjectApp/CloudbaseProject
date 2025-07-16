@@ -52,7 +52,7 @@ class UserSettingsViewModel: ObservableObject {
     
     init(appRegion:         String = "",
          mapRegion:         MKCoordinateRegion,
-         zoomLevel:            Double = defaultMapZoomLevel,
+         zoomLevel:         Double = 6,
          selectedMapType:   CustomMapStyle = defaultmapType,
          pilotTrackDays:    Double = defaultPilotTrackDays,
          mapDisplayMode:    MapDisplayMode = defaultmapDisplayMode,
@@ -313,10 +313,10 @@ extension UserSettingsViewModel {
         // Remove from memory
         appRegion          = ""
         mapRegion          = MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: mapInitLatitude, longitude: mapInitLongitude),
-            span: MKCoordinateSpan(latitudeDelta: mapInitLatitudeSpan, longitudeDelta: mapInitLongitudeSpan)
+            center: CLLocationCoordinate2D(latitude: mapDefaultLatitude, longitude: mapDefaultLongitude),
+            span: MKCoordinateSpan(latitudeDelta: mapDefaultLatitudeSpan, longitudeDelta: mapDefaultLongitudeSpan)
         )
-        zoomLevel          = defaultMapZoomLevel
+        zoomLevel          = mapDefaultZoomLevel
         selectedMapType    = defaultmapType
         pilotTrackDays     = defaultPilotTrackDays
         mapDisplayMode     = defaultmapDisplayMode

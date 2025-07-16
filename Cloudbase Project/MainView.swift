@@ -3,13 +3,6 @@ import MapKit
 
 struct MainView: View {
     @Binding var refreshMetadata: Bool
-    @State var selectedView:NavBarSelectedView = .site
-    @State var siteViewActive = true
-    @State var weatherViewActive = false
-    @State var mapViewActive = false
-    @State var webcamViewActive = false
-    @State var linkViewActive = false
-    @State var devViewActive = false
     @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
@@ -17,6 +10,14 @@ struct MainView: View {
     @EnvironmentObject var pilotViewModel: PilotViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
+
+    @State var selectedView:NavBarSelectedView = .site
+    @State var siteViewActive =         true
+    @State var weatherViewActive =      false
+    @State var mapViewActive =          false
+    @State var webcamViewActive =       false
+    @State var linkViewActive =         false
+    @State private var openAboutView =  false
 
     private var appRegionName: String {
         appRegions.first(where: { $0.appRegion == userSettingsViewModel.appRegion })?.appRegionName
@@ -53,10 +54,6 @@ struct MainView: View {
                 if selectedView == .link {
                     LinkView()
                 }
-                if selectedView == .dev {
-                    // Pass appRefreshID to enable button forcing app refresh
-                    AboutView(refreshMetadata: $refreshMetadata)
-                }
                 Spacer()
                   
                 .navigationBarTitleDisplayMode(.inline)
@@ -73,15 +70,7 @@ struct MainView: View {
                         }
                     }
                     ToolbarItem(placement: .principal) {
-                        Button {
-                            selectedView = .dev
-                            siteViewActive = false
-                            weatherViewActive = false
-                            mapViewActive = false
-                            webcamViewActive = false
-                            linkViewActive = false
-                            devViewActive = true
-                        } label: {
+                        Button(action: { openAboutView.toggle() }) {
                             HStack {
                                 Text("Cloudbase: \(appRegionName)")
                                     .font(.subheadline)
@@ -93,6 +82,11 @@ struct MainView: View {
                                     .imageScale(.medium)
 
                             }
+                        }
+                        .sheet(isPresented: $openAboutView) {
+                            AboutView(refreshMetadata: $refreshMetadata)
+                                .interactiveDismissDisabled(true) // Disables swipe-to-dismiss (force use of back button)\
+                                .environmentObject(userSettingsViewModel)
                         }
 
                     }
@@ -116,7 +110,6 @@ struct MainView: View {
                                 mapViewActive = false
                                 webcamViewActive = false
                                 linkViewActive = false
-                                devViewActive = false
                             } label: {
                                 VStack {
                                     Image(systemName: "cloud.sun")
@@ -136,7 +129,6 @@ struct MainView: View {
                                 mapViewActive = false
                                 webcamViewActive = false
                                 linkViewActive = false
-                                devViewActive = false
                             } label: {
                                 VStack {
                                     Image(systemName: "cloud.sun")
@@ -156,7 +148,6 @@ struct MainView: View {
                                 mapViewActive = true
                                 webcamViewActive = false
                                 linkViewActive = false
-                                devViewActive = false
                             } label: {
                                 VStack {
                                     Image(systemName: "map")
@@ -176,7 +167,6 @@ struct MainView: View {
                                 mapViewActive = false
                                 webcamViewActive = true
                                 linkViewActive = false
-                                devViewActive = false
                             } label: {
                                 VStack {
                                     Image(systemName: "photo")
@@ -197,7 +187,6 @@ struct MainView: View {
                                 mapViewActive = false
                                 webcamViewActive = false
                                 linkViewActive = true
-                                devViewActive = false
                             } label: {
                                 VStack {
                                     Image(systemName: "link")

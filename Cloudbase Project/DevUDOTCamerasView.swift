@@ -7,8 +7,8 @@ import SDWebImageSwiftUI
 struct UDOTCameraListView: View {
     @StateObject private var camerasViewModel = UDOTCamerasViewModel()
     @State private var mapRegion = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: mapInitLatitude, longitude: mapInitLongitude),
-        span: MKCoordinateSpan(latitudeDelta: mapInitLatitudeSpan, longitudeDelta: mapInitLongitudeSpan)
+        center: CLLocationCoordinate2D(latitude: mapDefaultLatitude, longitude: mapDefaultLongitude),
+        span: MKCoordinateSpan(latitudeDelta: mapDefaultLatitudeSpan, longitudeDelta: mapDefaultLongitudeSpan)
     )
     @State private var lastRegionSpan: MKCoordinateSpan = MKCoordinateSpan(latitudeDelta: 0, longitudeDelta: 0)
     @State private var selectedCamera: UDOTCameraData?

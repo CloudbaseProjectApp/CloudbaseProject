@@ -11,8 +11,16 @@ let printForecastURL: Bool = false
 let printPilotTracksTimings: Bool = false
 let printPilotTrackURLs: Bool = false
 
+// Get API keys and tokens from .xcconfig file (need to be mapped in .plist)
 let googleAPIKey = Bundle.main.object(forInfoDictionaryKey: "GoogleSheetsAPIKey") as? String ?? ""
 let synopticsAPIToken = "&token=\(Bundle.main.object(forInfoDictionaryKey: "SynopticsAPIToken") as? String ?? "")"
+let UDOTCamerasAPIKey = Bundle.main.object(forInfoDictionaryKey: "UDOTCamerasAPIKey") as? String ?? ""
+
+// Cloudbase Project link info
+let cloudbaseProjectEmail: String = "CloudbaseProjectApp@gmail.com"
+let cloudbaseProjectGitLink: String = "https://github.com/CloudbaseProjectApp/CloudbaseProject"
+let cloudbaseProjectGitIssueLink: String = "https://github.com/CloudbaseProjectApp/CloudbaseProject/issues/new"
+let cloudbaseProjectTelegramLink: String = "https://t.me/+bSHu5KTsRkU1M2Mx"
 
 // Page navigation values
 enum NavBarSelectedView: Int {
@@ -21,7 +29,6 @@ enum NavBarSelectedView: Int {
     case map = 2
     case webcam = 3
     case link = 4
-    case dev = 9
 }
 
 // App parameters
@@ -31,11 +38,11 @@ let readingsRefreshInterval: TimeInterval = 120         // Time in seconds to re
 let pilotTrackRefreshInterval: TimeInterval = 600      // Setting refresh to 10 min to prevent timeout errors on frequent refreshes
 
 // Map parameters
-let mapInitLatitude: Double = 39.72                     // Center point for map on initial opening
-let mapInitLongitude: Double = -111.45
-let mapInitLatitudeSpan: Double = 7.2                   // Size of map on initial opening
-let mapInitLongitudeSpan: Double = 5.2                  // mapInitLatitudeSpan * 1.5
-let defaultMapZoomLevel: Double = 6.7
+let mapDefaultLatitude: Double = 39.72                  // Should not be displayed; will update based on region selected
+let mapDefaultLongitude: Double = -111.45               // Should not be displayed; will update based on region selected
+let mapDefaultLatitudeSpan: Double = 7.2                // Should not be displayed; will update based on region selected
+let mapDefaultLongitudeSpan: Double = 5.2               // Should not be displayed; will update based on region selected
+let mapDefaultZoomLevel: Double = 6.7                   // Should not be displayed; will update based on region selected
 let mapBatchProcessingInterval: Double = 0.2
 let mapScaleChangeTolerance: Double = 0.01              // Don't refresh annotation filtering for minor scale changes
 let mapEnableRotate: Bool = false
@@ -86,19 +93,15 @@ let defaultRadarColorScheme: Int = 3
 
 // HTTP links and APIs
 let forecastUSMapLink: String = "https://www.wpc.ncep.noaa.gov/basicwx/92fndfd.gif"
-let weatherAlertsAPI: String = "https://api.weather.gov/alerts/active?area=UT"
+let weatherAlertsAPI: String = "https://api.weather.gov/alerts/active?area=" // Append state code to end
 let weatherAlertsLink: String = "https://www.weather.gov/slc/WWA"
 let TFRAPI: String = "https://tfr.faa.gov/tfrapi/exportTfrList"
 let forecastDiscussionLink: String = "https://forecast.weather.gov/product.php?site=NWS&issuedby=SLC&product=AFD&format=txt&version=1&glossary=0"
 let soaringForecastLink: String = "https://forecast.weather.gov/product.php?site=NWS&product=SRG&issuedby=SLC"
 let skewTLink: String = "https://www.weather.gov/zse/ModelSounding?id=kslc&model=hrrr"
 // prior skewTLink: String = "https://weather.ral.ucar.edu/upper/displayUpper.php?img=KSLC.png&endDate=-1&endTime=-1&duration=0"
-let uDOTCamerasAPI: String = "https://www.udottraffic.utah.gov/api/v2/get/cameras?key=6035b1d6b660471a89c9b0c0804a584b&format=json"
+let uDOTCamerasAPI: String = "https://www.udottraffic.utah.gov/api/v2/get/cameras?key=\(UDOTCamerasAPIKey)&format=json"
 let uDOTCamerasLink: String = "https://www.udottraffic.utah.gov"
-let cloudbaseUtahEmail: String = "cloudbase@gmail.com"
-let cloudbaseUtahGitLink: String = "https://github.com/WasatchCloudBase/CloudbaseUtah"
-let cloudbaseUtahGitIssueLink: String = "https://github.com/WasatchCloudBase/CloudbaseUtah/issues"
-let cloudbaseUtahGoogleSheetLink: String = "https://docs.google.com/spreadsheets/d/1s72R3YCHxNIJVLVa5nmsTphRpqRsfG2QR2koWxE19ls/edit?gid=0#gid=0"
 let ipCamLink: String = "https://apps.apple.com/us/app/ip-camera-viewer-ipcams/id1045600272"
 let UHGPGAcamsLink: String = "https://www.uhgpga.org/webcams"
 let rainviewerAPI: String = "https://api.rainviewer.com/public/weather-maps.json"
