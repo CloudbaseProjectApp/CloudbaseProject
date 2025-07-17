@@ -504,14 +504,17 @@ struct WeatherView: View {
             }
             
             // High res diagram from morning sounding (from Matt Hansen)
-            Section(header: Text("SLC Morning Sounding")
-                .font(.headline)
-                .foregroundColor(sectionHeaderColor)
-                .bold()) {
-                VStack {
-                    SkewTChartView()
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            // Only if region is Utah at this point
+            if userSettingsViewModel.appRegion == "UT" {
+                Section(header: Text("SLC Morning Sounding")
+                    .font(.headline)
+                    .foregroundColor(sectionHeaderColor)
+                    .bold()) {
+                        VStack {
+                            SkewTChartView()
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    }
             }
             
             // Link to sounding from latest forecast model
@@ -535,15 +538,18 @@ struct WeatherView: View {
                 .onTapGesture { if let url = URL(string: AppRegionManager.shared.getRegionLatestModelSoundingURL(appRegion: userSettingsViewModel.appRegion) ?? "") { openLink(url) } }
             }
             
-            VStack (alignment: .leading) {
-                Text("SLC Morning Sounding data served by Matt Hansen")
-                    .font(.caption)
-                    .foregroundColor(infoFontColor)
-                    .padding(.top, 2)
-                Text("https://wasatchwind.github.io/")
-                    .font(.caption)
-                    .foregroundColor(infoFontColor)
-                    .padding(.bottom, 4)
+            // Attribute SLC morning sounding if displayed (for Utah region only)
+            if userSettingsViewModel.appRegion == "UT" {
+                VStack (alignment: .leading) {
+                    Text("SLC Morning Sounding data served by Matt Hansen")
+                        .font(.caption)
+                        .foregroundColor(infoFontColor)
+                        .padding(.top, 2)
+                    Text("https://wasatchwind.github.io/")
+                        .font(.caption)
+                        .foregroundColor(infoFontColor)
+                        .padding(.bottom, 4)
+                }
             }
             
         }

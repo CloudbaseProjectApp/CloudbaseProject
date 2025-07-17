@@ -37,6 +37,8 @@ struct AppRegionView: View {
                                 )
                                 userSettingsViewModel.zoomLevel = region.mapDefaultZoomLevel
                                 
+activeAppRegion = region.appRegion
+
                                 userSettingsViewModel.saveToStorage()
                                 dismiss()
                             }) {

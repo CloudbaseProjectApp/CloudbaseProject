@@ -107,7 +107,7 @@ class StationLatestReadingViewModel: ObservableObject {
     }
 
     // sitesOnly determines whether to only get Mesonet readings for stations associated with sites (SiteView)
-    // or all stations in Utah (MapView)
+    // or all stations in region (MapView)
     // These are published as separate structures with separate refresh timers
     func getLatestReadingsData(appRegion: String,
                                sitesOnly: Bool,

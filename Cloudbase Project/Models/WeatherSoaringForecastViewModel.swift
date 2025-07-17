@@ -1,7 +1,7 @@
 import SwiftUI
 import Combine
 
-// SLC Soaring Forecast and Sounding
+// Soaring Forecast and Sounding
 struct SoaringForecast: Identifiable {
     let id = UUID()
     let date: String

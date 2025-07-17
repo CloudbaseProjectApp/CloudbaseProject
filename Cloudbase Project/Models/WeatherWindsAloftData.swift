@@ -38,26 +38,52 @@ class WindAloftData: ObservableObject {
             return "24"
         }
     }
+    
     private func parseWindAloftData(code: String, data: String) {
-        
         let lines = data.split(separator: "\n")
-        guard let slcLine = lines.first(where: { $0.starts(with: "SLC") }) else { return }
+        guard let regionLine = lines.first(where: { $0.starts(with: code) }) else { return }
 
-        let columns = slcLine.split(separator: " ")
-        let altitudes = [6000, 9000, 12000, 18000]
-        let indices = [2, 3, 4, 5] // Corresponding indices for the altitudes
+        // Fixed-width column offsets (based on space-separated but fixed-length layout)
+        // PHX[0–2]      - Station code
+        // <space>[3]
+        // 3000[4–7]     - Skip
+        // <space>[8]
+        // 6000[9–15]    - needed
+        // <space>[16]
+        // 9000[17–23]   - needed
+        // <space>[24]
+        // 12000[25–31]  - needed
+        // <space>[32]
+        // 18000[33–39]  - needed
+        // <space>[40]
+        // Additional levels can be ignored
+
+        let offsets: [(altitude: Int, range: Range<Int>)] = [
+            (6000, 9..<16),
+            (9000, 17..<24),
+            (12000, 25..<32),
+            (18000, 33..<40)
+        ]
 
         var newReadings: [WindAloftReading] = []
-        for (index, altitude) in zip(indices, altitudes) {
-            let reading = columns[index]
-            if let parsedReading = parseReading(String(reading), altitude: altitude) {
-                newReadings.append(parsedReading)
+
+        for (altitude, range) in offsets {
+            if range.upperBound <= regionLine.count {
+                let start = regionLine.index(regionLine.startIndex, offsetBy: range.lowerBound)
+                let end = regionLine.index(regionLine.startIndex, offsetBy: range.upperBound)
+                let substring = regionLine[start..<end].trimmingCharacters(in: .whitespaces)
+
+                if !substring.isEmpty, let parsedReading = parseReading(substring, altitude: altitude) {
+                    newReadings.append(parsedReading)
+                }
             }
         }
+
         DispatchQueue.main.async {
             self.readings = newReadings.reversed()
         }
     }
+    
     private func parseReading(_ reading: String, altitude: Int) -> WindAloftReading? {
         guard reading.count >= 4 else { return nil }
         var windDirection = 10 * (Int(reading.prefix(2)) ?? 0)

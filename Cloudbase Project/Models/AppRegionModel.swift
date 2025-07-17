@@ -1,12 +1,14 @@
 import SwiftUI
 import Combine
 
-// Use the globally available function calls in AppRegionManager to access data
+// Note:  Use the globally available function calls in AppRegionManager to access data
+
+var activeAppRegion: String = ""
 
 struct AppRegion {
     let appRegion: String                   // Two digit code for U.S. states (used in Synoptics station map call)
-                                            // Code assumes appRegion is unique (without appCountry); so do not use US states for other regions
-    let appCountry: String                  // Two or three digit country code (US, CA, MX, etc.) (used in Synoptics station map call)
+                                            // AppRegion must be unique (without appCountry); so do not use US states for other regions
+    let appCountry: String                  // Two or three digit country code (US, CA, MX, NZ, etc.) (used in Synoptics station map call)
     let appRegionName: String
     let appRegionGoogleSheetID: String
     let timezone: String                    // Use TZ Identifier values from: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
