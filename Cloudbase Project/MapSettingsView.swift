@@ -21,6 +21,8 @@ struct MapSettingsView: View {
     @Binding var showInfrared: Bool
     @Binding var radarColorScheme: Int
     @Binding var selectedPilots: [Pilot]
+    
+    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var pilotViewModel: PilotViewModel
     @EnvironmentObject var pilotTrackViewModel: PilotTrackViewModel
     @Environment(\.presentationMode) var presentationMode

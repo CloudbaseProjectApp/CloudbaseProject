@@ -20,8 +20,7 @@ struct MainView: View {
     @State private var openAboutView =  false
 
     private var appRegionName: String {
-        appRegions.first(where: { $0.appRegion == userSettingsViewModel.appRegion })?.appRegionName
-        ?? "Unknown Region"
+        AppRegionManager.shared.getRegionName(appRegion: userSettingsViewModel.appRegion) ?? ""
     }
     
     var body: some View {

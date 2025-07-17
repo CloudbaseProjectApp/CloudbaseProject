@@ -8,6 +8,7 @@ let timeChangeNotification = UIApplication.significantTimeChangeNotification
 struct Cloudbase_ProjectApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var refreshMetadata: Bool = false
+    @StateObject private var appRegionViewModel             = AppRegionViewModel()
     @StateObject private var liftParametersViewModel        = LiftParametersViewModel()
     @StateObject private var sunriseSunsetViewModel         = SunriseSunsetViewModel()
     @StateObject private var weatherCodesViewModel          = WeatherCodeViewModel()
@@ -30,6 +31,7 @@ struct Cloudbase_ProjectApp: App {
     init() {
         // Create each view‐model in the proper order, using locals
         // pilotTrackViewModel isn't created here; waiting for mapView to be accessed before creating
+        let appRegionVM         = AppRegionViewModel()
         let liftVM              = LiftParametersViewModel()
         let sunVM               = SunriseSunsetViewModel()
         let weatherVM           = WeatherCodeViewModel()
@@ -39,7 +41,7 @@ struct Cloudbase_ProjectApp: App {
         let userSettingsVM      = UserSettingsViewModel(
             appRegion:          "",
             mapRegion: MKCoordinateRegion(
-                    center:     CLLocationCoordinate2D(
+                center:     CLLocationCoordinate2D(
                     latitude:   mapDefaultLatitude,
                     longitude:  mapDefaultLongitude
                 ),
@@ -54,10 +56,16 @@ struct Cloudbase_ProjectApp: App {
             showSites:          defaultShowSites,
             showStations:       defaultShowStations
         )
-        userSettingsVM.loadFromStorage()
-          _userSettingsViewModel = StateObject(wrappedValue: userSettingsVM)
         
-        // Wire them up into their @StateObject wrappers:
+        // Populate app region view model (for user to select region and other metadata to load)
+        appRegionVM.getAppRegions() {}
+        
+        // Load user settings from storage
+        userSettingsVM.loadFromStorage()
+        _userSettingsViewModel = StateObject(wrappedValue: userSettingsVM)
+        
+        // Wire view models into their @StateObject wrappers:
+        _appRegionViewModel             = StateObject(wrappedValue: appRegionVM)
         _liftParametersViewModel        = StateObject(wrappedValue: liftVM)
         _sunriseSunsetViewModel         = StateObject(wrappedValue: sunVM)
         _weatherCodesViewModel          = StateObject(wrappedValue: weatherVM)
@@ -67,10 +75,11 @@ struct Cloudbase_ProjectApp: App {
         _userSettingsViewModel          = StateObject(wrappedValue: userSettingsVM)
         _pilotTrackViewModel            = StateObject(wrappedValue: PilotTrackViewModel(pilotViewModel: pilotVM))
     }
-
+    
     var body: some Scene {
         WindowGroup {
             BaseAppView(refreshMetadata: $refreshMetadata)
+                .environmentObject(appRegionViewModel)
                 .environmentObject(liftParametersViewModel)
                 .environmentObject(weatherCodesViewModel)
                 .environmentObject(sunriseSunsetViewModel)
@@ -95,12 +104,12 @@ struct Cloudbase_ProjectApp: App {
     }
 }
 
-
 struct BaseAppView: View {
     @Binding var refreshMetadata: Bool
     @State private var isActive = false
     @State private var metadataLoaded = false
     @State private var showAppRegionSelector: Bool = false
+    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
@@ -137,8 +146,9 @@ struct BaseAppView: View {
                 }
             }
         }
-    
+
         .onAppear {
+            
             if !userSettingsViewModel.appRegion.isEmpty && !metadataLoaded {
                 loadInitialMetadata()
             } else {
@@ -174,33 +184,38 @@ struct BaseAppView: View {
     private func loadInitialMetadata() {
         let group = DispatchGroup()
         
-        group.enter()
-        liftParametersViewModel.getLiftParameters {
-            group.leave()
-        }
-        
-        group.enter()
-        weatherCodesViewModel.getWeatherCodes {
-            group.leave()
-        }
-        
-        group.enter()
-        sunriseSunsetViewModel.getSunriseSunset(appRegion: userSettingsViewModel.appRegion) {
-            group.leave()
-        }
-        
-        group.enter()
-        pilotViewModel.getPilots(appRegion: userSettingsViewModel.appRegion) {
-            group.leave()
-        }
-        
-        // Don't enter `group` for siteViewModel – handle its completion separately
-        group.enter()
-        siteViewModel.getSites(appRegion: userSettingsViewModel.appRegion) {
-            // Once site data is available, load stations using it
-            stationLatestReadingViewModel.getLatestReadingsData(appRegion: userSettingsViewModel.appRegion, sitesOnly: true) {
+        // Load app regions before loading all other metadata
+        appRegionViewModel.getAppRegions() {
+            
+            group.enter()
+            liftParametersViewModel.getLiftParameters {
                 group.leave()
             }
+            
+            group.enter()
+            weatherCodesViewModel.getWeatherCodes {
+                group.leave()
+            }
+            
+            group.enter()
+            sunriseSunsetViewModel.getSunriseSunset(appRegion: userSettingsViewModel.appRegion) {
+                group.leave()
+            }
+
+            group.enter()
+            pilotViewModel.getPilots(appRegion: userSettingsViewModel.appRegion) {
+                group.leave()
+            }
+            
+            // Don't enter `group` for siteViewModel – handle its completion separately
+            group.enter()
+            siteViewModel.getSites(appRegion: userSettingsViewModel.appRegion) {
+                // Once site data is available, load stations using it
+                stationLatestReadingViewModel.getLatestReadingsData(appRegion: userSettingsViewModel.appRegion, sitesOnly: true) {
+                    group.leave()
+                }
+            }
+            
         }
 
         initializeLoggingFile()

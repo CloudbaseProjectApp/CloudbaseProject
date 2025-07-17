@@ -3,6 +3,7 @@ import MapKit
 
 struct AboutView: View {
     @Binding var refreshMetadata: Bool
+    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var siteViewModel: SiteViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @EnvironmentObject var pilotViewModel: PilotViewModel
@@ -34,7 +35,7 @@ struct AboutView: View {
                     .foregroundColor(sectionHeaderColor)
                     .bold())
                 {
-                    ForEach(appRegions, id: \.appRegion) { region in
+                    ForEach(appRegionViewModel.appRegions, id: \.appRegion) { region in
                         Button(action: {
                             userSettingsViewModel.appRegion = region.appRegion
                             userSettingsViewModel.mapRegion = MKCoordinateRegion(

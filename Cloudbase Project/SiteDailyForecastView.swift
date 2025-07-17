@@ -2,8 +2,11 @@ import SwiftUI
 import Combine
 
 struct SiteDailyForecastView: View {
+    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
+    @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @ObservedObject var weatherCodesViewModel: WeatherCodeViewModel
     @StateObject private var viewModel: DailyForecastViewModel
+    
     var siteLat: String
     var siteLon: String
     var forecastNote: String
@@ -132,7 +135,9 @@ struct SiteDailyForecastView: View {
             }
         }
         .onAppear {
-            viewModel.fetchDailyWeatherData(latitude: siteLat, longitude: siteLon)
+            viewModel.fetchDailyWeatherData(appRegion: userSettingsViewModel.appRegion,
+                                            latitude: siteLat,
+                                            longitude: siteLon)
         }
     }
 }

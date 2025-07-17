@@ -2,12 +2,14 @@ import SwiftUI
 import Combine
 
 struct SiteView: View {
+    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
     @EnvironmentObject var siteViewModel: SiteViewModel
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
+    
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedSite: Site?
     @State private var isActive = false

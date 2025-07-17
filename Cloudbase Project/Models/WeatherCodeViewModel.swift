@@ -7,9 +7,11 @@ struct WeatherCode: Identifiable {
     let weatherCode: Int
     let imageName: String
 }
+
 struct WeatherCodesResponse: Codable {
     let values: [[String]]
 }
+
 class WeatherCodeViewModel: ObservableObject {
     @Published var weatherCodes: [WeatherCode] = []
     private var cancellables = Set<AnyCancellable>()

@@ -2,6 +2,7 @@ import SwiftUI
 import MapKit
 
 struct AppRegionView: View {
+    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @Environment(\.dismiss) private var dismiss
     
@@ -21,7 +22,7 @@ struct AppRegionView: View {
                         .bold())
                     {
                         
-                        ForEach(appRegions, id: \.appRegion) { region in
+                        ForEach(appRegionViewModel.appRegions, id: \.appRegion) { region in
                             Button(action: {
                                 userSettingsViewModel.appRegion = region.appRegion
                                 userSettingsViewModel.mapRegion = MKCoordinateRegion(

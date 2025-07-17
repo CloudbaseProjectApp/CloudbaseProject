@@ -36,10 +36,13 @@ struct ThermalCell: View {
 }
 
 struct SiteForecastView: View {
+    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
+    @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @ObservedObject var liftParametersViewModel: LiftParametersViewModel
     @ObservedObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @ObservedObject var weatherCodesViewModel: WeatherCodeViewModel
     @StateObject private var viewModel: SiteForecastViewModel
+    
     var siteLat: String
     var siteLon: String
     var forecastNote: String
@@ -656,7 +659,11 @@ struct SiteForecastView: View {
                 }
             }
         }
-        .onAppear { viewModel.fetchForecast(SiteName: siteName, SiteLat: siteLat, SiteLon: siteLon) }
+        .onAppear { viewModel.fetchForecast(appRegion: userSettingsViewModel.appRegion,
+                                            SiteName: siteName,
+                                            SiteLat: siteLat,
+                                            SiteLon: siteLon)
+        }
     }
     
     func getDividerColor (_ newDateFlag: Bool) -> Color {

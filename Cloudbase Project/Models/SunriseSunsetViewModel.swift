@@ -26,7 +26,7 @@ class SunriseSunsetViewModel: ObservableObject {
         var sunriseSunset: SunriseSunset = .init(sunrise: "", sunset: "")
         
         // Get coordinates for region
-        guard let coords = getRegionSunriseCoordinates(appRegion: appRegion) else {
+        guard let coords = AppRegionManager.shared.getRegionSunriseCoordinates(appRegion: appRegion) else {
             print("Region not found fetching sunrise coordinates: \(appRegion)")
             return
         }

@@ -32,7 +32,7 @@ class SiteViewModel: ObservableObject {
         let rangeName = "Sites"
         
         // Build region sheet URL
-        guard let regionGoogleSheetID = getRegionGoogleSheet(appRegion: appRegion),
+        guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(appRegion: appRegion),
               let regionURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)") else {
             print("Invalid or missing region Google Sheet ID for region: \(appRegion)")
             DispatchQueue.main.async { completion() }

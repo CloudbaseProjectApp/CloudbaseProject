@@ -3,6 +3,7 @@ import SwiftUI
 struct PilotActivateView: View {
     var pilot: Pilot
     
+    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var pilotViewModel: PilotViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
 

@@ -7,8 +7,10 @@ import SDWebImageSwiftUI
 var webcamLastUpdate: Date = Date.distantPast
 
 struct WeatherCamView: View {
+    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @StateObject private var weatherCamViewModel = WeatherCamViewModel()
+    
     @Environment(\.openURL) var openURL     // Used to open URL links as an in-app sheet using Safari
     @State private var externalURL: URL?    // Used to open URL links as an in-app sheet using Safari
     @State private var showWebView = false  // Used to open URL links as an in-app sheet using Safari

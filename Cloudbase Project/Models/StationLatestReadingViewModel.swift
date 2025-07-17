@@ -142,7 +142,7 @@ class StationLatestReadingViewModel: ObservableObject {
         isLoading = true
 
         // Build API call parameters
-        let regionCountry = getRegionCountry(appRegion: appRegion) ?? ""
+        let regionCountry = AppRegionManager.shared.getRegionCountry(appRegion: appRegion) ?? ""
         let stationParams: String
         if sitesOnly {
             stationParams = self.stationParameters

@@ -1,6 +1,7 @@
 import SwiftUI
+import Combine
 
-let globalGoogleSheetID = "18EU5k34_nhOa7Qv_SA5oMeEWpD00pWDHiAC0Nh7vUho"
+// Use the globally available function calls in AppRegionManager to access data
 
 struct AppRegion {
     let appRegion: String                   // Two digit code for U.S. states (used in Synoptics station map call)
@@ -8,6 +9,7 @@ struct AppRegion {
     let appCountry: String                  // Two or three digit country code (US, CA, MX, etc.) (used in Synoptics station map call)
     let appRegionName: String
     let appRegionGoogleSheetID: String
+    let timezone: String                    // Use TZ Identifier values from: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
     let sunriseLatitude: Double
     let sunriseLongitude: Double
     let mapInitLatitude: Double             // Center point for map on initial opening
@@ -16,104 +18,101 @@ struct AppRegion {
     let mapInitLongitudeSpan: Double        // mapInitLatitudeSpan * 1.5
     let mapDefaultZoomLevel: Double
     let forecastMapURL: String
+    let areaForecastDiscussionURL: String
+    let soaringForecastURL: String
+    let windsAloftForecastURL: String
+    let latestModelSoundingURL: String
 }
 
-let appRegions: [AppRegion] = [
-    
-    AppRegion(appRegion:                    "UT",
-              appCountry:                   "US",
-              appRegionName:                "Utah",
-              appRegionGoogleSheetID:       "1_dZ1-_vHgt43uoLBkUCY_KJWSP1d4lbI8JqOlKmAdtA",
-              sunriseLatitude:              40.7862,     // SLC airport coordinates
-              sunriseLongitude:             -111.9801,
-              mapInitLatitude:              39.72,
-              mapInitLongitude:             -111.45,
-              mapInitLatitudeSpan:          7.2,
-              mapInitLongitudeSpan:         5.2,
-              mapDefaultZoomLevel:          6.7,
-              forecastMapURL:               forecastUSMapLink
-             ),
-    
-    AppRegion(appRegion:                    "MT",
-              appCountry:                   "US",
-              appRegionName:                "Montana",
-              appRegionGoogleSheetID:       "17SZ6IpTbLOg9iSVLZv2CjLwvX1fiYunn2639_hYJYEI",
-              sunriseLatitude:              46.919896,     // Missoula airport coordinates
-              sunriseLongitude:             -114.08078,
-              mapInitLatitude:              46.9199,
-              mapInitLongitude:             -114.081,
-              mapInitLatitudeSpan:          7.2,
-              mapInitLongitudeSpan:         5.2,
-              mapDefaultZoomLevel:          6.7,
-              forecastMapURL:               forecastUSMapLink
-             ),
-    
-    AppRegion(appRegion:                    "CO",
-              appCountry:                   "US",
-              appRegionName:                "Colorado",
-              appRegionGoogleSheetID:       "13Ujy7Iupkm2gEZSkdOUEUHi32BfbsMqlNvByZt482TE",
-              sunriseLatitude:              39.856414,     // Denver airport coordinates
-              sunriseLongitude:             -104.679227,
-              mapInitLatitude:              39.856,
-              mapInitLongitude:             -104.679,
-              mapInitLatitudeSpan:          7.2,
-              mapInitLongitudeSpan:         5.2,
-              mapDefaultZoomLevel:          6.7,
-              forecastMapURL:               forecastUSMapLink
-             ),
-    
-    AppRegion(appRegion:                    "NewZealand",
-              appCountry:                   "US",
-              appRegionName:                "New Zealand",
-              appRegionGoogleSheetID:       "1633Vd2M2Kaila3EhsoWnZTPX1WLVoWJdGa9gYxtgSug",
-              sunriseLatitude:              -41.327222,     // Wellington airport coordinates
-              sunriseLongitude:             174.807554,
-              mapInitLatitude:              -41.327,
-              mapInitLongitude:             174.808,
-              mapInitLatitudeSpan:          7.2,
-              mapInitLongitudeSpan:         5.2,
-              mapDefaultZoomLevel:          6.7,
-              forecastMapURL:               ""
-             )
-    
-]
-
-func getRegionName(appRegion: String) -> String? {
-    return appRegions.first(where: { $0.appRegion == appRegion })?.appRegionName
+struct AppRegionResponse: Codable {
+    let values: [[String]]
 }
 
-func getRegionGoogleSheet(appRegion: String) -> String? {
-    return appRegions.first(where: { $0.appRegion == appRegion })?.appRegionGoogleSheetID
-}
+class AppRegionViewModel: ObservableObject {
+    @Published var appRegions: [AppRegion] = []
+    private var cancellables = Set<AnyCancellable>()
+    let sheetName = "Regions"
+    
+    func getAppRegions(completion: @escaping () -> Void) {
+        let appRegionsURLString = "https://sheets.googleapis.com/v4/spreadsheets/\(globalGoogleSheetID)/values/\(sheetName)?alt=json&key=\(googleAPIKey)"
+        guard let url = URL(string: appRegionsURLString) else {
+            print("Invalid URL for app regions")
+            DispatchQueue.main.async { completion() }
+            return
+        }
+        URLSession.shared.dataTaskPublisher(for: url)
+            .map { $0.data }
+            .decode(type: AppRegionResponse.self, decoder: JSONDecoder())
+        
+            .map { response -> [AppRegion] in
+                response.values.dropFirst().compactMap { row in
+                    guard row.count >= 5 else {
+                        print("Skipping malformed app region row: \(row)")
+                        return nil
+                    }
+                    let appRegion = row[0]
+                    let appCountry = row[1]
+                    let appRegionName = row[2]
+                    let appRegionGoogleSheetID = row[3]
+                    let timezone = row[4]
+                    let sunriseLatitude = row.count > 5 ? Double(row[5]) ?? 0.0 : 0.0
+                    let sunriseLongitude = row.count > 6 ? Double(row[6]) ?? 0.0 : 0.0
+                    let mapInitLatitude = row.count > 7 ? Double(row[7]) ?? 0.0 : 0.0
+                    let mapInitLongitude = row.count > 8 ? Double(row[8]) ?? 0.0 : 0.0
+                    let mapInitLatitudeSpan = row.count > 9 ? Double(row[9]) ?? 0.0 : 0.0
+                    let mapInitLongitudeSpan = row.count > 10 ? Double(row[10]) ?? 0.0 : 0.0
+                    let mapDefaultZoomLevel = row.count > 11 ? Double(row[11]) ?? 0.0 : 0.0
+                    let forecastMapURL = row.count > 12 ? row[12] : ""
+                    let areaForecastDiscussionURL = row.count > 13 ? row[13] : ""
+                    let soaringForecastURL = row.count > 14 ? row[14] : ""
+                    let windsAloftForecastURL = row.count > 15 ? row[15] : ""
+                    let latestModelSoundingURL = row.count > 16 ? row[16] : ""
 
-func getRegionCountry(appRegion: String) -> String? {
-    return appRegions.first(where: { $0.appRegion == appRegion })?.appCountry
-}
 
-func getRegionForecastMapURL(appRegion: String) -> String? {
-    return appRegions.first(where: { $0.appRegion == appRegion })?.forecastMapURL
-}
+                    
+                    // Make sure region, country, name, Google sheet, and time zone are populated
+                    guard !appRegion.isEmpty,
+                          !appCountry.isEmpty,
+                          !appRegionName.isEmpty,
+                          !appRegionGoogleSheetID.isEmpty,
+                          !timezone.isEmpty else {
+                        print("Skipping app region row with missing critical fields: \(row)")
+                        return nil
+                    }
+                    
+                    return AppRegion(appRegion: appRegion,
+                                     appCountry: appCountry,
+                                     appRegionName: appRegionName,
+                                     appRegionGoogleSheetID: appRegionGoogleSheetID,
+                                     timezone: timezone,
+                                     sunriseLatitude: sunriseLatitude,
+                                     sunriseLongitude: sunriseLongitude,
+                                     mapInitLatitude: mapInitLatitude,
+                                     mapInitLongitude: mapInitLongitude,
+                                     mapInitLatitudeSpan: mapInitLatitudeSpan,
+                                     mapInitLongitudeSpan: mapInitLongitudeSpan,
+                                     mapDefaultZoomLevel: mapDefaultZoomLevel,
+                                     forecastMapURL: forecastMapURL,
+                                     areaForecastDiscussionURL: areaForecastDiscussionURL,
+                                     soaringForecastURL: soaringForecastURL,
+                                     windsAloftForecastURL: windsAloftForecastURL,
+                                     latestModelSoundingURL: latestModelSoundingURL
+                    )
+                }
+            }
+            .replaceError(with: [])
+            .receive(on: DispatchQueue.main)
 
-func getRegionSunriseCoordinates(appRegion: String) -> (latitude: Double,
-                                                        longitude: Double)? {
-    guard let region = appRegions.first(where: { $0.appRegion == appRegion }) else {
-        return nil
+            // Save regions globally so they can be accessed from anywhere in the app
+            .handleEvents(receiveOutput: { [weak self] appRegions in
+                self?.appRegions = appRegions
+                AppRegionManager.shared.setAppRegions(appRegions) // global set
+            }, receiveCompletion: { _ in
+                completion()
+            })
+        
+            .sink { _ in }
+            .store(in: &cancellables)
     }
-    return (latitude:   region.sunriseLatitude,
-            longitude:  region.sunriseLongitude)
-}
-
-func getRegionMapDefaults(appRegion: String) -> (mapInitLatitude: Double,
-                                                 mapInitLongitude: Double,
-                                                 mapInitLatitudeSpan: Double,
-                                                 mapInitLongitudeSpan: Double,
-                                                 mapDefaultZoomLevel: Double)? {
-    guard let region = appRegions.first(where: { $0.appRegion == appRegion }) else {
-        return nil
-    }
-    return (mapInitLatitude:        region.mapInitLatitude,
-            mapInitLongitude:       region.mapInitLongitude,
-            mapInitLatitudeSpan:    region.mapInitLatitudeSpan,
-            mapInitLongitudeSpan:   region.mapInitLongitudeSpan,
-            mapDefaultZoomLevel:    region.mapDefaultZoomLevel)
+    
 }

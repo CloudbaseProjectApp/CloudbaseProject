@@ -25,7 +25,7 @@ class PilotViewModel: ObservableObject {
         let rangeName = "Pilots"
         
         // Build region sheet pilots URL
-        guard let regionGoogleSheetID = getRegionGoogleSheet(appRegion: appRegion),
+        guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(appRegion: appRegion),
               let regionURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)")
         else {
             print("Invalid or missing region Google Sheet ID for region: \(appRegion)")
@@ -101,7 +101,7 @@ class PilotViewModel: ObservableObject {
             
             // Construct append URL
             let range = "Pilots"
-            guard let regionGoogleSheetID = getRegionGoogleSheet(appRegion: appRegion),
+            guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(appRegion: appRegion),
                   let regionURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(range):append?valueInputOption=RAW")
             else {
                 print("Cannot append pilot; invalid or missing region Google Sheet ID for region: \(appRegion)")
@@ -153,7 +153,7 @@ class PilotViewModel: ObservableObject {
 
             // Read the existing Pilots sheet to find the row index
             let range = "Pilots"
-            guard let regionGoogleSheetID = getRegionGoogleSheet(appRegion: appRegion),
+            guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(appRegion: appRegion),
                   let readURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(range)")
             else {
                 print("Cannot get pilot data; invalid or missing region Google Sheet ID for region: \(appRegion)")

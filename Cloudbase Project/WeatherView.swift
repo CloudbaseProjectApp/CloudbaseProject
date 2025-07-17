@@ -27,6 +27,7 @@ struct WeatherAlertAPIResponse: Decodable {
 }
 
 struct WeatherView: View {
+    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @StateObject private var AFDviewModel = AFDViewModel()
     @StateObject private var windAloftData = WindAloftData()
@@ -53,7 +54,7 @@ struct WeatherView: View {
         
         // Only for US states
         
-        if getRegionCountry(appRegion: appRegion) == "US" {
+        if AppRegionManager.shared.getRegionCountry(appRegion: appRegion) == "US" {
             
             let weatherAlertsURL = "\(weatherAlertsAPI)\(appRegion)"
             guard let url = URL(string: weatherAlertsURL) else {
@@ -101,7 +102,7 @@ struct WeatherView: View {
                 .foregroundColor(sectionHeaderColor)
                 .bold()) {
                     VStack {
-                        let forecastMapURL = getRegionForecastMapURL(appRegion: userSettingsViewModel.appRegion) ?? "<Unknown Region>"
+                        let forecastMapURL = AppRegionManager.shared.getRegionForecastMapURL(appRegion: userSettingsViewModel.appRegion) ?? "<Unknown Region>"
                         if !forecastMapURL.isEmpty {
                             WebImage (url: URL(string: forecastMapURL)) { image in image.resizable() }
                             placeholder: {
@@ -116,7 +117,7 @@ struct WeatherView: View {
                             .scaledToFit()
                             .onTapGesture { if let url = URL(string: forecastMapURL) { openLink(url) } }
                         } else {
-                            let regionName = getRegionName(appRegion: userSettingsViewModel.appRegion) ?? "<Unknown Region>"
+                            let regionName = AppRegionManager.shared.getRegionName(appRegion: userSettingsViewModel.appRegion) ?? "<Unknown Region>"
                             Text("No forecast map available for \(regionName)")
                                 .font(.subheadline)
                                 .foregroundColor(rowHeaderColor)
@@ -136,7 +137,7 @@ struct WeatherView: View {
                         .scaleEffect(0.75)
                         .frame(width: 20, height: 20)
                 } else if TFRviewModel.tfrs.isEmpty {
-                    let regionName = getRegionName(appRegion: userSettingsViewModel.appRegion) ?? "<Unknown Region>"
+                    let regionName = AppRegionManager.shared.getRegionName(appRegion: userSettingsViewModel.appRegion) ?? "<Unknown Region>"
                     Text("No active TFRs for \(regionName)")
                         .font(.subheadline)
                         .foregroundColor(rowHeaderColor)
@@ -172,7 +173,7 @@ struct WeatherView: View {
                         .scaleEffect(0.75)
                         .frame(width: 20, height: 20)
                 } else if noWeatherAlerts {
-                    let regionName = getRegionName(appRegion: userSettingsViewModel.appRegion) ?? "<Unknown Region>"
+                    let regionName = AppRegionManager.shared.getRegionName(appRegion: userSettingsViewModel.appRegion) ?? "<Unknown Region>"
                     Text("No active weather alerts for \(regionName)")
                         .font(.subheadline)
                         .foregroundColor(rowHeaderColor)

@@ -7,7 +7,7 @@ import MapKit
 let devMenuAvailable: Bool = false
 let logThermalCalcs: Bool = false
 let printReadingsURL: Bool = false
-let printForecastURL: Bool = false
+let printForecastURL: Bool = true
 let printPilotTracksTimings: Bool = false
 let printPilotTrackURLs: Bool = false
 
@@ -92,6 +92,7 @@ let defaultRadarColorScheme: Int = 3
     */
 
 // HTTP links and APIs
+let globalGoogleSheetID = "18EU5k34_nhOa7Qv_SA5oMeEWpD00pWDHiAC0Nh7vUho"
 let forecastUSMapLink: String = "https://www.wpc.ncep.noaa.gov/basicwx/92fndfd.gif"
 let weatherAlertsAPI: String = "https://api.weather.gov/alerts/active?area=" // Append state code to end
 let weatherAlertsLink: String = "https://www.weather.gov/slc/WWA"
