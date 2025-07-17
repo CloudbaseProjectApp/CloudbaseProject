@@ -41,12 +41,14 @@ struct ModelData: Identifiable {
 
 class SoaringForecastViewModel: ObservableObject {
     @Published var soaringForecast: SoaringForecast?
-    init() {
-        fetchSoaringForecast()
-    }
-    func fetchSoaringForecast() {
-        guard let url = URL(string: soaringForecastLink) else { return }
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+
+    func fetchSoaringForecast(appRegion: String) {
+        guard let regionURL = URL(string: AppRegionManager.shared.getRegionSoaringForecastURL(appRegion: appRegion) ?? "")
+        else {
+            print("Invalid soaring forecast URL for region: \(appRegion)")
+            return
+        }
+        URLSession.shared.dataTask(with: regionURL) { [weak self] data, response, error in
             guard let self = self, let data = data, error == nil else { return }
             if let content = String(data: data, encoding: .utf8) {
                 // Check if the output is formatted using the summer (rich) forecast

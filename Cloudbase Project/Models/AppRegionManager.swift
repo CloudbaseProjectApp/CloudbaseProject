@@ -38,6 +38,34 @@ final class AppRegionManager {
         appRegions.first(where: { $0.appRegion == appRegion })?.forecastMapURL
     }
 
+    func getRegionWeatherAlertsLink(appRegion: String) -> String? {
+        appRegions.first(where: { $0.appRegion == appRegion })?.weatherAlertsLink
+    }
+    
+    func getRegionAreaForecastDiscussionURL(appRegion: String) -> String? {
+        appRegions.first(where: { $0.appRegion == appRegion })?.areaForecastDiscussionURL
+    }
+    
+    func getRegionSoaringForecastURL(appRegion: String) -> String? {
+        appRegions.first(where: { $0.appRegion == appRegion })?.soaringForecastURL
+    }
+
+    func getRegionWindsAloftURL(appRegion: String) -> String? {
+        appRegions.first(where: { $0.appRegion == appRegion })?.windsAloftForecastURL
+    }
+
+    func getRegionWindsAloftCode(appRegion: String) -> String? {
+        appRegions.first(where: { $0.appRegion == appRegion })?.windsAloftCode
+    }
+    
+    func getRegionLatestModelSoundingURL(appRegion: String) -> String? {
+        appRegions.first(where: { $0.appRegion == appRegion })?.latestModelSoundingURL
+    }
+
+    func getRegionLatestModelSoundingCode(appRegion: String) -> String? {
+        appRegions.first(where: { $0.appRegion == appRegion })?.latestModelSoundingCode
+    }
+
     func getRegionSunriseCoordinates(appRegion: String) -> (latitude: Double, longitude: Double)? {
         guard let region = appRegions.first(where: { $0.appRegion == appRegion }) else { return nil }
         return (region.sunriseLatitude, region.sunriseLongitude)

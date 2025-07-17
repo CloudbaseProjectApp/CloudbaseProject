@@ -22,6 +22,24 @@ let cloudbaseProjectGitLink: String = "https://github.com/CloudbaseProjectApp/Cl
 let cloudbaseProjectGitIssueLink: String = "https://github.com/CloudbaseProjectApp/CloudbaseProject/issues/new"
 let cloudbaseProjectTelegramLink: String = "https://t.me/+bSHu5KTsRkU1M2Mx"
 
+// HTTP links and APIs
+let globalGoogleSheetID =       "18EU5k34_nhOa7Qv_SA5oMeEWpD00pWDHiAC0Nh7vUho"
+let weatherAlertsAPI: String =  "https://api.weather.gov/alerts/active?area=" // Append state code to end
+let TFRAPI: String =            "https://tfr.faa.gov/tfrapi/exportTfrList"
+let uDOTCamerasAPI: String = "https://www.udottraffic.utah.gov/api/v2/get/cameras?key=\(UDOTCamerasAPIKey)&format=json"
+let uDOTCamerasLink: String = "https://www.udottraffic.utah.gov"
+let ipCamLink: String = "https://apps.apple.com/us/app/ip-camera-viewer-ipcams/id1045600272"
+let UHGPGAcamsLink: String = "https://www.uhgpga.org/webcams"
+let rainviewerAPI: String = "https://api.rainviewer.com/public/weather-maps.json"
+
+// Build APIs for Mesowest weather readings
+// latestReadings API is header + parameters (stations; can be blank) + trailer + token
+let latestReadingsAPIHeader = "https://api.mesowest.net/v2/station/latest?"
+let latestReadingsAPITrailer =  "&recent=420&vars=air_temp,altimeter,wind_direction,wind_gust,wind_speed&units=english,speed|mph,temp|F&within=120&obtimezone=local&timeformat=%-I:%M%20%p"
+// historyReadings API is header + parameters (station) + trailer + token
+let historyReadingsAPIHeader = "https://api.mesowest.net/v2/station/timeseries?"
+let historyReadingsAPITrailer = "&recent=420&vars=air_temp,wind_direction,wind_gust,wind_speed&units=english,speed|mph,temp|F&within=120&obtimezone=local&timeformat=%-I:%M %p"
+
 // Page navigation values
 enum NavBarSelectedView: Int {
     case site = 0
@@ -90,30 +108,6 @@ let defaultRadarColorScheme: Int = 3
     7        Rainbow @ SELEX-IS (green -> yellow -> red for increasing precip)  **
     8        Dark Sky ((deep blue -> red -> yellow for increasing precip)  **
     */
-
-// HTTP links and APIs
-let globalGoogleSheetID = "18EU5k34_nhOa7Qv_SA5oMeEWpD00pWDHiAC0Nh7vUho"
-let forecastUSMapLink: String = "https://www.wpc.ncep.noaa.gov/basicwx/92fndfd.gif"
-let weatherAlertsAPI: String = "https://api.weather.gov/alerts/active?area=" // Append state code to end
-let weatherAlertsLink: String = "https://www.weather.gov/slc/WWA"
-let TFRAPI: String = "https://tfr.faa.gov/tfrapi/exportTfrList"
-let forecastDiscussionLink: String = "https://forecast.weather.gov/product.php?site=NWS&issuedby=SLC&product=AFD&format=txt&version=1&glossary=0"
-let soaringForecastLink: String = "https://forecast.weather.gov/product.php?site=NWS&product=SRG&issuedby=SLC"
-let skewTLink: String = "https://www.weather.gov/zse/ModelSounding?id=kslc&model=hrrr"
-// prior skewTLink: String = "https://weather.ral.ucar.edu/upper/displayUpper.php?img=KSLC.png&endDate=-1&endTime=-1&duration=0"
-let uDOTCamerasAPI: String = "https://www.udottraffic.utah.gov/api/v2/get/cameras?key=\(UDOTCamerasAPIKey)&format=json"
-let uDOTCamerasLink: String = "https://www.udottraffic.utah.gov"
-let ipCamLink: String = "https://apps.apple.com/us/app/ip-camera-viewer-ipcams/id1045600272"
-let UHGPGAcamsLink: String = "https://www.uhgpga.org/webcams"
-let rainviewerAPI: String = "https://api.rainviewer.com/public/weather-maps.json"
-
-// Build APIs for Mesowest weather readings
-// latestReadings API is header + parameters (stations; can be blank) + trailer + token
-let latestReadingsAPIHeader = "https://api.mesowest.net/v2/station/latest?"
-let latestReadingsAPITrailer =  "&recent=420&vars=air_temp,altimeter,wind_direction,wind_gust,wind_speed&units=english,speed|mph,temp|F&within=120&obtimezone=local&timeformat=%-I:%M%20%p"
-// historyReadings API is header + parameters (station) + trailer + token
-let historyReadingsAPIHeader = "https://api.mesowest.net/v2/station/timeseries?"
-let historyReadingsAPITrailer = "&recent=420&vars=air_temp,wind_direction,wind_gust,wind_speed&units=english,speed|mph,temp|F&within=120&obtimezone=local&timeformat=%-I:%M %p"
 
 // Grid structure sizing parameters
 let headingHeight: CGFloat = 16               // Day, date, time rows

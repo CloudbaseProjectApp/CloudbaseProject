@@ -21,7 +21,10 @@ struct AppRegion {
     let areaForecastDiscussionURL: String
     let soaringForecastURL: String
     let windsAloftForecastURL: String
+    let windsAloftCode: String
     let latestModelSoundingURL: String
+    let latestModelSoundingCode: String
+    let weatherAlertsLink: String
 }
 
 struct AppRegionResponse: Codable {
@@ -66,9 +69,10 @@ class AppRegionViewModel: ObservableObject {
                     let areaForecastDiscussionURL = row.count > 13 ? row[13] : ""
                     let soaringForecastURL = row.count > 14 ? row[14] : ""
                     let windsAloftForecastURL = row.count > 15 ? row[15] : ""
-                    let latestModelSoundingURL = row.count > 16 ? row[16] : ""
-
-
+                    let windsAloftCode = row.count > 16 ? row[16] : ""
+                    let latestModelSoundingURL = row.count > 17 ? row[17] : ""
+                    let latestModelSoundingCode = row.count > 18 ? row[18] : ""
+                    let weatherAlertsLink = row.count > 19 ? row[19] : ""
                     
                     // Make sure region, country, name, Google sheet, and time zone are populated
                     guard !appRegion.isEmpty,
@@ -96,7 +100,10 @@ class AppRegionViewModel: ObservableObject {
                                      areaForecastDiscussionURL: areaForecastDiscussionURL,
                                      soaringForecastURL: soaringForecastURL,
                                      windsAloftForecastURL: windsAloftForecastURL,
-                                     latestModelSoundingURL: latestModelSoundingURL
+                                     windsAloftCode: windsAloftCode,
+                                     latestModelSoundingURL: latestModelSoundingURL,
+                                     latestModelSoundingCode: latestModelSoundingCode,
+                                     weatherAlertsLink: weatherAlertsLink
                     )
                 }
             }

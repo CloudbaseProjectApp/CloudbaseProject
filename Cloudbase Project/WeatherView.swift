@@ -167,42 +167,44 @@ struct WeatherView: View {
                 .foregroundColor(sectionHeaderColor)
                 .bold())
             {
-                if isLoadingWeatherAlerts {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle())
-                        .scaleEffect(0.75)
-                        .frame(width: 20, height: 20)
-                } else if noWeatherAlerts {
-                    let regionName = AppRegionManager.shared.getRegionName(appRegion: userSettingsViewModel.appRegion) ?? "<Unknown Region>"
-                    Text("No active weather alerts for \(regionName)")
-                        .font(.subheadline)
-                        .foregroundColor(rowHeaderColor)
-                } else {
-                    ForEach(weatherAlerts) { alert in
-                        VStack(alignment: .leading) {
-                            Text(alert.event)
-                                .font(.subheadline)
-                                .foregroundColor(warningFontColor)
-                            Text(alert.headline)
-                                .font(.subheadline)
-                            Text(alert.areaDesc)
-                                .font(.footnote)
-                                .foregroundColor(infoFontColor)
-                        }
-                        .padding(.vertical, 2)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())      // Makes entire area tappable
-                        .onTapGesture {
-                            if let url = URL(string: weatherAlertsLink) {
-                                openLink(url)
+                VStack {
+                    if isLoadingWeatherAlerts {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle())
+                            .scaleEffect(0.75)
+                            .frame(width: 20, height: 20)
+                    } else if noWeatherAlerts {
+                        let regionName = AppRegionManager.shared.getRegionName(appRegion: userSettingsViewModel.appRegion) ?? "<Unknown Region>"
+                        Text("No active weather alerts for \(regionName)")
+                            .font(.subheadline)
+                            .foregroundColor(rowHeaderColor)
+                    } else {
+                        ForEach(weatherAlerts) { alert in
+                            VStack(alignment: .leading) {
+                                Text(alert.event)
+                                    .font(.subheadline)
+                                    .foregroundColor(warningFontColor)
+                                Text(alert.headline)
+                                    .font(.subheadline)
+                                Text(alert.areaDesc)
+                                    .font(.footnote)
+                                    .foregroundColor(infoFontColor)
                             }
+                            .padding(.vertical, 2)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                         }
+                    }
+                }
+                .contentShape(Rectangle())      // Makes entire area tappable
+                .onTapGesture {
+                    if let url = URL(string: AppRegionManager.shared.getRegionWeatherAlertsLink(appRegion: userSettingsViewModel.appRegion) ?? "") {
+                        openLink(url)
                     }
                 }
             }
             
-            // SLC Forecast Discussion
-            Section(header: Text("SLC Area Forecast Discussion")
+            // Area Forecast Discussion (AFD)
+            Section(header: Text("Area Forecast Discussion")
                 .font(.headline)
                 .foregroundColor(sectionHeaderColor)
                 .bold())
@@ -318,7 +320,7 @@ struct WeatherView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                     .contentShape(Rectangle())      // Makes entire area tappable
                     .onTapGesture {
-                        if let url = URL(string: soaringForecastLink) {
+                        if let url = URL(string: AppRegionManager.shared.getRegionSoaringForecastURL(appRegion: userSettingsViewModel.appRegion) ?? "") {
                             openLink(url)
                         }
                     }
@@ -382,7 +384,7 @@ struct WeatherView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                         .contentShape(Rectangle())      // Makes entire area tappable
                         .onTapGesture {
-                            if let url = URL(string: soaringForecastLink) {
+                            if let url = URL(string: AppRegionManager.shared.getRegionSoaringForecastURL(appRegion: userSettingsViewModel.appRegion) ?? "") {
                                 openLink(url)
                             }
                         }
@@ -414,7 +416,7 @@ struct WeatherView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                         .contentShape(Rectangle())      // Makes entire area tappable
                         .onTapGesture {
-                            if let url = URL(string: soaringForecastLink) {
+                            if let url = URL(string: AppRegionManager.shared.getRegionSoaringForecastURL(appRegion: userSettingsViewModel.appRegion) ?? "") {
                                 openLink(url)
                             }
                         }
@@ -439,7 +441,7 @@ struct WeatherView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                             .contentShape(Rectangle())      // Makes entire area tappable
                             .onTapGesture {
-                                if let url = URL(string: soaringForecastLink) {
+                                if let url = URL(string: AppRegionManager.shared.getRegionSoaringForecastURL(appRegion: userSettingsViewModel.appRegion) ?? "") {
                                     openLink(url)
                                 }
                             }
@@ -453,12 +455,12 @@ struct WeatherView: View {
             }
             
             // Winds aloft forecast
-            Section(header: Text("SLC Winds Aloft Forecast")
+            Section(header: Text("Winds Aloft Forecast")
                 .font(.headline)
                 .foregroundColor(sectionHeaderColor)
                 .bold())
             {
-                Text("Forecast for the next \(windAloftData.cycle) hours")
+                Text("Forecast for \(String(AppRegionManager.shared.getRegionWindsAloftCode(appRegion: userSettingsViewModel.appRegion) ?? "<unknown>")) for the next \(windAloftData.cycle) hours")
                     .font(.footnote)
                     LazyVGrid(columns: [
                     GridItem(.fixed(64), spacing: 5, alignment: .trailing),
@@ -501,7 +503,7 @@ struct WeatherView: View {
                 }
             }
             
-            // High res Skew-T from morning sounding (from Matt Hansen)
+            // High res diagram from morning sounding (from Matt Hansen)
             Section(header: Text("SLC Morning Sounding")
                 .font(.headline)
                 .foregroundColor(sectionHeaderColor)
@@ -512,13 +514,13 @@ struct WeatherView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
             
-            // Skew-T from latest forecast model
-            Section(header: Text("SLC Latest Model Sounding")
+            // Link to sounding from latest forecast model
+            Section(header: Text("Latest Model Sounding")
                 .font(.headline)
                 .foregroundColor(sectionHeaderColor)
                 .bold()) {
                 VStack {
-                    WebImage (url: URL(string: skewTLink)) { image in image.resizable() }
+                    WebImage (url: URL(string: AppRegionManager.shared.getRegionLatestModelSoundingURL(appRegion: userSettingsViewModel.appRegion) ?? "")) { image in image.resizable() }
                     placeholder: {
                         Text("Tap to view")
                             .foregroundColor(infoFontColor)
@@ -530,7 +532,7 @@ struct WeatherView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .contentShape(Rectangle())      // Makes entire area tappable
-                .onTapGesture { if let url = URL(string: skewTLink) { openLink(url) } }
+                .onTapGesture { if let url = URL(string: AppRegionManager.shared.getRegionLatestModelSoundingURL(appRegion: userSettingsViewModel.appRegion) ?? "") { openLink(url) } }
             }
             
             VStack (alignment: .leading) {
@@ -548,8 +550,9 @@ struct WeatherView: View {
         .onAppear {
             fetchWeatherAlerts(appRegion: userSettingsViewModel.appRegion)
             TFRviewModel.fetchTFRs(appRegion: userSettingsViewModel.appRegion)
-            AFDviewModel.fetchAFD()
-            windAloftData.fetchWindAloftData()
+            AFDviewModel.fetchAFD(appRegion: userSettingsViewModel.appRegion)
+            soaringForecastViewModel.fetchSoaringForecast(appRegion: userSettingsViewModel.appRegion)
+            windAloftData.fetchWindAloftData(appRegion: userSettingsViewModel.appRegion)
         }
         // Used to open URL links as an in-app sheet using Safari
         .sheet(isPresented: $showWebView) { if let url = externalURL { SafariView(url: url) } }

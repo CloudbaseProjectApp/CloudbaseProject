@@ -1,7 +1,7 @@
 import SwiftUI
 import Combine
 
-// SLC Area Forecast Discussion (AFD)
+// Area Forecast Discussion (AFD)
 struct AFD: Identifiable {
     let id = UUID()
     let date: String
@@ -15,9 +15,13 @@ class AFDViewModel: ObservableObject {
     @Published var AFDvar: AFD?
     private var cancellable: AnyCancellable?
 
-    func fetchAFD() {
-        guard let url = URL(string: forecastDiscussionLink) else { return }
-        cancellable = URLSession.shared.dataTaskPublisher(for: url)
+    func fetchAFD(appRegion: String) {
+        guard let regionURL = URL(string: AppRegionManager.shared.getRegionAreaForecastDiscussionURL(appRegion: appRegion) ?? "")
+        else {
+            print("Invalid AFD URL for appRegion: \(appRegion)")
+            return
+        }
+        cancellable = URLSession.shared.dataTaskPublisher(for: regionURL)
             .map { $0.data }
             .compactMap { String(data: $0, encoding: .utf8) }
             .map { self.parseAFDData($0) }

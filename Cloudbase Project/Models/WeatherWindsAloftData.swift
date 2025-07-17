@@ -11,16 +11,19 @@ class WindAloftData: ObservableObject {
         let windSpeed: Int
         let temperature: Int
     }
-    func fetchWindAloftData() {
+    func fetchWindAloftData(appRegion: String) {
         let cycle = determineCycle()
         self.cycle = cycle
-        let urlString = "https://aviationweather.gov/api/data/windtemp?region=slc&level=low&fcst=\(cycle)"
+        let urlString = AppRegionManager.shared.getRegionWindsAloftURL(appRegion: appRegion) ?? ""
         guard let url = URL(string: urlString) else { return }
+        
+        let code = AppRegionManager.shared.getRegionWindsAloftCode(appRegion: appRegion) ?? ""
 
         URLSession.shared.dataTask(with: url) { data, response, error in
             guard let data = data, error == nil else { return }
             if let responseString = String(data: data, encoding: .utf8) {
-                self.parseWindAloftData(responseString)
+                self.parseWindAloftData(code: code,
+                                        data: responseString)
             }
         }.resume()
     }
@@ -35,7 +38,8 @@ class WindAloftData: ObservableObject {
             return "24"
         }
     }
-    private func parseWindAloftData(_ data: String) {
+    private func parseWindAloftData(code: String, data: String) {
+        
         let lines = data.split(separator: "\n")
         guard let slcLine = lines.first(where: { $0.starts(with: "SLC") }) else { return }
 
