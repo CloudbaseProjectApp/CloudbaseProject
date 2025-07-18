@@ -59,9 +59,16 @@ final class AppRegionManager {
     }
     
     func getRegionLatestModelSoundingURL(appRegion: String) -> String? {
-        appRegions.first(where: { $0.appRegion == appRegion })?.latestModelSoundingURL
+        guard let region = appRegions.first(where: { $0.appRegion == appRegion }) else { return nil }
+        let code = region.latestModelSoundingCode
+        let templateURL = region.latestModelSoundingURL
+        // Replace the placeholder (assumed to be "{code}" or just "code") with the actual code
+        let finalURL = templateURL
+                          .replacingOccurrences(of: "{code}", with: code)
+                          .replacingOccurrences(of: "code", with: code)
+        return finalURL
     }
-
+    
     func getRegionLatestModelSoundingCode(appRegion: String) -> String? {
         appRegions.first(where: { $0.appRegion == appRegion })?.latestModelSoundingCode
     }

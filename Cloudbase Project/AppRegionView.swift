@@ -35,10 +35,7 @@ struct AppRegionView: View {
                                         longitudeDelta: region.mapInitLongitudeSpan
                                     )
                                 )
-                                userSettingsViewModel.zoomLevel = region.mapDefaultZoomLevel
-                                
-activeAppRegion = region.appRegion
-
+                                userSettingsViewModel.zoomLevel = region.mapDefaultZoomLevel                                
                                 userSettingsViewModel.saveToStorage()
                                 dismiss()
                             }) {

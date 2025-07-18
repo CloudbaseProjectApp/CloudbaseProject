@@ -36,6 +36,7 @@ struct WeatherView: View {
     @Environment(\.openURL) var openURL     // Used to open URL links as an in-app sheet using Safari
     @State private var externalURL: URL?    // Used to open URL links as an in-app sheet using Safari
     @State private var showWebView = false  // Used to open URL links as an in-app sheet using Safari
+    @State private var showKeyMessages = true
     @State private var showSynopsis = true
     @State private var showDiscussion = false
     @State private var showShortTerm = false
@@ -212,12 +213,37 @@ struct WeatherView: View {
                 if let AFDdata = AFDviewModel.AFDvar {
                     Text("Forecast Date: \(AFDdata.date)")
                         .font(.footnote)
-                    if let synopsis = AFDdata.synopsis {
+                    if let keyMessages = AFDdata.keyMessages, !keyMessages.isEmpty {
+                        DisclosureGroup(
+                            isExpanded: $showKeyMessages,
+                            content: {
+                                Text(keyMessages)
+                                    .font(.subheadline)
+                                    .contentShape(Rectangle())      // Makes entire area tappable
+                                        .onTapGesture {
+                                            if let url = URL(string: AppRegionManager.shared.getRegionAreaForecastDiscussionURL(appRegion: userSettingsViewModel.appRegion) ?? "") {
+                                                openLink(url)
+                                            }
+                                        }
+                            }, label: {
+                                Text("Key Messages")
+                                    .font(.headline)
+                                    .foregroundColor(rowHeaderColor)
+                            }
+                        )
+                    }
+                    if let synopsis = AFDdata.synopsis, !synopsis.isEmpty {
                         DisclosureGroup(
                             isExpanded: $showSynopsis,
                             content: {
                                 Text(synopsis)
                                     .font(.subheadline)
+                                    .contentShape(Rectangle())      // Makes entire area tappable
+                                        .onTapGesture {
+                                            if let url = URL(string: AppRegionManager.shared.getRegionAreaForecastDiscussionURL(appRegion: userSettingsViewModel.appRegion) ?? "") {
+                                                openLink(url)
+                                            }
+                                        }
                             }, label: {
                                 Text("Synopsis")
                                     .font(.headline)
@@ -231,6 +257,12 @@ struct WeatherView: View {
                             content: {
                                 Text(discussion)
                                     .font(.subheadline)
+                                    .contentShape(Rectangle())      // Makes entire area tappable
+                                        .onTapGesture {
+                                            if let url = URL(string: AppRegionManager.shared.getRegionAreaForecastDiscussionURL(appRegion: userSettingsViewModel.appRegion) ?? "") {
+                                                openLink(url)
+                                            }
+                                        }
                             }, label: {
                                 Text("Discussion")
                                     .font(.headline)
@@ -244,6 +276,12 @@ struct WeatherView: View {
                             content: {
                                 Text(shortTerm)
                                     .font(.subheadline)
+                                    .contentShape(Rectangle())      // Makes entire area tappable
+                                        .onTapGesture {
+                                            if let url = URL(string: AppRegionManager.shared.getRegionAreaForecastDiscussionURL(appRegion: userSettingsViewModel.appRegion) ?? "") {
+                                                openLink(url)
+                                            }
+                                        }
                             }, label: {
                                 Text("Short Term Forecast")
                                     .font(.headline)
@@ -257,6 +295,12 @@ struct WeatherView: View {
                             content: {
                                 Text(longTerm)
                                     .font(.subheadline)
+                                    .contentShape(Rectangle())      // Makes entire area tappable
+                                        .onTapGesture {
+                                            if let url = URL(string: AppRegionManager.shared.getRegionAreaForecastDiscussionURL(appRegion: userSettingsViewModel.appRegion) ?? "") {
+                                                openLink(url)
+                                            }
+                                        }
                             }, label: {
                                 Text("Long Term Forecast")
                                     .font(.headline)
@@ -264,12 +308,18 @@ struct WeatherView: View {
                             }
                         )
                     }
-                    if let aviation = AFDdata.aviation {
+                    if let aviation = AFDdata.aviation, !aviation.isEmpty {
                         DisclosureGroup(
                             isExpanded: $showAviation,
                             content: {
                                 Text(aviation)
                                     .font(.subheadline)
+                                    .contentShape(Rectangle())      // Makes entire area tappable
+                                        .onTapGesture {
+                                            if let url = URL(string: AppRegionManager.shared.getRegionAreaForecastDiscussionURL(appRegion: userSettingsViewModel.appRegion) ?? "") {
+                                                openLink(url)
+                                            }
+                                        }
                             }, label: {
                                 Text("Aviation Forecast")
                                     .font(.headline)
@@ -304,12 +354,12 @@ struct WeatherView: View {
                             HStack {
                                 Text(data.heading)
                                     .multilineTextAlignment(.trailing)
-                                    .font(.subheadline)
+                                    .font(.caption)
                                     .padding(.trailing, 2)
                                     .foregroundColor(infoFontColor)
                                     .frame(maxWidth: .infinity, alignment: .trailing)
                                 Text(data.value ?? "")
-                                    .font(.subheadline)
+                                    .font(.caption)
                                     .padding(.leading, 2)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
@@ -389,7 +439,7 @@ struct WeatherView: View {
                             }
                         }
                     }
-                    // Process simple format sounding data
+                    // Process simple/basic format sounding data
                     else {
                         VStack(alignment: .leading) {
                             ForEach(soaringForecastViewModel.soaringForecast?.soundingData ?? []) { data in

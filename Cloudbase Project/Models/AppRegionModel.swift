@@ -3,8 +3,6 @@ import Combine
 
 // Note:  Use the globally available function calls in AppRegionManager to access data
 
-var activeAppRegion: String = ""
-
 struct AppRegion {
     let appRegion: String                   // Two digit code for U.S. states (used in Synoptics station map call)
                                             // AppRegion must be unique (without appCountry); so do not use US states for other regions

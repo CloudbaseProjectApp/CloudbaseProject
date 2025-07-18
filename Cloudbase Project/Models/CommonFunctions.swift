@@ -210,12 +210,26 @@ func removeExtraBlankLines(_ text: String?) -> String {
 }
 
 func formatNumbersInString(_ input: String) -> String {
-    let pattern = "\\d+"
-    let regex = try! NSRegularExpression(pattern: pattern, options: [])
-    let range = NSRange(location: 0, length: input.utf16.count)
-    let matches = regex.matches(in: input, options: [], range: range)
+    let numberPattern = "\\d+"
+    let timePattern = "\\b\\d{1,2}:\\d{2}\\b" // matches HH:MM or H:MM
+    
+    let numberRegex = try! NSRegularExpression(pattern: numberPattern)
+    let timeRegex = try! NSRegularExpression(pattern: timePattern)
+    
+    let fullRange = NSRange(location: 0, length: input.utf16.count)
+    let timeMatches = timeRegex.matches(in: input, options: [], range: fullRange)
+    
+    // Collect ranges of times to skip
+    let timeRanges = timeMatches.map { $0.range }
+    
     var formattedString = input as NSString
-    for match in matches.reversed() {
+    let numberMatches = numberRegex.matches(in: input, options: [], range: fullRange)
+    
+    for match in numberMatches.reversed() {
+        // Check if this number is inside a time match (skip if so)
+        if timeRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) {
+            continue
+        }
         let numberString = formattedString.substring(with: match.range)
         if let number = Int(numberString) {
             let numberFormatter = NumberFormatter()
@@ -225,8 +239,10 @@ func formatNumbersInString(_ input: String) -> String {
             }
         }
     }
+    
     return formattedString as String
 }
+
 
 func removeTextInParentheses(_ text: String?) -> String {
     // Set default if input is nil
@@ -246,27 +262,34 @@ func removeTextFromOpenToClose(_ data: String, open: String, close: String) -> S
     return updatedData
 }
 
-// Convert numbers followed by MDT or MST to time format
 func formatTimeinString(from string: String) -> String {
-    let pattern = "\\b(\\d+) ?(MDT|MST)\\b"
-    let regex = try! NSRegularExpression(pattern: pattern, options: [])
+    let pattern = "\\b(\\d{1,4})\\s?(MDT|MST)\\b"
+    let regex = try! NSRegularExpression(pattern: pattern)
     let nsString = string as NSString
-    let matches = regex.matches(in: string, options: [], range: NSRange(location: 0, length: nsString.length))
+    let matches = regex.matches(in: string, range: NSRange(location: 0, length: nsString.length))
+    
     var resultString = string
+    
     for match in matches.reversed() {
         let numberRange = match.range(at: 1)
         let timezoneRange = match.range(at: 2)
-        if let number = Int(nsString.substring(with: numberRange)) {
+        
+        let timeSubstring = nsString.substring(with: numberRange)
+        let timezone = nsString.substring(with: timezoneRange)
+        
+        if let number = Int(timeSubstring) {
             let hours = number / 100
             let minutes = number % 100
+            
+            // This line ensures both hours and minutes are 2-digit padded
             let formattedTime = String(format: "%02d:%02d", hours, minutes)
-            let timezone = nsString.substring(with: timezoneRange)
+            let replacement = "\(formattedTime) \(timezone)"
             
             let fullMatchRange = match.range(at: 0)
-            let replacement = "\(formattedTime) \(timezone)"
             resultString = (resultString as NSString).replacingCharacters(in: fullMatchRange, with: replacement)
         }
     }
+    
     return resultString
 }
 
