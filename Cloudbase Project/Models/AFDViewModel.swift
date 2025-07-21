@@ -14,29 +14,55 @@ struct AFD: Identifiable {
 }
 class AFDViewModel: ObservableObject {
     @Published var AFDvar: AFD?
+    @Published var isLoading = false
     private var cancellable: AnyCancellable?
 
-    func fetchAFD(appRegion: String) {
-        guard let regionURL = URL(string: AppRegionManager.shared.getRegionAreaForecastDiscussionURL(appRegion: appRegion) ?? "")
+    func fetchAFD(airportCode: String) {
+        isLoading = true
+
+        // Get base URL, update parameters, and format into URL format
+        guard let baseURL = AppURLManager.shared.getAppURL(URLName: "areaForecastDiscussionURL")
         else {
-            print("Invalid AFD URL for appRegion: \(appRegion)")
+            print("Could not find AFD URL for appRegion: \(RegionManager.shared.activeAppRegion)")
+            isLoading = false
             return
         }
-        cancellable = URLSession.shared.dataTaskPublisher(for: regionURL)
+        let updatedURL = updateURL(url: baseURL, parameter: "airportcode", value: airportCode)
+        
+        // Format URL
+        guard let URL = URL(string: updatedURL)
+        else {
+            print("Invalid AFD URL for appRegion: \(RegionManager.shared.activeAppRegion)")
+            isLoading = false
+            return
+        }
+
+        // Process URL query
+        cancellable = URLSession.shared.dataTaskPublisher(for: URL)
             .map { $0.data }
-            .compactMap { String(data: $0, encoding: .utf8) }
-            .map { self.parseAFDData($0) }
+            .map { String(data: $0, encoding: .utf8) }
+            .map { $0.flatMap(self.parseAFDData) }
             .replaceError(with: nil)
             .receive(on: DispatchQueue.main)
-            .assign(to: \.AFDvar, on: self)
+            .sink { [weak self] afd in
+                self?.AFDvar     = afd
+                self?.isLoading  = false
+            }
     }
 
     private func parseAFDData(_ data: String) -> AFD? {
-        guard let startRange = data.range(of: "National Weather Service") else { return nil }
+        guard let startRange = data.range(of: "National Weather Service") else {
+            print("Could not parse AFD start range")
+            return nil
+        }
+
         let AFDData = data[startRange.upperBound...]
-        
-        // Date expected in a format like: "334 PM MDT Mon Mar 17 2025"
-        guard let dateRange = AFDData.range(of: "\\d{3,4} [A-Za-z]{2} [A-Za-z]{3} [A-Za-z]{3} [A-Za-z]{3} \\d{1,2} \\d{4}", options: .regularExpression) else { return nil }
+
+        guard let dateRange = AFDData.range(of: "\\d{3,4} [A-Za-z]{2} [A-Za-z]{3} [A-Za-z]{3} [A-Za-z]{3} \\d{1,2} \\d{4}", options: .regularExpression) else {
+            print("Could not parse AFD date range")
+            return nil
+        }
+
         let date = String(AFDData[dateRange])
         
         let keyMessages = collapseTextLines(extractSection(from: AFDData, start: ".KEY MESSAGES", end: "&&"))

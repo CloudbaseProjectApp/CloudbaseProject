@@ -22,7 +22,6 @@ struct ElevationResponse: Codable {
 }
 
 struct PilotTrackNodeView: View {
-    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var pilotViewModel: PilotViewModel
     @EnvironmentObject var pilotTrackViewModel: PilotTrackViewModel
     @Environment(\.presentationMode) var presentationMode

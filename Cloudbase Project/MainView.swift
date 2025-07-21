@@ -20,7 +20,7 @@ struct MainView: View {
     @State private var openAboutView =  false
 
     private var appRegionName: String {
-        AppRegionManager.shared.getRegionName(appRegion: userSettingsViewModel.appRegion) ?? ""
+        AppRegionManager.shared.getRegionName() ?? ""
     }
     
     var body: some View {

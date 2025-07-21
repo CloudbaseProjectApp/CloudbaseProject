@@ -109,8 +109,7 @@ class StationLatestReadingViewModel: ObservableObject {
     // sitesOnly determines whether to only get Mesonet readings for stations associated with sites (SiteView)
     // or all stations in region (MapView)
     // These are published as separate structures with separate refresh timers
-    func getLatestReadingsData(appRegion: String,
-                               sitesOnly: Bool,
+    func getLatestReadingsData(sitesOnly: Bool,
                                completion: @escaping () -> Void) {
 
         // Build list of station parameters based on sites
@@ -142,13 +141,13 @@ class StationLatestReadingViewModel: ObservableObject {
         isLoading = true
 
         // Build API call parameters
-        let regionCountry = AppRegionManager.shared.getRegionCountry(appRegion: appRegion) ?? ""
+        let regionCountry = AppRegionManager.shared.getRegionCountry() ?? ""
         let stationParams: String
         if sitesOnly {
             stationParams = self.stationParameters
         } else {
             stationParams = (regionCountry == "US")
-                ? "&state=\(appRegion)"
+                ? "&state=\(RegionManager.shared.activeAppRegion)"
                 : "&country=\(regionCountry)"
         }
 

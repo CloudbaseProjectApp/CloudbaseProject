@@ -176,13 +176,12 @@ struct SiteMapView: View {
         }
     }
             
-    func updateSiteCoordinates(appRegion: String,
-                               siteName: String,
+    func updateSiteCoordinates(siteName: String,
                                sheetRow: Int,
                                newCoordinate: CLLocationCoordinate2D) {
         // Build range to specify row and columns to be updated
         let rangeName = "Sites!R\(sheetRow)C11:R\(sheetRow)C12"
-        let regionSheetID = AppRegionManager.shared.getRegionGoogleSheet(appRegion: appRegion) ?? ""
+        let regionSheetID = AppRegionManager.shared.getRegionGoogleSheet() ?? ""
         let url = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)")!
 
         var request = URLRequest(url: url)

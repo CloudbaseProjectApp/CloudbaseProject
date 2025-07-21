@@ -188,6 +188,11 @@ func extractSection(from data: Substring, start: String, end: String) -> String?
     return String(data[startRange..<endRange])
 }
 
+func updateURL(url: String, parameter: String, value: String) -> String {
+    let placeholder = "{\(parameter)}"
+    return url.replacingOccurrences(of: placeholder, with: value)
+}
+
 func collapseTextLines(_ text: String?) -> String {
     // Set default if input is nil
     let nonOptionalText = text ?? ""
@@ -242,7 +247,6 @@ func formatNumbersInString(_ input: String) -> String {
     
     return formattedString as String
 }
-
 
 func removeTextInParentheses(_ text: String?) -> String {
     // Set default if input is nil

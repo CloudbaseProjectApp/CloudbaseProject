@@ -41,15 +41,49 @@ struct ModelData: Identifiable {
 
 class SoaringForecastViewModel: ObservableObject {
     @Published var soaringForecast: SoaringForecast?
+    @Published var isLoading = false
 
-    func fetchSoaringForecast(appRegion: String) {
-        guard let regionURL = URL(string: AppRegionManager.shared.getRegionSoaringForecastURL(appRegion: appRegion) ?? "")
-        else {
-            print("Invalid soaring forecast URL for region: \(appRegion)")
+    func fetchSoaringForecast(airportCode: String, forecastType: String) {
+        isLoading = true
+        
+        // Get base URL, update parameters, and format into URL format
+        var baseURL: String
+        if forecastType == "rich" {
+            guard let url = AppURLManager.shared.getAppURL(URLName: "soaringForecastRichSimple") else {
+                print("Could not find rich/simple soaring forecast URL for appRegion: \(RegionManager.shared.activeAppRegion)")
+                isLoading = false
+                return
+            }
+            baseURL = url
+        } else if forecastType == "basic" {
+            guard let url = AppURLManager.shared.getAppURL(URLName: "soaringForecastBasic") else {
+                print("Could not find basic soaring forecast URL for appRegion: \(RegionManager.shared.activeAppRegion)")
+                isLoading = false
+                return
+            }
+            baseURL = url
+        } else {
+            print("Invalid soaring forecast type (rich, basic): \(forecastType)")
+            isLoading = false
             return
         }
-        URLSession.shared.dataTask(with: regionURL) { [weak self] data, response, error in
-            guard let self = self, let data = data, error == nil else { return }
+        let updatedURL = updateURL(url: baseURL, parameter: "airportcode", value: airportCode)
+        
+        // Format URL
+        guard let URL = URL(string: updatedURL)
+        else {
+            print("Invalid soaring forecast URL for appRegion: \(RegionManager.shared.activeAppRegion)")
+            isLoading = false
+            return
+        }
+
+        // Process URL query
+        URLSession.shared.dataTask(with: URL) { [weak self] data, response, error in
+            guard let self = self else { return }
+            guard let data = data, error == nil else {
+                DispatchQueue.main.async { self.isLoading = false }
+                return
+            }
             if let content = String(data: data, encoding: .utf8) {
                 
                 // Check if this is an "SRG" formatted summer or winter forecast
@@ -84,36 +118,43 @@ class SoaringForecastViewModel: ObservableObject {
         guard let startRange = content.range(of: start)
         else {
             print("Soaring forecast: could not parse start date (e.g., no row for \(start))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         guard let dateRange = content.range(of: datePrefix, range: startRange.upperBound..<content.endIndex)
         else {
             print("Soaring forecast: could not parse date range (e.g., no row for \(datePrefix))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         guard let triggerTempRange = content.range(of: triggerTempPrefix, range: dateRange.upperBound..<content.endIndex)
         else {
             print("Soaring forecast: could not parse soaring forecast data range (e.g., no row for \(soaringForecastPrefix))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         guard let soaringForecastRange = content.range(of: soaringForecastPrefix, range: triggerTempRange.upperBound..<content.endIndex)
         else {
             print("Soaring forecast: could not parse soaring forecast data range (e.g., no row for \(soaringForecastPrefix))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         guard let remarksRange = content.range(of: remarksPrefix, range: soaringForecastRange.upperBound..<content.endIndex)
         else {
             print("Soaring forecast: could not parse remarks data range (e.g., no row for \(remarksPrefix))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         guard let soundingRange = content.range(of: soundingPrefix, range: remarksRange.upperBound..<content.endIndex)
         else {
             print("Soaring forecast: could not parse sounding data range (e.g., no row for \(soundingPrefix))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         guard let modelRange = content.range(of: modelPrefix, range: soundingRange.upperBound..<content.endIndex)
         else {
             print("Soaring forecast: could not parse model forecast data range (e.g., no row for \(soundingPrefix))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         // Forecast had typos on 5/8/2025; added code to fix for this scenario
@@ -123,6 +164,7 @@ class SoaringForecastViewModel: ObservableObject {
         guard let endRange = content.range(of: endPrefix, range: modelRange.upperBound..<content.endIndex)
         else {
             print("Could not parse end range (e.g., no row for \(endPrefix))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         
@@ -166,6 +208,7 @@ class SoaringForecastViewModel: ObservableObject {
         }
         
         DispatchQueue.main.async {
+            self.isLoading = false
             self.soaringForecast = SoaringForecast(date: date, soaringForecastFormat: "Rich", triggerTempData: triggerTempString, soaringForecastData: soaringForecast, soundingData: soundingData, richSoundingData: richSoundingData, modelData: modelData, forecastMaxTemp: forecastMaxTemp)
         }
     }
@@ -180,26 +223,31 @@ class SoaringForecastViewModel: ObservableObject {
         guard let startRange = content.range(of: start)
         else {
             print("Soaring forecast: could not parse start date (e.g., no row for \(start))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         guard let dateRange = content.range(of: datePrefix, range: startRange.upperBound..<content.endIndex)
         else {
             print("Soaring forecast: could not parse date range (e.g., no row for \(datePrefix))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         guard let SoaringForecastRange = content.range(of: soaringForecastPrefix, range: dateRange.upperBound..<content.endIndex)
         else {
             print("Soaring forecast: could not parse soaring forecast data range (e.g., no row for \(soaringForecastPrefix))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         guard let soundingRange = content.range(of: soundingPrefix, range: SoaringForecastRange.upperBound..<content.endIndex)
         else {
             print("Soaring forecast: could not parse sounding data range (e.g., no row for \(soundingPrefix))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         guard let endRange = content.range(of: endPrefix, range: soundingRange.upperBound..<content.endIndex)
         else {
             print("Could not parse end range (e.g., no row for \(endPrefix))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         let modelData: [ModelData] = []     // Not used in this forecast
@@ -239,6 +287,7 @@ class SoaringForecastViewModel: ObservableObject {
         }
         
         DispatchQueue.main.async {
+            self.isLoading = false
             self.soaringForecast = SoaringForecast(date: date,
                                                    soaringForecastFormat:   "Simple",
                                                    triggerTempData:         "",
@@ -353,26 +402,31 @@ class SoaringForecastViewModel: ObservableObject {
         guard let startRange = content.range(of: start)
         else {
             print("Basic soaring forecast: could not parse start date (e.g., no row for \(start))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         guard let dateRange = content.range(of: datePrefix, range: startRange.upperBound..<content.endIndex)
         else {
             print("Basic soaring forecast: could not parse date range (e.g., no row for \(datePrefix))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         guard let SoaringForecastRange = content.range(of: soaringForecastPrefix, range: dateRange.upperBound..<content.endIndex)
         else {
             print("Basic soaring forecast: could not parse soaring forecast data range (e.g., no row for \(soaringForecastPrefix))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         guard let soundingRange = content.range(of: soundingPrefix, range: SoaringForecastRange.upperBound..<content.endIndex)
         else {
             print("Basic soaring forecast: could not parse sounding data range (e.g., no row for \(soundingPrefix))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         guard let endRange = content.range(of: endPrefix, range: soundingRange.upperBound..<content.endIndex)
         else {
             print("Basic soaring forecast: Could not parse end range (e.g., no row for \(endPrefix))")
+            DispatchQueue.main.async { self.isLoading = false }
             return
         }
         let modelData: [ModelData] = []     // Not used in this forecast
@@ -412,6 +466,7 @@ class SoaringForecastViewModel: ObservableObject {
         }
         
         DispatchQueue.main.async {
+            self.isLoading = false
             self.soaringForecast = SoaringForecast(date: date,
                                                    soaringForecastFormat:   "Basic",
                                                    triggerTempData:         "",

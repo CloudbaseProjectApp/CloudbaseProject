@@ -196,7 +196,6 @@ class SkewTChartManager: ObservableObject {
 
 struct SkewTChartView: View {
     @StateObject var manager = SkewTChartManager()
-    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @ObservedObject private var soaringForecastViewModel = SoaringForecastViewModel()   // Used to get max surface temp for the day
     @State private var userTemp: String = ""
     

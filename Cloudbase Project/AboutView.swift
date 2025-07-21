@@ -37,7 +37,7 @@ struct AboutView: View {
                 {
                     ForEach(appRegionViewModel.appRegions, id: \.appRegion) { region in
                         Button(action: {
-                            userSettingsViewModel.appRegion = region.appRegion
+                            RegionManager.shared.activeAppRegion = region.appRegion
                             userSettingsViewModel.mapRegion = MKCoordinateRegion(
                                 center: CLLocationCoordinate2D(
                                     latitude: region.mapInitLatitude,
@@ -58,7 +58,7 @@ struct AboutView: View {
                                     .font(.subheadline)
                                     .foregroundColor(toolbarActiveFontColor)
                                 Spacer()
-                                if userSettingsViewModel.appRegion == region.appRegion {
+                                if RegionManager.shared.activeAppRegion == region.appRegion {
                                     Image(systemName: "checkmark")
                                         .font(.subheadline)
                                         .foregroundColor(toolbarActiveImageColor)
@@ -142,6 +142,10 @@ struct AboutView: View {
                     // Reset to defaults (clear user settings)
                     Button(action: {
                         userSettingsViewModel.clearUserSettings() {
+                            
+                            // Reset active app region
+                            RegionManager.shared.activeAppRegion = ""
+                            
                             // Trigger a change to appRefreshID to reload metadata by making BaseAppView reappear
                             refreshMetadata = true
                         }

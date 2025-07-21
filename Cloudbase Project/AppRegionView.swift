@@ -1,6 +1,9 @@
 import SwiftUI
 import MapKit
 
+// Allows initial select of global variable appRegion on app load
+// (appRegion can also be changed in AboutView).
+
 struct AppRegionView: View {
     @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
@@ -24,7 +27,7 @@ struct AppRegionView: View {
                         
                         ForEach(appRegionViewModel.appRegions, id: \.appRegion) { region in
                             Button(action: {
-                                userSettingsViewModel.appRegion = region.appRegion
+                                RegionManager.shared.activeAppRegion = region.appRegion
                                 userSettingsViewModel.mapRegion = MKCoordinateRegion(
                                     center: CLLocationCoordinate2D(
                                         latitude: region.mapInitLatitude,
@@ -35,7 +38,7 @@ struct AppRegionView: View {
                                         longitudeDelta: region.mapInitLongitudeSpan
                                     )
                                 )
-                                userSettingsViewModel.zoomLevel = region.mapDefaultZoomLevel                                
+                                userSettingsViewModel.zoomLevel = region.mapDefaultZoomLevel
                                 userSettingsViewModel.saveToStorage()
                                 dismiss()
                             }) {
@@ -44,7 +47,7 @@ struct AppRegionView: View {
                                         .font(.subheadline)
                                         .foregroundColor(toolbarActiveFontColor)
                                     Spacer()
-                                    if userSettingsViewModel.appRegion == region.appRegion {
+                                    if RegionManager.shared.activeAppRegion == region.appRegion {
                                         Image(systemName: "checkmark")
                                             .font(.subheadline)
                                             .foregroundColor(toolbarActiveImageColor)

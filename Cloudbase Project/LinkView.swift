@@ -4,7 +4,6 @@ import Foundation
 
 struct LinkView: View {
     @StateObject private var linkViewModel = LinkViewModel()
-    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @Environment(\.openURL) var openURL     // Used to open URL links as an in-app sheet using Safari
     @State private var externalURL: URL?    // Used to open URL links as an in-app sheet using Safari
@@ -21,7 +20,7 @@ struct LinkView: View {
             }
         }
         .onAppear {
-            linkViewModel.fetchLinks(appRegion: userSettingsViewModel.appRegion)
+            linkViewModel.fetchLinks()
         }
         // Used to open URL links as an in-app sheet using Safari
         .sheet(isPresented: $showWebView) {

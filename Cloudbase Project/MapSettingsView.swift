@@ -11,7 +11,6 @@ struct RadarColorScheme: Identifiable {
 // This view uses temporary variables while the sheet is open, then publishes when the sheet is closed.
 // This is done to prevent lag on this sheet each time a view item is changed.
 struct MapSettingsView: View {
-    @Binding var appRegion: String
     @Binding var selectedMapType: CustomMapStyle
     @Binding var pilotTrackDays: Double
     @Binding var mapDisplayMode: MapDisplayMode
@@ -22,13 +21,11 @@ struct MapSettingsView: View {
     @Binding var radarColorScheme: Int
     @Binding var selectedPilots: [Pilot]
     
-    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var pilotViewModel: PilotViewModel
     @EnvironmentObject var pilotTrackViewModel: PilotTrackViewModel
     @Environment(\.presentationMode) var presentationMode
 
     // Temporary state variables
-    @State private var tempAppRegion: String
     @State private var tempSelectedMapType: CustomMapStyle
     @State private var tempPilotTrackDays: Double
     @State private var tempMapDisplayMode: MapDisplayMode
@@ -48,8 +45,7 @@ struct MapSettingsView: View {
     @State private var pilotToActivate: Pilot?
     @State private var activatePilot = false
 
-    init(appRegion:         Binding<String>,
-         selectedMapType:   Binding<CustomMapStyle>,
+    init(selectedMapType:   Binding<CustomMapStyle>,
          pilotTrackDays:    Binding<Double>,
          mapDisplayMode:    Binding<MapDisplayMode>,
          showSites:         Binding<Bool>,
@@ -59,7 +55,6 @@ struct MapSettingsView: View {
          radarColorScheme:  Binding<Int>,
          selectedPilots:    Binding<[Pilot]>
     ) {
-        _appRegion =        appRegion
         _selectedMapType =  selectedMapType
         _pilotTrackDays =   pilotTrackDays
         _mapDisplayMode =   mapDisplayMode
@@ -71,7 +66,6 @@ struct MapSettingsView: View {
         _selectedPilots =   selectedPilots
         
         // Initialize temporary states with current values
-        _tempAppRegion =        State(initialValue: appRegion.wrappedValue)
         _tempSelectedMapType =  State(initialValue: selectedMapType.wrappedValue)
         _tempPilotTrackDays =   State(initialValue: pilotTrackDays.wrappedValue)
         _tempMapDisplayMode =   State(initialValue: mapDisplayMode.wrappedValue)
@@ -326,7 +320,6 @@ struct MapSettingsView: View {
         
         .onDisappear {
             // Update the main state variables when the sheet is dismissed
-            appRegion           = tempAppRegion
             selectedMapType     = tempSelectedMapType
             pilotTrackDays      = tempPilotTrackDays
             mapDisplayMode      = tempMapDisplayMode
@@ -340,7 +333,7 @@ struct MapSettingsView: View {
         }
         
         .sheet(isPresented: $addPilot, onDismiss: {
-            pilotViewModel.getPilots(appRegion: tempAppRegion) {
+            pilotViewModel.getPilots() {
                 resyncSelectedPilotIDs()
             }
         }) {
@@ -349,7 +342,7 @@ struct MapSettingsView: View {
         }
         
         .sheet(isPresented: $activatePilot, onDismiss: {
-            pilotViewModel.getPilots(appRegion: tempAppRegion) {
+            pilotViewModel.getPilots() {
                 resyncSelectedPilotIDs()
             }
         }) {
@@ -368,4 +361,3 @@ struct MapSettingsView: View {
       }
     }
 }
-

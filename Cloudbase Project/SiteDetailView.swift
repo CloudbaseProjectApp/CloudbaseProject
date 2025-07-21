@@ -69,7 +69,6 @@ struct ReadingsHistoryBarChartView: View {
 
 struct SiteDetailView: View {
     var site: Site  // Received from parent view
-    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel

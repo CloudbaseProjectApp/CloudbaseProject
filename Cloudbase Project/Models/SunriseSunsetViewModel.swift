@@ -21,13 +21,12 @@ class SunriseSunsetViewModel: ObservableObject {
     @Published var sunriseSunset: SunriseSunset?
     
     // Get sunrise / sunset for region
-    func getSunriseSunset(appRegion: String,
-                          completion: @escaping () -> Void) {
+    func getSunriseSunset(completion: @escaping () -> Void) {
         var sunriseSunset: SunriseSunset = .init(sunrise: "", sunset: "")
         
         // Get coordinates for region
-        guard let coords = AppRegionManager.shared.getRegionSunriseCoordinates(appRegion: appRegion) else {
-            print("Region not found fetching sunrise coordinates: \(appRegion)")
+        guard let coords = AppRegionManager.shared.getRegionSunriseCoordinates() else {
+            print("Region not found fetching sunrise coordinates: \(RegionManager.shared.activeAppRegion)")
             return
         }
         

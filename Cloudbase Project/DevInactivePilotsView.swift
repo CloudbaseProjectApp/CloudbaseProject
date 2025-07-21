@@ -93,10 +93,9 @@ struct PilotTrackInfoView: View {
                         .font(.caption)
                         .foregroundColor(.orange)
                     Button("Activate Pilot") {
-                        pilotViewModel.setPilotActiveStatus(appRegion: userSettingsViewModel.appRegion,
-                                                            pilot: pilot,
+                        pilotViewModel.setPilotActiveStatus(pilot: pilot,
                                                             isInactive: false)
-                        pilotViewModel.getPilots(appRegion: userSettingsViewModel.appRegion) {}
+                        pilotViewModel.getPilots() {}
                     }
                     .font(.caption)
                     .buttonStyle(BorderlessButtonStyle())
@@ -120,10 +119,9 @@ struct PilotTrackInfoView: View {
                             .foregroundColor(.yellow)
                             .foregroundColor(.orange)
                         Button("Deactivate Pilot") {
-                            pilotViewModel.setPilotActiveStatus(appRegion: userSettingsViewModel.appRegion,
-                                                                pilot: pilot,
+                            pilotViewModel.setPilotActiveStatus(pilot: pilot,
                                                                 isInactive: true)
-                            pilotViewModel.getPilots(appRegion: userSettingsViewModel.appRegion) {}
+                            pilotViewModel.getPilots() {}
                         }
                         .font(.caption)
                         .buttonStyle(BorderlessButtonStyle())

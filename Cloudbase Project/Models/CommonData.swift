@@ -7,7 +7,7 @@ import MapKit
 let devMenuAvailable: Bool = false
 let logThermalCalcs: Bool = false
 let printReadingsURL: Bool = false
-let printForecastURL: Bool = true
+let printForecastURL: Bool = false
 let printPilotTracksTimings: Bool = false
 let printPilotTrackURLs: Bool = false
 

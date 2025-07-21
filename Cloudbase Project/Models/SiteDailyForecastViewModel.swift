@@ -35,13 +35,12 @@ class DailyForecastViewModel: ObservableObject {
     // Make weather code images available in this view model
     init(weatherCodesViewModel: WeatherCodeViewModel) { self.weatherCodesViewModel = weatherCodesViewModel }
 
-    func fetchDailyWeatherData(appRegion: String,
-                               latitude: String,
+    func fetchDailyWeatherData(latitude: String,
                                longitude: String) {
         
-        let EncodedTimezone = AppRegionManager.shared.getRegionEncodedTimezone(appRegion: appRegion) ?? ""
+        let encodedTimezone = AppRegionManager.shared.getRegionEncodedTimezone() ?? ""
 
-        let dailyForecastURLString = "https://api.open-meteo.com/v1/forecast?latitude=\(latitude)&longitude=\(longitude)&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_mean,wind_gusts_10m_mean,wind_direction_10m_dominant,cloud_cover_mean,cloud_cover_max,cloud_cover_min&timezone=\(EncodedTimezone)&wind_speed_unit=mph&temperature_unit=fahrenheit&precipitation_unit=inch"
+        let dailyForecastURLString = "https://api.open-meteo.com/v1/forecast?latitude=\(latitude)&longitude=\(longitude)&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_mean,wind_gusts_10m_mean,wind_direction_10m_dominant,cloud_cover_mean,cloud_cover_max,cloud_cover_min&timezone=\(encodedTimezone)&wind_speed_unit=mph&temperature_unit=fahrenheit&precipitation_unit=inch"
         if printForecastURL { print(dailyForecastURLString) }
 
         guard let dailyForecastURL = URL(string: dailyForecastURLString) else { return }

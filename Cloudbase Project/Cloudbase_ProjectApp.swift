@@ -9,6 +9,8 @@ struct Cloudbase_ProjectApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var refreshMetadata: Bool = false
     @StateObject private var appRegionViewModel             = AppRegionViewModel()
+    @StateObject private var appRegionCodesViewModel        = AppRegionCodesViewModel()
+    @StateObject private var appURLViewModel                = AppURLViewModel()
     @StateObject private var liftParametersViewModel        = LiftParametersViewModel()
     @StateObject private var sunriseSunsetViewModel         = SunriseSunsetViewModel()
     @StateObject private var weatherCodesViewModel          = WeatherCodeViewModel()
@@ -29,9 +31,15 @@ struct Cloudbase_ProjectApp: App {
     )
     
     init() {
+        
+        // Configure picker to use different widths based on content text
+        UISegmentedControl.appearance().apportionsSegmentWidthsByContent = true
+        
         // Create each view‐model in the proper order, using locals
         // pilotTrackViewModel isn't created here; waiting for mapView to be accessed before creating
         let appRegionVM         = AppRegionViewModel()
+        let appRegionCodesVM    = AppRegionCodesViewModel()
+        let appURLVM            = AppURLViewModel()
         let liftVM              = LiftParametersViewModel()
         let sunVM               = SunriseSunsetViewModel()
         let weatherVM           = WeatherCodeViewModel()
@@ -39,7 +47,6 @@ struct Cloudbase_ProjectApp: App {
         let pilotVM             = PilotViewModel()
         let stationVM           = StationLatestReadingViewModel(siteViewModel: siteVM)
         let userSettingsVM      = UserSettingsViewModel(
-            appRegion:          "",
             mapRegion: MKCoordinateRegion(
                 center:     CLLocationCoordinate2D(
                     latitude:   mapDefaultLatitude,
@@ -60,12 +67,18 @@ struct Cloudbase_ProjectApp: App {
         // Populate app region view model (for user to select region and other metadata to load)
         appRegionVM.getAppRegions() {}
         
+        // Populate app URLs and region codes
+        appURLVM.getAppURLs() {}
+        appRegionCodesVM.getAppRegionCodes() {}
+        
         // Load user settings from storage
         userSettingsVM.loadFromStorage()
         _userSettingsViewModel = StateObject(wrappedValue: userSettingsVM)
         
         // Wire view models into their @StateObject wrappers:
         _appRegionViewModel             = StateObject(wrappedValue: appRegionVM)
+        _appRegionCodesViewModel        = StateObject(wrappedValue: appRegionCodesVM)
+        _appURLViewModel                = StateObject(wrappedValue: appURLVM)
         _liftParametersViewModel        = StateObject(wrappedValue: liftVM)
         _sunriseSunsetViewModel         = StateObject(wrappedValue: sunVM)
         _weatherCodesViewModel          = StateObject(wrappedValue: weatherVM)
@@ -80,6 +93,8 @@ struct Cloudbase_ProjectApp: App {
         WindowGroup {
             BaseAppView(refreshMetadata: $refreshMetadata)
                 .environmentObject(appRegionViewModel)
+                .environmentObject(appRegionCodesViewModel)
+                .environmentObject(appURLViewModel)
                 .environmentObject(liftParametersViewModel)
                 .environmentObject(weatherCodesViewModel)
                 .environmentObject(sunriseSunsetViewModel)
@@ -110,6 +125,8 @@ struct BaseAppView: View {
     @State private var metadataLoaded = false
     @State private var showAppRegionSelector: Bool = false
     @EnvironmentObject var appRegionViewModel: AppRegionViewModel
+    @EnvironmentObject var appURLViewModel: AppURLViewModel
+    @EnvironmentObject var appRegionCodesViewModel: AppRegionCodesViewModel
     @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
@@ -126,7 +143,7 @@ struct BaseAppView: View {
             VStack {
                 if isActive && metadataLoaded {
                     
-                    if self.userSettingsViewModel.appRegion.isEmpty {
+                    if RegionManager.shared.activeAppRegion.isEmpty {
                         // Empty view or placeholder while waiting for selection
                         Color.clear
                             .onAppear {
@@ -149,14 +166,14 @@ struct BaseAppView: View {
 
         .onAppear {
             
-            if !userSettingsViewModel.appRegion.isEmpty && !metadataLoaded {
+            if !RegionManager.shared.activeAppRegion.isEmpty && !metadataLoaded {
                 loadInitialMetadata()
             } else {
                 showAppRegionSelector = true
             }
         }
         
-        .onChange(of: userSettingsViewModel.appRegion) { _, newRegion in
+        .onChange(of: RegionManager.shared.activeAppRegion) { _, newRegion in
             if !newRegion.isEmpty && !metadataLoaded {
                 loadInitialMetadata()
             }
@@ -166,7 +183,7 @@ struct BaseAppView: View {
             if newValue {
                 isActive = false
                 metadataLoaded = false
-                if !userSettingsViewModel.appRegion.isEmpty {
+                if !RegionManager.shared.activeAppRegion.isEmpty {
                     loadInitialMetadata()
                 }
                 refreshMetadata = false
@@ -188,6 +205,16 @@ struct BaseAppView: View {
         appRegionViewModel.getAppRegions() {
             
             group.enter()
+            appURLViewModel.getAppURLs() {
+                group.leave()
+            }
+            
+            group.enter()
+            appRegionCodesViewModel.getAppRegionCodes() {
+                group.leave()
+            }
+            
+            group.enter()
             liftParametersViewModel.getLiftParameters {
                 group.leave()
             }
@@ -198,20 +225,20 @@ struct BaseAppView: View {
             }
             
             group.enter()
-            sunriseSunsetViewModel.getSunriseSunset(appRegion: userSettingsViewModel.appRegion) {
+            sunriseSunsetViewModel.getSunriseSunset() {
                 group.leave()
             }
 
             group.enter()
-            pilotViewModel.getPilots(appRegion: userSettingsViewModel.appRegion) {
+            pilotViewModel.getPilots() {
                 group.leave()
             }
             
             // Don't enter `group` for siteViewModel – handle its completion separately
             group.enter()
-            siteViewModel.getSites(appRegion: userSettingsViewModel.appRegion) {
+            siteViewModel.getSites() {
                 // Once site data is available, load stations using it
-                stationLatestReadingViewModel.getLatestReadingsData(appRegion: userSettingsViewModel.appRegion, sitesOnly: true) {
+                stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {
                     group.leave()
                 }
             }

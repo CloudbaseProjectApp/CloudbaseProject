@@ -23,7 +23,7 @@ class LinkViewModel: ObservableObject {
 
     private var cancellable: AnyCancellable?
 
-    func fetchLinks(appRegion: String) {
+    func fetchLinks() {
         isLoading = true
         
         let rangeName = "Links"
@@ -35,9 +35,9 @@ class LinkViewModel: ObservableObject {
             return
         }
         
-        guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(appRegion: appRegion),
+        guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(),
               let regionURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)") else {
-            print("Invalid or missing region Google Sheet ID for region: \(appRegion)")
+            print("Invalid or missing region Google Sheet ID for region: \(RegionManager.shared.activeAppRegion)")
             isLoading = false
             return
         }

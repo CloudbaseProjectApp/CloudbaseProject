@@ -690,7 +690,6 @@ func getPilotLabelHeightFromMapSpan(span: MKCoordinateSpan) -> CGFloat {
 }
 
 struct MapContainerView: View {
-    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
@@ -849,7 +848,6 @@ struct MapContainerView: View {
                             }
                             .sheet(isPresented: $isLayerSheetPresented) {
                                 MapSettingsView(
-                                    appRegion:          $userSettingsViewModel.appRegion,
                                     selectedMapType:    $userSettingsViewModel.selectedMapType,
                                     pilotTrackDays:     $userSettingsViewModel.pilotTrackDays,
                                     mapDisplayMode:     $userSettingsViewModel.mapDisplayMode,
@@ -926,8 +924,7 @@ struct MapContainerView: View {
                         stationAnnotationViewModel.siteViewModel = siteViewModel
                     }
                     DispatchQueue.main.async {
-                        stationLatestReadingViewModel.getLatestReadingsData (appRegion: userSettingsViewModel.appRegion,
-                                                                             sitesOnly: false) {
+                        stationLatestReadingViewModel.getLatestReadingsData (sitesOnly: false) {
                             stationAnnotationViewModel.stationLatestReadingViewModel = stationLatestReadingViewModel
                             stationAnnotationViewModel.updateStationAnnotations {
                                 stationAnnotationViewModel.clusterStationAnnotations(mapRegionSpan: userSettingsViewModel.mapRegion.span)
@@ -981,8 +978,7 @@ struct MapContainerView: View {
                             stationAnnotationViewModel.siteViewModel = siteViewModel
                         }
                         DispatchQueue.main.async {
-                            stationLatestReadingViewModel.getLatestReadingsData (appRegion: userSettingsViewModel.appRegion,
-                                                                                 sitesOnly: false) {
+                            stationLatestReadingViewModel.getLatestReadingsData (sitesOnly: false) {
                                 stationAnnotationViewModel.stationLatestReadingViewModel = stationLatestReadingViewModel
                                 stationAnnotationViewModel.updateStationAnnotations {
                                     stationAnnotationViewModel.clusterStationAnnotations(mapRegionSpan: userSettingsViewModel.mapRegion.span)
@@ -1066,8 +1062,7 @@ struct MapContainerView: View {
                         stationAnnotationViewModel.siteViewModel = siteViewModel
                     }
                     DispatchQueue.main.async {
-                        stationLatestReadingViewModel.getLatestReadingsData (appRegion: userSettingsViewModel.appRegion,
-                                                                             sitesOnly: false) {
+                        stationLatestReadingViewModel.getLatestReadingsData (sitesOnly: false) {
                             stationAnnotationViewModel.stationLatestReadingViewModel = stationLatestReadingViewModel
                             stationAnnotationViewModel.updateStationAnnotations {
                                 stationAnnotationViewModel.clusterStationAnnotations(mapRegionSpan: userSettingsViewModel.mapRegion.span)

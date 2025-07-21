@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct PilotAppendView: View {
-    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var pilotViewModel: PilotViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     
@@ -118,12 +117,11 @@ struct PilotAppendView: View {
                         hideKeyboard()
                         
                         // Add pilot to Google sheets
-                        pilotViewModel.addPilot(appRegion: userSettingsViewModel.appRegion,
-                                                pilotName: trimmedName,
+                        pilotViewModel.addPilot(pilotName: trimmedName,
                                                 trackingShareURL: trimmedURL)
 
                         // Force update to pilot listing
-                        pilotViewModel.getPilots(appRegion: userSettingsViewModel.appRegion) {
+                        pilotViewModel.getPilots() {
 
                             // Dismiss sheet and return to map settings
                             DispatchQueue.main.async {

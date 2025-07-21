@@ -17,14 +17,8 @@ struct AppRegion {
     let mapInitLatitudeSpan: Double         // Size of map on initial opening
     let mapInitLongitudeSpan: Double        // mapInitLatitudeSpan * 1.5
     let mapDefaultZoomLevel: Double
-    let forecastMapURL: String
-    let areaForecastDiscussionURL: String
-    let soaringForecastURL: String
-    let windsAloftForecastURL: String
-    let windsAloftCode: String
     let latestModelSoundingURL: String
     let latestModelSoundingCode: String
-    let weatherAlertsLink: String
 }
 
 struct AppRegionResponse: Codable {
@@ -65,14 +59,10 @@ class AppRegionViewModel: ObservableObject {
                     let mapInitLatitudeSpan = row.count > 9 ? Double(row[9]) ?? 0.0 : 0.0
                     let mapInitLongitudeSpan = row.count > 10 ? Double(row[10]) ?? 0.0 : 0.0
                     let mapDefaultZoomLevel = row.count > 11 ? Double(row[11]) ?? 0.0 : 0.0
-                    let forecastMapURL = row.count > 12 ? row[12] : ""
-                    let areaForecastDiscussionURL = row.count > 13 ? row[13] : ""
-                    let soaringForecastURL = row.count > 14 ? row[14] : ""
-                    let windsAloftForecastURL = row.count > 15 ? row[15] : ""
-                    let windsAloftCode = row.count > 16 ? row[16] : ""
-                    let latestModelSoundingURL = row.count > 17 ? row[17] : ""
-                    let latestModelSoundingCode = row.count > 18 ? row[18] : ""
-                    let weatherAlertsLink = row.count > 19 ? row[19] : ""
+                    
+// TO BE REMOVED
+                    let latestModelSoundingURL = row.count > 12 ? row[12] : ""
+                    let latestModelSoundingCode = row.count > 13 ? row[13] : ""
                     
                     // Make sure region, country, name, Google sheet, and time zone are populated
                     guard !appRegion.isEmpty,
@@ -96,14 +86,8 @@ class AppRegionViewModel: ObservableObject {
                                      mapInitLatitudeSpan: mapInitLatitudeSpan,
                                      mapInitLongitudeSpan: mapInitLongitudeSpan,
                                      mapDefaultZoomLevel: mapDefaultZoomLevel,
-                                     forecastMapURL: forecastMapURL,
-                                     areaForecastDiscussionURL: areaForecastDiscussionURL,
-                                     soaringForecastURL: soaringForecastURL,
-                                     windsAloftForecastURL: windsAloftForecastURL,
-                                     windsAloftCode: windsAloftCode,
                                      latestModelSoundingURL: latestModelSoundingURL,
                                      latestModelSoundingCode: latestModelSoundingCode,
-                                     weatherAlertsLink: weatherAlertsLink
                     )
                 }
             }

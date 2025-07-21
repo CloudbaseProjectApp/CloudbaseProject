@@ -36,7 +36,6 @@ struct UserFavoriteSite: Identifiable, Codable, Equatable {
 }
 
 class UserSettingsViewModel: ObservableObject {
-    @Published var appRegion: String
     @Published var mapRegion: MKCoordinateRegion
     @Published var zoomLevel: Double
     @Published var selectedMapType: CustomMapStyle
@@ -50,8 +49,7 @@ class UserSettingsViewModel: ObservableObject {
     @Published var selectedPilots: [Pilot]
     @Published var userFavoriteSites: [UserFavoriteSite]
     
-    init(appRegion:         String = "",
-         mapRegion:         MKCoordinateRegion,
+    init(mapRegion:         MKCoordinateRegion,
          zoomLevel:         Double = 6,
          selectedMapType:   CustomMapStyle = defaultmapType,
          pilotTrackDays:    Double = defaultPilotTrackDays,
@@ -64,7 +62,6 @@ class UserSettingsViewModel: ObservableObject {
          selectedPilots:    [Pilot] = [],
          userFavoriteSites: [UserFavoriteSite] = []
     ) {
-        self.appRegion          = appRegion
         self.mapRegion          = mapRegion
         self.zoomLevel          = zoomLevel
         self.selectedMapType    = selectedMapType
@@ -89,7 +86,6 @@ class UserSettingsViewModel: ObservableObject {
     // Persistent storage
     private let storageKey = "UserSettings"
     private struct PersistedSettings: Codable {
-        let appRegion:          String
         let centerLatitude:     Double
         let centerLongitude:    Double
         let spanLatitude:       Double
@@ -254,7 +250,6 @@ extension UserSettingsViewModel {
         }
         
         // Apply loaded values back into @Published properties
-        appRegion = stored.appRegion
         mapRegion = MKCoordinateRegion(
             center: CLLocationCoordinate2D(
                 latitude: stored.centerLatitude,
@@ -281,7 +276,6 @@ extension UserSettingsViewModel {
     // Call this to store persistence (e.g. on background/inactive)
     func saveToStorage() {
         let settings = PersistedSettings(
-            appRegion:         appRegion,
             centerLatitude:    mapRegion.center.latitude,
             centerLongitude:   mapRegion.center.longitude,
             spanLatitude:      mapRegion.span.latitudeDelta,
@@ -311,7 +305,6 @@ extension UserSettingsViewModel {
         UserDefaults.standard.removeObject(forKey: storageKey)
 
         // Remove from memory
-        appRegion          = ""
         mapRegion          = MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: mapDefaultLatitude, longitude: mapDefaultLongitude),
             span: MKCoordinateSpan(latitudeDelta: mapDefaultLatitudeSpan, longitudeDelta: mapDefaultLongitudeSpan)

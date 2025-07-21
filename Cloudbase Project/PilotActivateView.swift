@@ -3,7 +3,6 @@ import SwiftUI
 struct PilotActivateView: View {
     var pilot: Pilot
     
-    @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var pilotViewModel: PilotViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
 
@@ -55,12 +54,11 @@ struct PilotActivateView: View {
                             Button(action: {
                                 
                                 // Update Google sheets to activate pilot
-                                pilotViewModel.setPilotActiveStatus(appRegion: userSettingsViewModel.appRegion,
-                                                                    pilot: pilot,
+                                pilotViewModel.setPilotActiveStatus(pilot: pilot,
                                                                     isInactive: false)
 
                                 // Force update to pilot listing
-                                pilotViewModel.getPilots(appRegion: userSettingsViewModel.appRegion) {
+                                pilotViewModel.getPilots() {
 
                                     // Dismiss sheet and return to map settings
                                     DispatchQueue.main.async {

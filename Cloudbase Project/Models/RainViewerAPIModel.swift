@@ -49,7 +49,7 @@ struct SatelliteData: Decodable { let infrared: [Frame] }
 struct Frame: Decodable { let time: Int; let path: String }
 
 class RainViewerOverlayProvider {
-    private let apiURL = "https://api.rainviewer.com/public/weather-maps.json"
+    private let apiURL = rainviewerAPI
 
     func getRainViewerOverlays(
         radarColorScheme: Int
@@ -109,7 +109,6 @@ class RainViewerOverlayViewModel: ObservableObject {
     }
 
     func loadOverlays(radarColorScheme: Int) {
-        // flip on the spinner
         isLoading = true
 
         provider

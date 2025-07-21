@@ -19,16 +19,15 @@ class PilotViewModel: ObservableObject {
     @Published var pilots: [Pilot] = []
     private var cancellables = Set<AnyCancellable>()
     
-    func getPilots(appRegion: String,
-                   completion: @escaping () -> Void) {
+    func getPilots(completion: @escaping () -> Void) {
         
         let rangeName = "Pilots"
         
         // Build region sheet pilots URL
-        guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(appRegion: appRegion),
+        guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(),
               let regionURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)")
         else {
-            print("Invalid or missing region Google Sheet ID for region: \(appRegion)")
+            print("Invalid or missing region Google Sheet ID for region: \(RegionManager.shared.activeAppRegion)")
             DispatchQueue.main.async { completion() }
             return
         }
@@ -85,8 +84,7 @@ class PilotViewModel: ObservableObject {
         return pilots.first(where: { $0.pilotName == pilotName })?.trackingShareURL
     }
 
-    func addPilot(appRegion: String,
-                  pilotName: String,
+    func addPilot(pilotName: String,
                   trackingShareURL: String) {
         
         // Get an OAuth token
@@ -101,10 +99,10 @@ class PilotViewModel: ObservableObject {
             
             // Construct append URL
             let range = "Pilots"
-            guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(appRegion: appRegion),
+            guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(),
                   let regionURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(range):append?valueInputOption=RAW")
             else {
-                print("Cannot append pilot; invalid or missing region Google Sheet ID for region: \(appRegion)")
+                print("Cannot append pilot; invalid or missing region Google Sheet ID for region: \(RegionManager.shared.activeAppRegion)")
                 return
             }
 
@@ -137,8 +135,7 @@ class PilotViewModel: ObservableObject {
         }
     }
     
-    func setPilotActiveStatus(appRegion: String,
-                              pilot: Pilot,
+    func setPilotActiveStatus(pilot: Pilot,
                               isInactive: Bool) {
         
         // Get an OAuth token
@@ -153,10 +150,10 @@ class PilotViewModel: ObservableObject {
 
             // Read the existing Pilots sheet to find the row index
             let range = "Pilots"
-            guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(appRegion: appRegion),
+            guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(),
                   let readURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(range)")
             else {
-                print("Cannot get pilot data; invalid or missing region Google Sheet ID for region: \(appRegion)")
+                print("Cannot get pilot data; invalid or missing region Google Sheet ID for region: \(RegionManager.shared.activeAppRegion)")
                 return
             }
 
