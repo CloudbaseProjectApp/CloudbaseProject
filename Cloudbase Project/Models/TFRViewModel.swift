@@ -18,7 +18,7 @@ class TFRViewModel: ObservableObject {
     func fetchTFRs() {
         isLoading = true
         
-        guard let url = URL(string: TFRAPI) else {
+        guard let url = URL(string: AppURLManager.shared.getAppURL(URLName: "TFRAPI") ?? "<Unknown TFR API URL>") else {
             print("Error getting TFR API URL")
             isLoading = false
             return

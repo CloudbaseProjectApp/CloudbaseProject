@@ -156,6 +156,13 @@ func convertKMToMiles(_ km: Double) -> Double {
     return (km * 0.621371).rounded()
 }
 
+func convertFtMinToMSec(_ ftMin: Double) -> Double {
+    let mSec = ftMin * 0.00508
+    let mSecRounded = (mSec * 10).rounded() / 10
+    return (mSecRounded)
+}
+
+
 func formatAltitude(_ altitudeData: String) -> String {
     let numberFormatter = NumberFormatter()
     numberFormatter.numberStyle = .decimal

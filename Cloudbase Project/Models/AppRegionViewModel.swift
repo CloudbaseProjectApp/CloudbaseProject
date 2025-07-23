@@ -17,8 +17,6 @@ struct AppRegion {
     let mapInitLatitudeSpan: Double         // Size of map on initial opening
     let mapInitLongitudeSpan: Double        // mapInitLatitudeSpan * 1.5
     let mapDefaultZoomLevel: Double
-    let latestModelSoundingURL: String
-    let latestModelSoundingCode: String
 }
 
 struct AppRegionResponse: Codable {
@@ -60,10 +58,6 @@ class AppRegionViewModel: ObservableObject {
                     let mapInitLongitudeSpan = row.count > 10 ? Double(row[10]) ?? 0.0 : 0.0
                     let mapDefaultZoomLevel = row.count > 11 ? Double(row[11]) ?? 0.0 : 0.0
                     
-// TO BE REMOVED
-                    let latestModelSoundingURL = row.count > 12 ? row[12] : ""
-                    let latestModelSoundingCode = row.count > 13 ? row[13] : ""
-                    
                     // Make sure region, country, name, Google sheet, and time zone are populated
                     guard !appRegion.isEmpty,
                           !appCountry.isEmpty,
@@ -86,8 +80,6 @@ class AppRegionViewModel: ObservableObject {
                                      mapInitLatitudeSpan: mapInitLatitudeSpan,
                                      mapInitLongitudeSpan: mapInitLongitudeSpan,
                                      mapDefaultZoomLevel: mapDefaultZoomLevel,
-                                     latestModelSoundingURL: latestModelSoundingURL,
-                                     latestModelSoundingCode: latestModelSoundingCode,
                     )
                 }
             }

@@ -69,5 +69,16 @@ final class AppRegionCodesManager {
             }
     }
 
+    func getSoundingModelCodes() -> [(name: String, code: String)] {
+        return appRegionCodes
+            .filter { code in
+                code.appRegion == RegionManager.shared.activeAppRegion && !code.soundingModel.trimmingCharacters(in: .whitespaces).isEmpty
+            }
+            .map { code in
+                let resultCode = code.soundingModel == "Yes" ? code.stationCode : code.soundingModel
+                return (name: code.name, code: resultCode)
+            }
+    }
+
 
 }

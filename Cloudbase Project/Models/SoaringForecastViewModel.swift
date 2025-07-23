@@ -1,7 +1,8 @@
 import SwiftUI
 import Combine
 
-// Soaring Forecast and Sounding
+// Summer ("rich") and Winter ("simple") Soaring Forecast and Sounding
+
 struct SoaringForecast: Identifiable {
     let id = UUID()
     let date: String
@@ -42,28 +43,13 @@ struct ModelData: Identifiable {
 class SoaringForecastViewModel: ObservableObject {
     @Published var soaringForecast: SoaringForecast?
     @Published var isLoading = false
-
-    func fetchSoaringForecast(airportCode: String, forecastType: String) {
+    
+    func fetchSoaringForecast(airportCode: String) {
         isLoading = true
         
         // Get base URL, update parameters, and format into URL format
-        var baseURL: String
-        if forecastType == "rich" {
-            guard let url = AppURLManager.shared.getAppURL(URLName: "soaringForecastRichSimple") else {
-                print("Could not find rich/simple soaring forecast URL for appRegion: \(RegionManager.shared.activeAppRegion)")
-                isLoading = false
-                return
-            }
-            baseURL = url
-        } else if forecastType == "basic" {
-            guard let url = AppURLManager.shared.getAppURL(URLName: "soaringForecastBasic") else {
-                print("Could not find basic soaring forecast URL for appRegion: \(RegionManager.shared.activeAppRegion)")
-                isLoading = false
-                return
-            }
-            baseURL = url
-        } else {
-            print("Invalid soaring forecast type (rich, basic): \(forecastType)")
+        guard let baseURL = AppURLManager.shared.getAppURL(URLName: "soaringForecastRichSimple") else {
+            print("Could not find rich/simple soaring forecast URL for appRegion: \(RegionManager.shared.activeAppRegion)")
             isLoading = false
             return
         }
@@ -72,11 +58,11 @@ class SoaringForecastViewModel: ObservableObject {
         // Format URL
         guard let URL = URL(string: updatedURL)
         else {
-            print("Invalid soaring forecast URL for appRegion: \(RegionManager.shared.activeAppRegion)")
+            print("Invalid rich/simple soaring forecast URL for appRegion: \(RegionManager.shared.activeAppRegion)")
             isLoading = false
             return
         }
-
+        
         // Process URL query
         URLSession.shared.dataTask(with: URL) { [weak self] data, response, error in
             guard let self = self else { return }
@@ -86,19 +72,15 @@ class SoaringForecastViewModel: ObservableObject {
             }
             if let content = String(data: data, encoding: .utf8) {
                 
-                // Check if this is an "SRG" formatted summer or winter forecast
-                if content.contains("SRG") {
-                    // Check if the output is formatted using the summer (rich) forecast
-                    if content.contains("Soaring Forecast") {
-                        self.parseRichSoaringForecast(content: content)
-                    }
-                    // The winter (simple) version should contain "SOARING FORECAST" instead
-                    else {
-                        self.parseSimpleSoaringForecast(content: content)
-                    }
-                } else {
-                    self.parseBasicSoaringForecast(content: content)
+                // Check if the output is formatted using the summer (rich) forecast
+                if content.contains("Soaring Forecast") {
+                    self.parseRichSoaringForecast(content: content)
                 }
+                // The winter (simple) version should contain "SOARING FORECAST" instead
+                else {
+                    self.parseSimpleSoaringForecast(content: content)
+                }
+                
             }
         }.resume()
     }
@@ -209,7 +191,7 @@ class SoaringForecastViewModel: ObservableObject {
         
         DispatchQueue.main.async {
             self.isLoading = false
-            self.soaringForecast = SoaringForecast(date: date, soaringForecastFormat: "Rich", triggerTempData: triggerTempString, soaringForecastData: soaringForecast, soundingData: soundingData, richSoundingData: richSoundingData, modelData: modelData, forecastMaxTemp: forecastMaxTemp)
+            self.soaringForecast = SoaringForecast(date: date, soaringForecastFormat: "rich", triggerTempData: triggerTempString, soaringForecastData: soaringForecast, soundingData: soundingData, richSoundingData: richSoundingData, modelData: modelData, forecastMaxTemp: forecastMaxTemp)
         }
     }
     
@@ -232,13 +214,13 @@ class SoaringForecastViewModel: ObservableObject {
             DispatchQueue.main.async { self.isLoading = false }
             return
         }
-        guard let SoaringForecastRange = content.range(of: soaringForecastPrefix, range: dateRange.upperBound..<content.endIndex)
+        guard let soaringForecastRange = content.range(of: soaringForecastPrefix, range: dateRange.upperBound..<content.endIndex)
         else {
             print("Soaring forecast: could not parse soaring forecast data range (e.g., no row for \(soaringForecastPrefix))")
             DispatchQueue.main.async { self.isLoading = false }
             return
         }
-        guard let soundingRange = content.range(of: soundingPrefix, range: SoaringForecastRange.upperBound..<content.endIndex)
+        guard let soundingRange = content.range(of: soundingPrefix, range: soaringForecastRange.upperBound..<content.endIndex)
         else {
             print("Soaring forecast: could not parse sounding data range (e.g., no row for \(soundingPrefix))")
             DispatchQueue.main.async { self.isLoading = false }
@@ -252,7 +234,7 @@ class SoaringForecastViewModel: ObservableObject {
         }
         let modelData: [ModelData] = []     // Not used in this forecast
         let date = String(content[dateRange.upperBound...].prefix(9)).trimmingCharacters(in: .whitespacesAndNewlines)
-        let soaringForecastDataString = removeExtraBlankLines(String(content[SoaringForecastRange.upperBound..<soundingRange.lowerBound]))
+        let soaringForecastDataString = removeExtraBlankLines(String(content[soaringForecastRange.upperBound..<soundingRange.lowerBound]))
         let soaringForecast = parseSimpleSoaringForecastData(soaringForecastDataString)
         let soundingDataString = removeExtraBlankLines(String(content[soundingRange.upperBound..<endRange.lowerBound]))
         let soundingData = soundingDataString
@@ -270,12 +252,12 @@ class SoaringForecastViewModel: ObservableObject {
                 let windSpeedMph = convertKnotsToMPH(Int(windSpeed))
                 let altitudeString = formatAltitude(String(altitude))
                 return SoundingData(altitude: altitudeString, windDirection: windDirection, windSpeed: windSpeedMph)
-        }
+            }
         
         // pass back default for rich sounding data (not used)
         var richSoundingData: [RichSoundingData] = []
         richSoundingData.append(RichSoundingData(altitude: 0, temperatureF: 0.0, windDirection: 0, windSpeedKt: 0, thermalIndex: 0.0, liftRateMs: 0.0))
-
+        
         // Find forecast max temp to use in skew-T diagarm
         var forecastMaxTemp: Int = 0
         let pattern = "forecast max temp\\s+(\\d+\\.?\\d*)"
@@ -391,92 +373,4 @@ class SoaringForecastViewModel: ObservableObject {
         }
         return dataRows
     }
-    
-    // Winter soaring forecast with limited data
-    func parseBasicSoaringForecast(content: String) {
-        let start = "SOARING FORECAST FOR "
-        let datePrefix = "DATE..."
-        let soaringForecastPrefix = "HEIGHT OF THE -3 THERMAL INDEX..."
-        let soundingPrefix = "UPPER LEVEL WINDS "
-        let endPrefix = "IT IS EMPHASIZED..."
-        guard let startRange = content.range(of: start)
-        else {
-            print("Basic soaring forecast: could not parse start date (e.g., no row for \(start))")
-            DispatchQueue.main.async { self.isLoading = false }
-            return
-        }
-        guard let dateRange = content.range(of: datePrefix, range: startRange.upperBound..<content.endIndex)
-        else {
-            print("Basic soaring forecast: could not parse date range (e.g., no row for \(datePrefix))")
-            DispatchQueue.main.async { self.isLoading = false }
-            return
-        }
-        guard let SoaringForecastRange = content.range(of: soaringForecastPrefix, range: dateRange.upperBound..<content.endIndex)
-        else {
-            print("Basic soaring forecast: could not parse soaring forecast data range (e.g., no row for \(soaringForecastPrefix))")
-            DispatchQueue.main.async { self.isLoading = false }
-            return
-        }
-        guard let soundingRange = content.range(of: soundingPrefix, range: SoaringForecastRange.upperBound..<content.endIndex)
-        else {
-            print("Basic soaring forecast: could not parse sounding data range (e.g., no row for \(soundingPrefix))")
-            DispatchQueue.main.async { self.isLoading = false }
-            return
-        }
-        guard let endRange = content.range(of: endPrefix, range: soundingRange.upperBound..<content.endIndex)
-        else {
-            print("Basic soaring forecast: Could not parse end range (e.g., no row for \(endPrefix))")
-            DispatchQueue.main.async { self.isLoading = false }
-            return
-        }
-        let modelData: [ModelData] = []     // Not used in this forecast
-        let date = String(content[dateRange.upperBound...].prefix(9)).trimmingCharacters(in: .whitespacesAndNewlines)
-        let soaringForecastDataString = removeExtraBlankLines(String(content[SoaringForecastRange.upperBound..<soundingRange.lowerBound]))
-        let soaringForecast = parseSimpleSoaringForecastData(soaringForecastDataString)
-        let soundingDataString = removeExtraBlankLines(String(content[soundingRange.upperBound..<endRange.lowerBound]))
-        let soundingData = soundingDataString
-            .replacingOccurrences(of: " FT ASL", with: "")
-            .replacingOccurrences(of: ".", with: "")
-            .split(separator: "\n")
-            .compactMap { line -> SoundingData? in
-                let components = line.split(separator: " ")
-                guard components.count >= 6,
-                      let altitude = components.first,
-                      let windDirection = Int(components[1]),
-                      let windSpeed = Int(components[4])
-                else {
-                    return nil }
-                let windSpeedMph = convertKnotsToMPH(Int(windSpeed))
-                let altitudeString = formatAltitude(String(altitude))
-                return SoundingData(altitude: altitudeString, windDirection: windDirection, windSpeed: windSpeedMph)
-        }
-        
-        // pass back default for rich sounding data (not used)
-        var richSoundingData: [RichSoundingData] = []
-        richSoundingData.append(RichSoundingData(altitude: 0, temperatureF: 0.0, windDirection: 0, windSpeedKt: 0, thermalIndex: 0.0, liftRateMs: 0.0))
-
-        // Find forecast max temp to use in skew-T diagarm
-        var forecastMaxTemp: Int = 0
-        let pattern = "forecast max temp\\s+(\\d+\\.?\\d*)"
-        let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive)
-        let nsString = soaringForecastDataString as NSString
-        let results = regex?.matches(in: soaringForecastDataString, options: [], range: NSRange(location: 0, length: nsString.length))
-        if let match = results?.first, let range = Range(match.range(at: 1), in: soaringForecastDataString) {
-            forecastMaxTemp = Int(soaringForecastDataString[range]) ?? 0
-        }
-        
-        DispatchQueue.main.async {
-            self.isLoading = false
-            self.soaringForecast = SoaringForecast(date: date,
-                                                   soaringForecastFormat:   "Basic",
-                                                   triggerTempData:         "",
-                                                   soaringForecastData:     soaringForecast,
-                                                   soundingData:            soundingData.reversed(),
-                                                   richSoundingData:        richSoundingData,
-                                                   modelData:               modelData,
-                                                   forecastMaxTemp:         forecastMaxTemp)
-        }
-    }
-
-
 }

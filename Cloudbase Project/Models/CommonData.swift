@@ -25,7 +25,6 @@ let cloudbaseProjectTelegramLink: String = "https://t.me/+bSHu5KTsRkU1M2Mx"
 // HTTP links and APIs
 let globalGoogleSheetID =       "18EU5k34_nhOa7Qv_SA5oMeEWpD00pWDHiAC0Nh7vUho"
 let weatherAlertsAPI: String =  "https://api.weather.gov/alerts/active?area=" // Append state code to end
-let TFRAPI: String =            "https://tfr.faa.gov/tfrapi/exportTfrList"
 let uDOTCamerasAPI: String = "https://www.udottraffic.utah.gov/api/v2/get/cameras?key=\(UDOTCamerasAPIKey)&format=json"
 let uDOTCamerasLink: String = "https://www.udottraffic.utah.gov"
 let ipCamLink: String = "https://apps.apple.com/us/app/ip-camera-viewer-ipcams/id1045600272"

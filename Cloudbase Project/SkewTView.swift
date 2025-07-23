@@ -162,15 +162,13 @@ class SkewTChartManager: ObservableObject {
         return skewTLiftParameters
     }
     
-    func populateSoaringForecast() {
+    func populateSoaringForecast(forecastMaxTemp: Int) {
         
         // Use soaringForecastViewModel to get forecast max temp
-        if let forecastMaxTemp = soaringForecastViewModel?.soaringForecast?.forecastMaxTemp {
-            self.maxTempF = Double(forecastMaxTemp)
-        } else {
-            self.maxTempF = 0 // Default value if not available
-        }
+        self.maxTempF = Double(forecastMaxTemp)
 
+print("max temp found is: \(self.maxTempF)")
+        
         // Get sounding data
         let soundingURL = URL(string: "https://storage.googleapis.com/wasatch-wind-static/raob.json")!
         URLSession.shared.dataTask(with: soundingURL) { [weak self] data2, response2, error2 in
@@ -195,6 +193,8 @@ class SkewTChartManager: ObservableObject {
 }
 
 struct SkewTChartView: View {
+    let forecastMaxTemp: Int
+    
     @StateObject var manager = SkewTChartManager()
     @ObservedObject private var soaringForecastViewModel = SoaringForecastViewModel()   // Used to get max surface temp for the day
     @State private var userTemp: String = ""
@@ -410,8 +410,7 @@ struct SkewTChartView: View {
         .background(tableBackgroundColor)
         .cornerRadius(8)
         .onAppear {
-            manager.soaringForecastViewModel = soaringForecastViewModel
-            manager.populateSoaringForecast()
+            manager.populateSoaringForecast(forecastMaxTemp: forecastMaxTemp)
         }
     }
 
