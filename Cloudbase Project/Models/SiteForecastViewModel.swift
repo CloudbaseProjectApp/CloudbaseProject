@@ -123,11 +123,12 @@ class SiteForecastViewModel: ObservableObject {
 
         // Get forecast
         // Using "best match" model, which equates to GFS Seamless, which means HRRR for short term and GFS for long term forecasts
-        let forecastURLString = "https://api.open-meteo.com/v1/forecast?latitude=\(latitude)&longitude=\(longitude)&hourly=temperature_2m,relativehumidity_2m,dewpoint_2m,pressure_msl,surface_pressure,precipitation,precipitation_probability,weathercode,cloudcover,cloudcover_low,cloudcover_mid,cloudcover_high,cape,lifted_index,windspeed_10m,windspeed_80m,winddirection_10m,windgusts_10m,temperature_950hPa,temperature_900hPa,temperature_850hPa,temperature_800hPa,temperature_750hPa,temperature_700hPa,temperature_650hPa,temperature_600hPa,temperature_550hPa,temperature_500hPa,dewpoint_950hPa,dewpoint_900hPa,dewpoint_850hPa,dewpoint_800hPa,dewpoint_750hPa,dewpoint_700hPa,dewpoint_650hPa,dewpoint_600hPa,dewpoint_550hPa,dewpoint_500hPa,windspeed_950hPa,windspeed_900hPa,windspeed_850hPa,windspeed_800hPa,windspeed_750hPa,windspeed_700hPa,windspeed_650hPa,windspeed_600hPa,windspeed_550hPa,windspeed_500hPa,winddirection_950hPa,winddirection_900hPa,winddirection_850hPa,winddirection_800hPa,winddirection_750hPa,winddirection_700hPa,winddirection_650hPa,winddirection_600hPa,winddirection_550hPa,winddirection_500hPa,geopotential_height_950hPa,geopotential_height_900hPa,geopotential_height_850hPa,geopotential_height_800hPa,geopotential_height_750hPa,geopotential_height_700hPa,geopotential_height_650hPa,geopotential_height_600hPa,geopotential_height_550hPa,geopotential_height_500hPa&current_weather=true&windspeed_unit=mph&precipitation_unit=inch&timezone=\(encodedTimezone)"
-        
-        if printForecastURL { print(forecastURLString) }
-        
-        guard let forecastURL = URL(string: forecastURLString) else { return }
+        let baseForecastURL = AppURLManager.shared.getAppURL(URLName: "forecastURL") ?? "<Unknown forecast URL>"
+        var updatedForecastURL = updateURL(url: baseForecastURL, parameter: "latitude", value: latitude)
+        updatedForecastURL = updateURL(url: updatedForecastURL, parameter: "longitude", value: longitude)
+        updatedForecastURL = updateURL(url: updatedForecastURL, parameter: "encodedTimezone", value: encodedTimezone)
+        if printForecastURL { print(updatedForecastURL) }
+        guard let forecastURL = URL(string: updatedForecastURL) else { return }
         URLSession.shared.dataTask(with: forecastURL) { data, response, error in
             if let data = data {
                 let decoder = JSONDecoder()

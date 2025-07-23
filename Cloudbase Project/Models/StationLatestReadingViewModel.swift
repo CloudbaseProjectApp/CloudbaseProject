@@ -179,8 +179,9 @@ class StationLatestReadingViewModel: ObservableObject {
     }
         
     func getLatestMesonetReadings(stationParameters: String, completion: @escaping ([StationLatestReading]) -> Void) {
-        let urlString = latestReadingsAPIHeader + stationParameters + latestReadingsAPITrailer + synopticsAPIToken
-        guard let url = URL(string: urlString) else { return }
+        let readingsLink = AppURLManager.shared.getAppURL(URLName: "mesonetLatestReadingsAPI") ?? "<Unknown Mesonet readings API URL>"
+        let updatedReadingsLink = updateURL(url: readingsLink, parameter: "stationlist", value: stationParameters) + synopticsAPIToken
+        guard let url = URL(string: updatedReadingsLink) else { return }
         if printReadingsURL {
             print("Latest readings stationParameters: \(stationParameters)")
             print("Latest readings URL: \(url)")
@@ -240,8 +241,9 @@ class StationLatestReadingViewModel: ObservableObject {
 
         for station in CUASAStations {
             group.enter()
-            let stationURLString = "https://sierragliding.us/api/station/" + station.readingsStation
-            guard let stationInfoURL = URL(string: stationURLString) else {
+            let readingsLink = AppURLManager.shared.getAppURL(URLName: "CUASALatestReadingsAPI") ?? "<Unknown CUASA latest readings API URL>"
+            let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: station.readingsStation)
+            guard let stationInfoURL = URL(string: updatedReadingsLink) else {
                 group.leave()
                 continue
             }
@@ -254,9 +256,12 @@ class StationLatestReadingViewModel: ObservableObject {
 
                 do {
                     let CUASAStationInfo = try JSONDecoder().decode(CUASAStationData.self, from: data)
-
-                    let urlString = "https://sierragliding.us/api/station/" + station.readingsStation + "/data?start=\(readingStart)&end=\(readingEnd)&sample=\(readingInterval)"
-                    guard let readingsURL = URL(string: urlString) else {
+                    let readingsLink = AppURLManager.shared.getAppURL(URLName: "CUASAHistoryReadingsAPI") ?? "<Unknown CUASA readings history API URL>"
+                    var updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: station.readingsStation)
+                    updatedReadingsLink = updateURL(url: updatedReadingsLink, parameter: "readingStart", value: String(readingStart))
+                    updatedReadingsLink = updateURL(url: updatedReadingsLink, parameter: "readingEnd", value: String(readingEnd))
+                    updatedReadingsLink = updateURL(url: updatedReadingsLink, parameter: "readingInterval", value: String(readingInterval))
+                    guard let readingsURL = URL(string: updatedReadingsLink) else {
                         DispatchQueue.main.async { group.leave() }
                         return
                     }

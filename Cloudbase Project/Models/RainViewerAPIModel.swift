@@ -49,7 +49,7 @@ struct SatelliteData: Decodable { let infrared: [Frame] }
 struct Frame: Decodable { let time: Int; let path: String }
 
 class RainViewerOverlayProvider {
-    private let apiURL = rainviewerAPI
+    private let apiURL = AppURLManager.shared.getAppURL(URLName: "rainviewerAPI") ?? "<Unknown Rainviewer API URL>"
 
     func getRainViewerOverlays(
         radarColorScheme: Int

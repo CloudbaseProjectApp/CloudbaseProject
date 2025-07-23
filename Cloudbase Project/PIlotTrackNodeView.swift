@@ -466,8 +466,10 @@ struct PilotTrackNodeView: View {
     }
     
     private func fetchGroundElevation(latitude: Double, longitude: Double) {
-        let urlString = "https://api.open-meteo.com/v1/elevation?latitude=\(latitude)&longitude=\(longitude)"
-        guard let url = URL(string: urlString) else { return }
+        let baseURL = AppURLManager.shared.getAppURL(URLName: "groundElevation") ?? "<Unknown ground elevation URL>"
+        var updatedURL = updateURL(url: baseURL, parameter: "latitude", value: String(latitude))
+        updatedURL = updateURL(url: updatedURL, parameter: "longitude", value: String(longitude))
+        guard let url = URL(string: updatedURL) else { return }
         URLSession.shared.dataTaskPublisher(for: url)
             .map { $0.data }
             .decode(type: ElevationResponse.self, decoder: JSONDecoder())
@@ -494,8 +496,10 @@ struct PilotTrackNodeView: View {
         let elevationPublishers = pages.map { page -> AnyPublisher<[Int], Never> in
             let latList = page.map { "\($0.latitude)" }.joined(separator: ",")
             let lonList = page.map { "\($0.longitude)" }.joined(separator: ",")
-            let urlString = "https://api.open-meteo.com/v1/elevation?latitude=\(latList)&longitude=\(lonList)"
-            guard let url = URL(string: urlString) else {
+            let baseURL = AppURLManager.shared.getAppURL(URLName: "groundElevation") ?? "<Unknown ground elevation URL>"
+            var updatedURL = updateURL(url: baseURL, parameter: "latitude", value: latList)
+            updatedURL = updateURL(url: updatedURL, parameter: "longitude", value: lonList)
+            guard let url = URL(string: updatedURL) else {
                 // if URL fails, return an empty array immediately
                 return Just([Int]()).eraseToAnyPublisher()
             }

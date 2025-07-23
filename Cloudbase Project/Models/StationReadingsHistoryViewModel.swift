@@ -39,9 +39,9 @@ class StationReadingsHistoryDataModel: ObservableObject {
     func GetReadingsHistoryData(stationID: String, readingsSource: String) {
         switch readingsSource {
         case "Mesonet":
-            let parameters = "&stid=\(stationID)"
-            let urlString = historyReadingsAPIHeader + parameters + historyReadingsAPITrailer + synopticsAPIToken
-            let url = URL(string: urlString)!
+            let readingsLink = AppURLManager.shared.getAppURL(URLName: "mesonetHistoryReadingsAPI") ?? "<Unknown Mesonet readings history API URL>"
+            let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: stationID) + synopticsAPIToken
+            let url = URL(string: updatedReadingsLink)!
             if printReadingsURL { print(url) }
             cancellable = URLSession.shared.dataTaskPublisher(for: url)
                 .map { $0.data }
@@ -84,8 +84,13 @@ class StationReadingsHistoryDataModel: ObservableObject {
             let readingInterval: Double = 5 * 60 // 5 minutes in seconds
             let readingEnd = Date().timeIntervalSince1970 // current timestamp in seconds
             let readingStart = readingEnd - (readingInterval * 10) // to ensure >= 8 readings
-            let urlString = "https://sierragliding.us/api/station/" + stationID + "/data?start=" + String(readingStart) + "&end=" + String(readingEnd) + "&sample=" + String(readingInterval)
-            guard let url = URL(string: urlString) else {
+            let readingsLink = AppURLManager.shared.getAppURL(URLName: "CUASAHistoryReadingsAPI") ?? "<Unknown CUASA readings history API URL>"
+            var updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: stationID)
+            updatedReadingsLink = updateURL(url: updatedReadingsLink, parameter: "readingStart", value: String(readingStart))
+            updatedReadingsLink = updateURL(url: updatedReadingsLink, parameter: "readingEnd", value: String(readingEnd))
+            updatedReadingsLink = updateURL(url: updatedReadingsLink, parameter: "readingInterval", value: String(readingInterval))
+
+            guard let url = URL(string: updatedReadingsLink) else {
                 self.readingsHistoryData.errorMessage = "Invalid CUASA readings URL"
                 print("Invalid CUASA readings URL")
                 return

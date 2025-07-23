@@ -30,8 +30,10 @@ class SunriseSunsetViewModel: ObservableObject {
             return
         }
         
-        let urlString = "https://api.sunrise-sunset.org/json?lat=\(coords.latitude)&lng=\(coords.longitude)&formatted=0"
-        guard let url = URL(string: urlString) else {
+        let baseURL = AppURLManager.shared.getAppURL(URLName: "sunriseSunsetAPI") ?? "<Unknown sunrise/sunset URL>"
+        var updatedURL = updateURL(url: baseURL, parameter: "latitude", value: String(coords.latitude))
+        updatedURL = updateURL(url: updatedURL, parameter: "longitude", value: String(coords.longitude))
+        guard let url = URL(string: updatedURL) else {
             print("Invalid URL for sunrise and sunset times")
             DispatchQueue.main.async { completion() }
             return

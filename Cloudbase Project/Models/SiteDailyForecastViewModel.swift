@@ -39,11 +39,12 @@ class DailyForecastViewModel: ObservableObject {
                                longitude: String) {
         
         let encodedTimezone = AppRegionManager.shared.getRegionEncodedTimezone() ?? ""
-
-        let dailyForecastURLString = "https://api.open-meteo.com/v1/forecast?latitude=\(latitude)&longitude=\(longitude)&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_mean,wind_gusts_10m_mean,wind_direction_10m_dominant,cloud_cover_mean,cloud_cover_max,cloud_cover_min&timezone=\(encodedTimezone)&wind_speed_unit=mph&temperature_unit=fahrenheit&precipitation_unit=inch"
-        if printForecastURL { print(dailyForecastURLString) }
-
-        guard let dailyForecastURL = URL(string: dailyForecastURLString) else { return }
+        let baseDailyForecastURL = AppURLManager.shared.getAppURL(URLName: "dailyForecastURL") ?? "<Unknown daily forecast URL>"
+        var updatedDailyForecastURL = updateURL(url: baseDailyForecastURL, parameter: "latitude", value: latitude)
+        updatedDailyForecastURL = updateURL(url: updatedDailyForecastURL, parameter: "longitude", value: longitude)
+        updatedDailyForecastURL = updateURL(url: updatedDailyForecastURL, parameter: "encodedTimezone", value: encodedTimezone)
+        if printForecastURL { print(updatedDailyForecastURL) }
+        guard let dailyForecastURL = URL(string: updatedDailyForecastURL) else { return }
         URLSession.shared.dataTask(with: dailyForecastURL) { [weak self] data, response, error in
             if let data = data {
                 let decoder = JSONDecoder()

@@ -98,7 +98,9 @@ struct WeatherView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                             .contentShape(Rectangle())      // Makes entire area tappable
                             .onTapGesture {
-                                if let url = URL(string: "https://tfr.faa.gov/tfr3/?page=detail_\(tfr.notam_id.replacingOccurrences(of: "/", with: "_"))") {
+                                let tfrLink = AppURLManager.shared.getAppURL(URLName: "TFRLink") ?? "<Unknown TFR link URL>"
+                                let updatedTFRLinkURL = updateURL(url: tfrLink, parameter: "notamID", value: tfr.notam_id.replacingOccurrences(of: "/", with: "_"))
+                                if let url = URL(string: updatedTFRLinkURL) {
                                     openLink(url)
                                 }
                             }

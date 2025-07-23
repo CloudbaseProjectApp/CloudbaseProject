@@ -190,11 +190,15 @@ struct SiteDetailView: View {
                     .onTapGesture {
                         switch site.readingsSource {
                         case "Mesonet":
-                            if let url = URL(string: "https://www.weather.gov/wrh/timeseries?site=\(site.readingsStation)&hours=48&units=english&chart=off&headers=none&obs=tabular") {
+                            let readingsLink = AppURLManager.shared.getAppURL(URLName: "mesonetHistoryReadingsLink") ?? "<Unknown Mesonet readings history URL>"
+                            let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: site.readingsStation)
+                            if let url = URL(string: updatedReadingsLink) {
                                 openLink(url)
                             }
                         case "CUASA":
-                            if let url = URL(string: "https://sierragliding.us/cuasa/#station=\(site.readingsStation)") {
+                            let readingsLink = AppURLManager.shared.getAppURL(URLName: "CUASAHistoryReadingsLink") ?? "<Unknown CUASA readings history URL>"
+                            let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: site.readingsStation)
+                            if let url = URL(string: updatedReadingsLink) {
                                 openLink(url)
                             }
                         default:

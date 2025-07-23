@@ -7,7 +7,7 @@ import MapKit
 let devMenuAvailable: Bool = false
 let logThermalCalcs: Bool = false
 let printReadingsURL: Bool = false
-let printForecastURL: Bool = false
+let printForecastURL: Bool = true
 let printPilotTracksTimings: Bool = false
 let printPilotTrackURLs: Bool = false
 
@@ -24,20 +24,10 @@ let cloudbaseProjectTelegramLink: String = "https://t.me/+bSHu5KTsRkU1M2Mx"
 
 // HTTP links and APIs
 let globalGoogleSheetID =       "18EU5k34_nhOa7Qv_SA5oMeEWpD00pWDHiAC0Nh7vUho"
-let weatherAlertsAPI: String =  "https://api.weather.gov/alerts/active?area=" // Append state code to end
 let uDOTCamerasAPI: String = "https://www.udottraffic.utah.gov/api/v2/get/cameras?key=\(UDOTCamerasAPIKey)&format=json"
 let uDOTCamerasLink: String = "https://www.udottraffic.utah.gov"
 let ipCamLink: String = "https://apps.apple.com/us/app/ip-camera-viewer-ipcams/id1045600272"
 let UHGPGAcamsLink: String = "https://www.uhgpga.org/webcams"
-let rainviewerAPI: String = "https://api.rainviewer.com/public/weather-maps.json"
-
-// Build APIs for Mesowest weather readings
-// latestReadings API is header + parameters (stations; can be blank) + trailer + token
-let latestReadingsAPIHeader = "https://api.mesowest.net/v2/station/latest?"
-let latestReadingsAPITrailer =  "&recent=420&vars=air_temp,altimeter,wind_direction,wind_gust,wind_speed&units=english,speed|mph,temp|F&within=120&obtimezone=local&timeformat=%-I:%M%20%p"
-// historyReadings API is header + parameters (station) + trailer + token
-let historyReadingsAPIHeader = "https://api.mesowest.net/v2/station/timeseries?"
-let historyReadingsAPITrailer = "&recent=420&vars=air_temp,wind_direction,wind_gust,wind_speed&units=english,speed|mph,temp|F&within=120&obtimezone=local&timeformat=%-I:%M %p"
 
 // Page navigation values
 enum NavBarSelectedView: Int {
