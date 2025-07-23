@@ -200,53 +200,54 @@ struct BaseAppView: View {
     
     private func loadInitialMetadata() {
         let group = DispatchGroup()
-        
+
         // Load app regions before loading all other metadata
         appRegionViewModel.getAppRegions() {
-            
-            group.enter()
-            appURLViewModel.getAppURLs() {
-                group.leave()
-            }
-            
-            group.enter()
-            appRegionCodesViewModel.getAppRegionCodes() {
-                group.leave()
-            }
-            
-            group.enter()
-            liftParametersViewModel.getLiftParameters {
-                group.leave()
-            }
-            
-            group.enter()
-            weatherCodesViewModel.getWeatherCodes {
-                group.leave()
-            }
-            
-            group.enter()
-            sunriseSunsetViewModel.getSunriseSunset() {
-                group.leave()
-            }
 
             group.enter()
-            pilotViewModel.getPilots() {
-                group.leave()
-            }
-            
-            // Don't enter `group` for siteViewModel – handle its completion separately
-            group.enter()
-            siteViewModel.getSites() {
-                // Once site data is available, load stations using it
-                stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {
+            appURLViewModel.getAppURLs() {
+                
+                // Only get other data after appURLs are available
+                
+                group.enter()
+                appRegionCodesViewModel.getAppRegionCodes() {
                     group.leave()
                 }
+
+                group.enter()
+                liftParametersViewModel.getLiftParameters {
+                    group.leave()
+                }
+
+                group.enter()
+                weatherCodesViewModel.getWeatherCodes {
+                    group.leave()
+                }
+                
+                group.enter()
+                sunriseSunsetViewModel.getSunriseSunset() {
+                    group.leave()
+                }
+                
+                group.enter()
+                pilotViewModel.getPilots() {
+                    group.leave()
+                }
+
+                group.enter()
+                siteViewModel.getSites() {
+                    // Once site data is available, load stations
+                    stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {
+                        group.leave()
+                    }
+                }
+                
+                group.leave()
             }
-            
         }
 
         initializeLoggingFile()
-        
+
         group.notify(queue: .main) {
             metadataLoaded = true
             checkIfReadyToTransition()

@@ -166,8 +166,6 @@ class SkewTChartManager: ObservableObject {
         
         // Use soaringForecastViewModel to get forecast max temp
         self.maxTempF = Double(forecastMaxTemp)
-
-print("max temp found is: \(self.maxTempF)")
         
         // Get sounding data
         let soundingURL = URL(string: "https://storage.googleapis.com/wasatch-wind-static/raob.json")!

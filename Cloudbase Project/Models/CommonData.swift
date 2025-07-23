@@ -7,9 +7,12 @@ import MapKit
 let devMenuAvailable: Bool = false
 let logThermalCalcs: Bool = false
 let printReadingsURL: Bool = false
-let printForecastURL: Bool = true
+let printForecastURL: Bool = false
 let printPilotTracksTimings: Bool = false
 let printPilotTrackURLs: Bool = false
+let printFunctionCallSource: Bool = false        /* Need to put logic at top of function being called to see output:
+                                                    if printFunctionCallSource { Thread.callStackSymbols.forEach { print($0) } }
+                                                */
 
 // Get API keys and tokens from .xcconfig file (need to be mapped in .plist)
 let googleAPIKey = Bundle.main.object(forInfoDictionaryKey: "GoogleSheetsAPIKey") as? String ?? ""

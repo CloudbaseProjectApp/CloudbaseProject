@@ -111,9 +111,10 @@ class StationLatestReadingViewModel: ObservableObject {
     // These are published as separate structures with separate refresh timers
     func getLatestReadingsData(sitesOnly: Bool,
                                completion: @escaping () -> Void) {
-
+        
         // Build list of station parameters based on sites
         if sitesOnly {
+
             let mesonetStations = siteViewModel.sites.filter {
                 $0.readingsSource == "Mesonet" && !$0.readingsStation.isEmpty
             }
