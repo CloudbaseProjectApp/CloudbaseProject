@@ -216,25 +216,44 @@ struct WeatherView: View {
                                 Text("\(reading.altitude) ft")
                                     .font(.footnote)
                                 HStack {
-                                    Text("\(reading.temperature)")
-                                        .font(.footnote)
-                                        .foregroundColor(tempColor(reading.temperature)) +
-                                    Text(" ° F")
-                                        .font(.footnote)
+                                    if reading.temperature != nil {
+                                        Text("\(reading.temperature ?? 0)")
+                                            .font(.footnote)
+                                            .foregroundColor(tempColor(reading.temperature)) +
+                                        Text(" ° F")
+                                            .font(.footnote)
+                                    } else {
+                                        Text("")
+                                            .font(.footnote)
+                                    }
                                 }
                                 if reading.windDirection == 990 {
                                     Text("Light and variable")
                                         .font(.footnote)
                                 } else {
                                     HStack {
-                                        Text("\(reading.windSpeed)")
-                                            .font(.footnote)
-                                            .foregroundColor(windSpeedColor(windSpeed: reading.windSpeed, siteType: ""))
-                                        Image(systemName: windArrow)
-                                            .rotationEffect(Angle(degrees: Double(reading.windDirection)))
-                                            .font(.caption)
+                                        if reading.windSpeed != nil {
+                                            Text("\(reading.windSpeed ?? 0)")
+                                                .font(.footnote)
+                                                .foregroundColor(windSpeedColor(windSpeed: reading.windSpeed, siteType: ""))
+                                            Image(systemName: windArrow)
+                                                .rotationEffect(Angle(degrees: Double(reading.windDirection ?? 0)))
+                                                .font(.caption)
+                                        } else {
+                                            Text("")
+                                                .font(.footnote)
+                                        }
                                     }
                                 }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())      // Makes entire area tappable
+                        .onTapGesture {
+                            let windsAloftLink = AppURLManager.shared.getAppURL(URLName: "windsAloftURL") ?? "<Unknown winds aloft link URL>"
+                            let updatedWindsAloftLink = updateURL(url: windsAloftLink, parameter: "cycle", value: windsAloftCycle())
+                            if let url = URL(string: updatedWindsAloftLink) {
+                                openLink(url)
                             }
                         }
                     }

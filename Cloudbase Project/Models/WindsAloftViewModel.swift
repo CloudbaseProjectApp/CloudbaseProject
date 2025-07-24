@@ -3,9 +3,9 @@ import Combine
 
 struct WindsAloftReading {
     let altitude: Int
-    let windDirection: Int
-    let windSpeed: Int
-    let temperature: Int
+    let windDirection: Int?
+    let windSpeed: Int?
+    let temperature: Int?
 }
 
 // Winds Aloft forecast
@@ -16,7 +16,7 @@ class WindsAloftViewModel: ObservableObject {
         
     func getWindsAloftData(airportCode: String) {
         isLoading = true
-print("Getting winds aloft data")
+
         // Get base URL, update parameters, and format into URL format
         guard let baseURL = AppURLManager.shared.getAppURL(URLName: "windsAloftURL")
         else {
@@ -24,8 +24,7 @@ print("Getting winds aloft data")
             isLoading = false
             return
         }
-        var updatedURL = updateURL(url: baseURL, parameter: "airportcode", value: airportCode)
-        updatedURL = updateURL(url: updatedURL, parameter: "cycle", value: determineCycle())
+        let updatedURL = updateURL(url: baseURL, parameter: "cycle", value: windsAloftCycle())
         
         // Format URL
         guard let URL = URL(string: updatedURL)
@@ -34,21 +33,9 @@ print("Getting winds aloft data")
             isLoading = false
             return
         }
-print("winds aloft url: \(URL)")
         
-        // Set headers to prevent server-side cache resulting in no data found
-        var request = URLRequest(url: URL)
-        request.httpMethod = "GET"
-        request.cachePolicy = .reloadIgnoringLocalCacheData
-        request.setValue("no-cache, no-store, must-revalidate", forHTTPHeaderField: "Cache-Control")
-        request.setValue("0", forHTTPHeaderField: "Pragma")
-        request.setValue("\(Date().timeIntervalSince1970)", forHTTPHeaderField: "X-Bypass-Cache-Key")
-
         // Process URL query
-        let task = URLSession.shared.dataTask(with: request) { data, response, error in
-            if let httpResponse = response as? HTTPURLResponse {
-                print("X-Cache header:", httpResponse.value(forHTTPHeaderField: "X-Cache") ?? "none")
-            }
+        let task = URLSession.shared.dataTask(with: URL) { data, response, error in
             guard let data = data, error == nil else {
                 print("URL response error for: \(RegionManager.shared.activeAppRegion); error: \(error ?? NSError())")
                 DispatchQueue.main.async { self.isLoading = false }
@@ -62,20 +49,7 @@ print("winds aloft url: \(URL)")
         task.resume()
     }
     
-    private func determineCycle() -> String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 3...13:
-            return "12"
-        case 14...18:
-            return "06"
-        default:
-            return "24"
-        }
-    }
-    
     private func parseWindsAloftData(code: String, data: String) {
-print("parsing for code: \(code) using data: \(data)")
         let lines = data.split(separator: "\n")
         guard let regionLine = lines.first(where: { $0.starts(with: code) }) else {
             print("Could not find a matching row for code: \(code)")
@@ -127,18 +101,32 @@ print("parsing for code: \(code) using data: \(data)")
     
     private func parseReading(_ reading: String, altitude: Int) -> WindsAloftReading? {
         guard reading.count >= 4 else { return nil }
-        var windDirection = 10 * (Int(reading.prefix(2)) ?? 0)
-        var windSpeedKnots = Int(reading.dropFirst(2).prefix(2)) ?? 0
+
+        // Parse wind direction
+        let windDirSource = reading.prefix(2)
+        var windDirection: Int? = (windDirSource == "  ") ? nil : 10 * (Int(windDirSource) ?? 0)
+
+        // Parse wind speed
+        let windSpeedSource = reading.dropFirst(2).prefix(2)
+        var windSpeedKnots: Int? = (windSpeedSource == "  ") ? nil : (Int(windSpeedSource) ?? 0)
+        
         // Check for wind greater than 100 knots, which is indicated by adding 500 degrees to the wind direction
         // (anything greater than 199 knots is indicated as 199 knots)
         // Ignore 990, which indicated light and variable winds
-        if windDirection > 360 && windDirection < 990 {
-            windDirection = windDirection - 360
-            windSpeedKnots = windSpeedKnots + 100
+        if let direction = windDirection, direction > 360 && direction < 990 {
+            windDirection = direction - 360
+            windSpeedKnots = (windSpeedKnots ?? 0) + 100
         }
-        let windSpeed = convertKnotsToMPH(windSpeedKnots)
+        
+        // Convert wind speed to mph
+        let windSpeed: Int? = (windSpeedSource == "  ") ? nil : convertKnotsToMPH(windSpeedKnots ?? 0)
+        
         // Convert wind direction to arrow direction (offset by 180 degrees)
-        windDirection = (windDirection + 180) % 360
+        if let direction = windDirection {
+            windDirection = (direction + 180) % 360
+        }
+        
+        // Parse temperature, convert to F, and return results
         var temperature: Int? = nil
         if reading.count > 4 {
             let tempString = reading.dropFirst(4)
@@ -150,7 +138,7 @@ print("parsing for code: \(code) using data: \(data)")
             let tempFahrenheit = convertCelsiusToFahrenheit(Int(tempCelsius))
             return WindsAloftReading(altitude: altitude, windDirection: windDirection, windSpeed: windSpeed, temperature: tempFahrenheit)
         } else {
-            return WindsAloftReading(altitude: altitude, windDirection: windDirection, windSpeed: windSpeed, temperature: 0)
+            return WindsAloftReading(altitude: altitude, windDirection: windDirection, windSpeed: windSpeed, temperature: nil)
         }
     }
 }

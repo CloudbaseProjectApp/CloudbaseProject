@@ -5,13 +5,17 @@ import UIKit
 import MapKit
 
 // Common utility functions
-func tempColor(_ tempF: Int) -> Color {
+func tempColor(_ tempF: Int?) -> Color {
+    guard let tempF = tempF else {
+        return .clear
+    }
+
     switch tempF {
     case ...32:
         return displayValueBlue
     case 33...59:
         return displayValueTeal
-    case 59...79:
+    case 60...79:
         return displayValueGreen
     case 80...89:
         return displayValueYellow
@@ -24,7 +28,11 @@ func tempColor(_ tempF: Int) -> Color {
     }
 }
 
-func cloudCoverColor(_ cloudCoverPct: Int) -> Color {
+func cloudCoverColor(_ cloudCoverPct: Int?) -> Color {
+    guard let cloudCoverPct = cloudCoverPct else {
+        return .clear
+    }
+
     switch cloudCoverPct {
     case ...39:
         return displayValueGreen
@@ -39,7 +47,11 @@ func cloudCoverColor(_ cloudCoverPct: Int) -> Color {
     }
 }
 
-func precipColor(_ precipPct: Int) -> Color {
+func precipColor(_ precipPct: Int?) -> Color {
+    guard let precipPct = precipPct else {
+        return .clear
+    }
+
     switch precipPct {
     case ...19:
         return displayValueGreen
@@ -54,7 +66,11 @@ func precipColor(_ precipPct: Int) -> Color {
     }
 }
 
-func CAPEColor(_ CAPEvalue: Int) -> Color {
+func CAPEColor(_ CAPEvalue: Int?) -> Color {
+    guard let CAPEvalue = CAPEvalue else {
+        return .clear
+    }
+
     switch CAPEvalue {
     case 0...299:
         return displayValueGreen
@@ -69,7 +85,11 @@ func CAPEColor(_ CAPEvalue: Int) -> Color {
     }
 }
 
-func windSpeedColor(windSpeed: Int, siteType: String) -> Color {
+func windSpeedColor(windSpeed: Int?, siteType: String) -> Color {
+    guard let windSpeed = windSpeed else {
+        return .clear
+    }
+
     switch siteType {
     case "Aloft", "Mountain":
         switch windSpeed {
@@ -113,7 +133,11 @@ func windSpeedColor(windSpeed: Int, siteType: String) -> Color {
     }
 }
 
-func thermalColor(_ thermalVelocity: Double) -> Color {
+func thermalColor(_ thermalVelocity: Double?) -> Color {
+    guard let thermalVelocity = thermalVelocity else {
+        return .clear
+    }
+    
     // Assumes thermalVelocity already rounded to nearest tenth
     switch thermalVelocity {
     case ...1.0:
@@ -442,4 +466,17 @@ func bearing(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> CLLoca
     let x = cos(from.latitude * .pi/180) * sin(to.latitude * .pi/180) -
             sin(from.latitude * .pi/180) * cos(to.latitude * .pi/180) * cos(deltaLon * .pi/180)
     return atan2(y, x) * 180 / .pi
+}
+
+// Determine 6, 12, or 24 hour cycle for winds aloft readings based on the current time
+func windsAloftCycle() -> String {
+    let hour = Calendar.current.component(.hour, from: Date())
+    switch hour {
+    case 3...13:
+        return "12"
+    case 14...18:
+        return "06"
+    default:
+        return "24"
+    }
 }
