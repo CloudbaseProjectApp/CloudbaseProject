@@ -87,4 +87,13 @@ class SiteViewModel: ObservableObject {
             .sink { _ in }
             .store(in: &cancellables)
     }
+    
+}
+
+extension Site {
+    func renamed(to newName: String) -> Site {
+        var copy = self
+        copy.siteName = newName
+        return copy
+    }
 }

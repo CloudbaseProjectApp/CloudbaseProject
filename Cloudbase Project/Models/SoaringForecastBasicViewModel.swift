@@ -62,7 +62,7 @@ class SoaringForecastBasicViewModel: ObservableObject {
             isLoading = false
             return
         }
-        print("soaring forecast URL: \(URL)")
+
         // Process URL query
         URLSession.shared.dataTask(with: URL) { [weak self] data, response, error in
             guard let self = self else { return }
