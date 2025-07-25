@@ -15,39 +15,11 @@ struct SiteView: View {
     @State private var isEditingFavorites = false
     @State private var editableFavorites: [UserFavoriteSite] = []
     
-    // Build an array of dummy “Sites” from user favorites
-    private var favoriteSites: [Site] {
-        userSettingsViewModel
-            .userFavoriteSites
+    private var favoriteSites: [UserFavoriteSite] {
+        userSettingsViewModel.userFavoriteSites
             .sorted { $0.sortSequence < $1.sortSequence }
-            .compactMap { fav -> Site? in
-                switch fav.favoriteType {
-                case "Site":
-                    // if favorite is a site, find the real site by name
-                    return siteViewModel.sites
-                        .first { $0.siteName == fav.favoriteID }
-                case "Station":
-                    // build a dummy site for a station favorite
-                    return Site(
-                        area:                   "Favorites",
-                        siteName:               fav.favoriteName,
-                        readingsNote:           "",
-                        forecastNote:           "",
-                        siteType:               "Station",
-                        readingsAlt:            fav.readingsAlt,
-                        readingsSource:         fav.readingsSource,
-                        readingsStation:        fav.stationID,
-                        pressureZoneReadingTime: "",
-                        siteLat:                fav.siteLat,
-                        siteLon:                fav.siteLon,
-                        sheetRow:               0
-                    )
-                default:
-                    return nil
-                }
-            }
     }
-
+    
     var body: some View {
         VStack {
             Text("Tap on a site for forecast and readings history")
@@ -57,45 +29,19 @@ struct SiteView: View {
             
             List {
                 // Show any favorites first
-                if !favoriteSites.isEmpty {
-                    Section(
-                        header: HStack {
-                            Text("Favorites")
-                                .font(.subheadline)
-                                .foregroundColor(sectionHeaderColor)
-                                .bold()
-                            Spacer()
-                            Button(action: {
-                                isEditingFavorites.toggle()
-                            }) {
-                                if isEditingFavorites {
-                                    Image(systemName: "arrow.up.arrow.down")
-                                        .imageScale(.small)
-                                        .foregroundColor(toolbarActiveImageColor)
-                                } else {
-                                    Image(systemName: "arrow.up.arrow.down")
-                                        .imageScale(.small)
-                                        .foregroundColor(toolbarImageColor)
-                                }
-                            }
-                        }
-                    ) {
-                        ForEach(editableFavorites.indices, id: \.self) { index in
-                            let favorite = editableFavorites[index]
-                            if let site = siteFromFavorite(favorite) {
-                                FavoriteRow(
-                                    favorite: $editableFavorites[index],
-                                    site: site,
-                                    onSelect: openSiteDetail
-                                )
-                            }
-                        }
-                        .onMove(perform: moveFavorite)                    }
+                if !userSettingsViewModel.userFavoriteSites.isEmpty {
+                    FavoritesSection(
+                        favorites: $userSettingsViewModel.userFavoriteSites,
+                        isEditingFavorites: $isEditingFavorites,
+                        siteViewModel: siteViewModel,
+                        onSelect: openSiteDetail
+                    )
                 }
                 
+                // Show standard sites
                 let groupedSites = Dictionary(grouping: siteViewModel.sites) { $0.area }
-                     let sortedGroupedSites = groupedSites.sorted(by: { $0.key < $1.key })
-
+                let sortedGroupedSites = groupedSites.sorted(by: { $0.key < $1.key })
+                
                 ForEach(sortedGroupedSites, id: \.key) { area, areaSites in
                     let areaName = area
                         .split(separator: " ", maxSplits: 1)
@@ -109,7 +55,7 @@ struct SiteView: View {
                         .bold()
                     ) {
                         ForEach(areaSites) { site in
-                          SiteRow(site: site, onSelect: openSiteDetail)
+                            SiteRow(site: site, onSelect: openSiteDetail)
                         }
                     }
                 }
@@ -123,12 +69,8 @@ struct SiteView: View {
                 }
             }
             .environment(\.editMode, .constant(isEditingFavorites ? .active : .inactive))
-         }
+        }
         .onAppear {
-
-            editableFavorites = userSettingsViewModel.userFavoriteSites
-                .sorted { $0.sortSequence < $1.sortSequence }
-
             isActive = true
             startTimer()
             guard !siteViewModel.sites.isEmpty else {
@@ -136,34 +78,27 @@ struct SiteView: View {
                 return
             }
             stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {}
-
         }
         
         .onDisappear {
             isActive = false
-
-            for fav in editableFavorites {
-                if let i = userSettingsViewModel.userFavoriteSites.firstIndex(where: { $0.id == fav.id }) {
-                    userSettingsViewModel.userFavoriteSites[i] = fav
-                }
-            }
         }
-
+        
         
         .sheet(
-          item: $selectedSite,
-          onDismiss: {
-            // refresh when they close it
-              guard !siteViewModel.sites.isEmpty else {
-                  // Skipping getLatestReadingsData - sites not yet loaded
-                  return
-              }
-              stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {}
-          }
+            item: $selectedSite,
+            onDismiss: {
+                // refresh when they close it
+                guard !siteViewModel.sites.isEmpty else {
+                    // Skipping getLatestReadingsData - sites not yet loaded
+                    return
+                }
+                stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {}
+            }
         ) { site in
             SiteDetailView(site: site)
         }
-
+        
         .onChange(of: scenePhase) { oldValue, newValue in
             if newValue == .active {
                 isActive = true
@@ -176,6 +111,7 @@ struct SiteView: View {
             } else {
                 isActive = false
             }
+            
         }
     }
     
@@ -195,43 +131,94 @@ struct SiteView: View {
             }
         }
     }
-    
-    private func siteFromFavorite(_ favorite: UserFavoriteSite) -> Site? {
-        let displayName = favorite.favoriteName.isEmpty ? favorite.favoriteID : favorite.favoriteName
+}
 
-        switch favorite.favoriteType {
+struct FavoritesSection: View {
+    @Binding var favorites: [UserFavoriteSite]
+    @Binding var isEditingFavorites: Bool
+    @State private var renamingFavoriteID: UUID?
+
+    let siteViewModel: SiteViewModel
+    let onSelect: (Site) -> Void
+
+    var body: some View {
+        Section(
+            header:
+                HStack {
+                    Text("Favorites")
+                        .font(.subheadline).bold()
+                    Spacer()
+                    Button {
+                        isEditingFavorites.toggle()
+                    } label: {
+                        Image(systemName: isEditingFavorites
+                              ? "checkmark.circle.fill"
+                              : "arrow.up.arrow.down.circle")
+                    }
+                    .buttonStyle(BorderlessButtonStyle())
+                }
+        ) {
+            ForEach(favorites, id: \.id) { favorite in
+                FavoriteRow(
+                    favorite: bindingForFavorite(favorite),
+                    site: siteFromFavorite(favorite), // Pass even if nil
+                    onSelect: onSelect,
+                    renamingFavoriteID: $renamingFavoriteID,
+                    myID: favorite.id
+                )
+            }
+            .onMove { from, to in
+                withTransaction(Transaction(animation: nil)) {
+                    moveFavorite(from: from, to: to)
+                }
+            }
+        }
+    }
+
+    private func siteFromFavorite(_ fav: UserFavoriteSite) -> Site? {
+        let display = fav.favoriteName.isEmpty ? fav.favoriteID : fav.favoriteName
+        switch fav.favoriteType {
         case "Site":
-            return siteViewModel.sites.first { $0.siteName == favorite.favoriteID }?.renamed(to: displayName)
+            return siteViewModel.sites
+                .first { $0.siteName == fav.favoriteID }?
+                .renamed(to: display)
         case "Station":
             return Site(
                 area: "Favorites",
-                siteName: displayName,
+                siteName: display,
                 readingsNote: "",
                 forecastNote: "",
                 siteType: "Station",
-                readingsAlt: favorite.readingsAlt,
-                readingsSource: favorite.readingsSource,
-                readingsStation: favorite.stationID,
+                readingsAlt: fav.readingsAlt,
+                readingsSource: fav.readingsSource,
+                readingsStation: fav.stationID,
                 pressureZoneReadingTime: "",
-                siteLat: favorite.siteLat,
-                siteLon: favorite.siteLon,
+                siteLat: fav.siteLat,
+                siteLon: fav.siteLon,
                 sheetRow: 0
             )
         default:
             return nil
         }
     }
-    
-    private func moveFavorite(from source: IndexSet, to destination: Int) {
-        editableFavorites.move(fromOffsets: source, toOffset: destination)
-        
-        for (index, var item) in editableFavorites.enumerated() {
-            item.sortSequence = index
-            if let i = userSettingsViewModel.userFavoriteSites.firstIndex(where: { $0.id == item.id }) {
-                userSettingsViewModel.userFavoriteSites[i] = item
-            }
+
+    private func bindingForFavorite(_ favorite: UserFavoriteSite) -> Binding<UserFavoriteSite> {
+        guard let idx = favorites.firstIndex(where: { $0.id == favorite.id }) else {
+            fatalError("Favorite not found")
         }
-    }}
+        return $favorites[idx]
+    }
+
+    private func moveFavorite(from source: IndexSet, to destination: Int) {
+        // 1. Reorder the array in-place:
+        favorites.move(fromOffsets: source, toOffset: destination)
+        
+        // 2. Update sortSequence to match the new order:
+        for (newIndex, _) in favorites.enumerated() {
+            favorites[newIndex].sortSequence = newIndex
+        }
+    }
+}
 
 struct SiteRow: View {
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
@@ -332,12 +319,16 @@ struct SiteRow: View {
 }
 
 struct FavoriteRow: View {
+    @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @Binding var favorite: UserFavoriteSite
-    var site: Site
+    var site: Site?
     var onSelect: (Site) -> Void
 
-    @State private var isRenaming = false
+    @Binding var renamingFavoriteID: UUID?
+    let myID: UUID
+
     @FocusState private var isTextFieldFocused: Bool
+    private var isRenaming: Bool { renamingFavoriteID == myID }
 
     var body: some View {
         Group {
@@ -345,32 +336,54 @@ struct FavoriteRow: View {
                 HStack {
                     TextField("Favorite Name", text: $favorite.favoriteName)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .font(.subheadline)
                         .focused($isTextFieldFocused)
-                        .onSubmit {
-                            isRenaming = false
-                        }
+                        .onSubmit { endRenaming() }
                     Spacer()
                 }
-                .onAppear {
-                    isTextFieldFocused = true
-                }
+                .padding(.vertical, 4)
             } else {
-                SiteRow(site: site, onSelect: onSelect)
-                    .contextMenu {
-                        Button("Rename") {
-                            isRenaming = true
+                if let site = site {
+                    SiteRow(site: site, onSelect: onSelect)
+                        .contextMenu {
+                            Button("Rename") {
+                                renamingFavoriteID = myID
+                            }
                         }
-                    }
-                    .swipeActions(edge: .trailing) {
-                        Button("Rename") {
-                            isRenaming = true
+                        .onLongPressGesture {
+                            renamingFavoriteID = myID
                         }
-                        .tint(.blue)
-                    }
-                    .onLongPressGesture {
-                        isRenaming = true
-                    }
+                } else {
+                    EmptyView()
+                }
             }
         }
+        .onChange(of: isRenaming) {oldValue, newValue in
+            if newValue {
+                // small delay so the field is actually in the hierarchy
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    isTextFieldFocused = true
+                }
+            }
+        }
+    }
+
+    private func endRenaming() {
+        favorite.favoriteName = favorite.favoriteName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if favorite.favoriteName.isEmpty {
+            favorite.favoriteName = ""
+        }
+        userSettingsViewModel.saveToStorage()
+        renamingFavoriteID = nil
+    }
+
+}
+
+// Extension to rename a Site without mutating the original
+private extension Site {
+    func renamed(to newName: String) -> Site {
+        var copy = self
+        copy.siteName = newName
+        return copy
     }
 }

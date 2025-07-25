@@ -35,6 +35,16 @@ struct UserFavoriteSite: Identifiable, Codable, Equatable {
     var sortSequence: Int       // allows user to re-sort favorites
 }
 
+struct UserPickListSelection: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var appRegion: String
+    var weatherAlertSelectedIndex: Int?
+    var afdSelectedIndex: Int?
+    var soaringForecastSelectedIndex: Int?
+    var windsAloftSelectedIndex: Int?
+    var soundingModelSelectedIndex: Int?
+}
+
 class UserSettingsViewModel: ObservableObject {
     @Published var mapRegion: MKCoordinateRegion
     @Published var zoomLevel: Double
@@ -48,32 +58,35 @@ class UserSettingsViewModel: ObservableObject {
     @Published var radarColorScheme: Int
     @Published var selectedPilots: [Pilot]
     @Published var userFavoriteSites: [UserFavoriteSite]
+    @Published var userPickListSelections: [UserPickListSelection]
     
-    init(mapRegion:         MKCoordinateRegion,
-         zoomLevel:         Double = 6,
-         selectedMapType:   CustomMapStyle = defaultmapType,
-         pilotTrackDays:    Double = defaultPilotTrackDays,
-         mapDisplayMode:    MapDisplayMode = defaultmapDisplayMode,
-         showSites:         Bool = defaultShowSites,
-         showStations:      Bool = defaultShowStations,
-         showRadar:         Bool = defaultShowRadar,
-         showInfrared:      Bool = defaultShowInfrared,
-         radarColorSchme:   Int = defaultRadarColorScheme,
-         selectedPilots:    [Pilot] = [],
-         userFavoriteSites: [UserFavoriteSite] = []
+    init(mapRegion:                 MKCoordinateRegion,
+         zoomLevel:                 Double = 6,
+         selectedMapType:           CustomMapStyle = defaultmapType,
+         pilotTrackDays:            Double = defaultPilotTrackDays,
+         mapDisplayMode:            MapDisplayMode = defaultmapDisplayMode,
+         showSites:                 Bool = defaultShowSites,
+         showStations:              Bool = defaultShowStations,
+         showRadar:                 Bool = defaultShowRadar,
+         showInfrared:              Bool = defaultShowInfrared,
+         radarColorSchme:           Int = defaultRadarColorScheme,
+         selectedPilots:            [Pilot] = [],
+         userFavoriteSites:         [UserFavoriteSite] = [],
+         userPickListSelections:    [UserPickListSelection] = []
     ) {
-        self.mapRegion          = mapRegion
-        self.zoomLevel          = zoomLevel
-        self.selectedMapType    = selectedMapType
-        self.pilotTrackDays     = pilotTrackDays
-        self.mapDisplayMode     = mapDisplayMode
-        self.showSites          = showSites
-        self.showStations       = showStations
-        self.showRadar          = showRadar
-        self.showInfrared       = showInfrared
-        self.radarColorScheme   = radarColorSchme
-        self.selectedPilots     = selectedPilots
-        self.userFavoriteSites  = userFavoriteSites
+        self.mapRegion              = mapRegion
+        self.zoomLevel              = zoomLevel
+        self.selectedMapType        = selectedMapType
+        self.pilotTrackDays         = pilotTrackDays
+        self.mapDisplayMode         = mapDisplayMode
+        self.showSites              = showSites
+        self.showStations           = showStations
+        self.showRadar              = showRadar
+        self.showInfrared           = showInfrared
+        self.radarColorScheme       = radarColorSchme
+        self.selectedPilots         = selectedPilots
+        self.userFavoriteSites      = userFavoriteSites
+        self.userPickListSelections = userPickListSelections
     }
     
     var isMapWeatherMode:           Bool { mapDisplayMode == .weather }
@@ -86,21 +99,22 @@ class UserSettingsViewModel: ObservableObject {
     // Persistent storage
     private let storageKey = "UserSettings"
     private struct PersistedSettings: Codable {
-        let centerLatitude:     Double
-        let centerLongitude:    Double
-        let spanLatitude:       Double
-        let spanLongitude:      Double
-        let zoomLevel:          Double
-        let selectedMapType:    CustomMapStyle.RawValue
-        let pilotTrackDays:     Double
-        let mapDisplayMode:     MapDisplayMode.RawValue
-        let showSites:          Bool
-        let showStations:       Bool
-        let showRadar:          Bool
-        let showInfrared:       Bool
-        let radarColorScheme:   Int
-        let selectedPilots:     [Pilot]
-        let userFavoriteSites:  [UserFavoriteSite]
+        let centerLatitude:         Double
+        let centerLongitude:        Double
+        let spanLatitude:           Double
+        let spanLongitude:          Double
+        let zoomLevel:              Double
+        let selectedMapType:        CustomMapStyle.RawValue
+        let pilotTrackDays:         Double
+        let mapDisplayMode:         MapDisplayMode.RawValue
+        let showSites:              Bool
+        let showStations:           Bool
+        let showRadar:              Bool
+        let showInfrared:           Bool
+        let radarColorScheme:       Int
+        let selectedPilots:         [Pilot]
+        let userFavoriteSites:      [UserFavoriteSite]
+        let userPickListSelections: [UserPickListSelection]
     }
     
     // Functions to manage favorites
@@ -260,37 +274,39 @@ extension UserSettingsViewModel {
                 longitudeDelta: stored.spanLongitude
             )
         )
-        zoomLevel          = stored.zoomLevel
-        selectedMapType    = CustomMapStyle(rawValue: stored.selectedMapType) ?? selectedMapType
-        pilotTrackDays     = stored.pilotTrackDays
-        mapDisplayMode     = MapDisplayMode(rawValue: stored.mapDisplayMode) ?? mapDisplayMode
-        showSites          = stored.showSites
-        showStations       = stored.showStations
-        showRadar          = stored.showRadar
-        showInfrared       = stored.showInfrared
-        radarColorScheme   = stored.radarColorScheme
-        selectedPilots     = stored.selectedPilots
-        userFavoriteSites  = stored.userFavoriteSites
+        zoomLevel               = stored.zoomLevel
+        selectedMapType         = CustomMapStyle(rawValue: stored.selectedMapType) ?? selectedMapType
+        pilotTrackDays          = stored.pilotTrackDays
+        mapDisplayMode          = MapDisplayMode(rawValue: stored.mapDisplayMode) ?? mapDisplayMode
+        showSites               = stored.showSites
+        showStations            = stored.showStations
+        showRadar               = stored.showRadar
+        showInfrared            = stored.showInfrared
+        radarColorScheme        = stored.radarColorScheme
+        selectedPilots          = stored.selectedPilots
+        userFavoriteSites       = stored.userFavoriteSites
+        userPickListSelections  = stored.userPickListSelections
     }
     
     // Call this to store persistence (e.g. on background/inactive)
     func saveToStorage() {
         let settings = PersistedSettings(
-            centerLatitude:    mapRegion.center.latitude,
-            centerLongitude:   mapRegion.center.longitude,
-            spanLatitude:      mapRegion.span.latitudeDelta,
-            spanLongitude:     mapRegion.span.longitudeDelta,
-            zoomLevel:         zoomLevel,
-            selectedMapType:   selectedMapType.rawValue,
-            pilotTrackDays:    pilotTrackDays,
-            mapDisplayMode:    mapDisplayMode.rawValue,
-            showSites:         showSites,
-            showStations:      showStations,
-            showRadar:         showRadar,
-            showInfrared:      showInfrared,
-            radarColorScheme:  radarColorScheme,
-            selectedPilots:    selectedPilots,
-            userFavoriteSites: userFavoriteSites
+            centerLatitude:         mapRegion.center.latitude,
+            centerLongitude:        mapRegion.center.longitude,
+            spanLatitude:           mapRegion.span.latitudeDelta,
+            spanLongitude:          mapRegion.span.longitudeDelta,
+            zoomLevel:              zoomLevel,
+            selectedMapType:        selectedMapType.rawValue,
+            pilotTrackDays:         pilotTrackDays,
+            mapDisplayMode:         mapDisplayMode.rawValue,
+            showSites:              showSites,
+            showStations:           showStations,
+            showRadar:              showRadar,
+            showInfrared:           showInfrared,
+            radarColorScheme:       radarColorScheme,
+            selectedPilots:         selectedPilots,
+            userFavoriteSites:      userFavoriteSites,
+            userPickListSelections: userPickListSelections
         )
         
         if let data = try? JSONEncoder().encode(settings) {
@@ -309,17 +325,18 @@ extension UserSettingsViewModel {
             center: CLLocationCoordinate2D(latitude: mapDefaultLatitude, longitude: mapDefaultLongitude),
             span: MKCoordinateSpan(latitudeDelta: mapDefaultLatitudeSpan, longitudeDelta: mapDefaultLongitudeSpan)
         )
-        zoomLevel          = mapDefaultZoomLevel
-        selectedMapType    = defaultmapType
-        pilotTrackDays     = defaultPilotTrackDays
-        mapDisplayMode     = defaultmapDisplayMode
-        showSites          = defaultShowSites
-        showStations       = defaultShowStations
-        showRadar          = defaultShowRadar
-        showInfrared       = defaultShowInfrared
-        radarColorScheme   = defaultRadarColorScheme
-        selectedPilots     = []
-        userFavoriteSites  = []
+        zoomLevel               = mapDefaultZoomLevel
+        selectedMapType         = defaultmapType
+        pilotTrackDays          = defaultPilotTrackDays
+        mapDisplayMode          = defaultmapDisplayMode
+        showSites               = defaultShowSites
+        showStations            = defaultShowStations
+        showRadar               = defaultShowRadar
+        showInfrared            = defaultShowInfrared
+        radarColorScheme        = defaultRadarColorScheme
+        selectedPilots          = []
+        userFavoriteSites       = []
+        userPickListSelections  = []
         
         completion()
     }
