@@ -82,6 +82,8 @@ let pilotInactiveFontColor: Color = .titanium
 
 // Images
 let windArrow: String = "arrow.up"
+let sortImage: String = "arrow.up.arrow.down"
+let checkmarkImage: String = "checkmark"
 let layersImage: String = "square.3.layers.3d"
 let playImage: String = "play.fill"
 let pauseImage: String = "pause.fill"

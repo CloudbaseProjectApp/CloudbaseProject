@@ -151,9 +151,15 @@ struct FavoritesSection: View {
                     Button {
                         isEditingFavorites.toggle()
                     } label: {
-                        Image(systemName: isEditingFavorites
-                              ? "checkmark.circle.fill"
-                              : "arrow.up.arrow.down.circle")
+                        if isEditingFavorites {
+                            Image(systemName: checkmarkImage)
+                                .imageScale(.medium)
+                                .foregroundStyle(toolbarActiveImageColor)
+                        } else {
+                            Image(systemName: sortImage)
+                                .imageScale(.medium)
+                                .foregroundStyle(toolbarImageColor)
+                        }
                     }
                     .buttonStyle(BorderlessButtonStyle())
                 }

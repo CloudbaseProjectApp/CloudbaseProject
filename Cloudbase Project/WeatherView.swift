@@ -18,10 +18,6 @@ struct WeatherView: View {
     @State private var externalURL: URL?
     @State private var showWebView = false
     
-    // Weather alerts
-    @State private var weatherAlertSelectedIndex: Int = 0
-    @State private var weatherAlertCodeOptions: [(name: String, code: String)] = []
-    
     // AFD
     @State private var afdSelectedIndex: Int = 0
     @State private var afdCodeOptions: [(name: String, code: String)] = []
@@ -152,19 +148,21 @@ struct WeatherView: View {
                 
                 // Area Forecast Discussion (AFD)
                 AreaForecastDiscussionView(
-                  viewModel:        afdViewModel,
-                  codeOptions:      afdCodeOptions,
-                  selectedIndex:    $afdSelectedIndex,
-                  openLink:         openLink(_:)
+                  viewModel:                afdViewModel,
+                  userSettingsViewModel:    userSettingsViewModel,
+                  codeOptions:              afdCodeOptions,
+                  selectedIndex:            $afdSelectedIndex,
+                  openLink:                 openLink(_:)
                 )
                 
                 // Soaring forecast
                 SoaringForecastView(
-                  richVM:           soaringForecastViewModel,
-                  basicVM:          soaringForecastBasicViewModel,
-                  codeOptions:      soaringForecastCodeOptions,
-                  selectedIndex:    $soaringForecastSelectedIndex,
-                  openLink:         openLink(_:)
+                  richVM:                   soaringForecastViewModel,
+                  basicVM:                  soaringForecastBasicViewModel,
+                  userSettingsViewModel:    userSettingsViewModel,
+                  codeOptions:              soaringForecastCodeOptions,
+                  selectedIndex:            $soaringForecastSelectedIndex,
+                  openLink:                 openLink(_:)
                 )
 
                 // Winds aloft forecast
@@ -193,6 +191,7 @@ struct WeatherView: View {
                             .onChange(of: windsAloftSelectedIndex) { oldIndex, newIndex in
                                 let selectedCode = windsAloftCodeOptions[newIndex].code
                                 windsAloftViewModel.getWindsAloftData(airportCode: selectedCode)
+                                userSettingsViewModel.updatePickListSelection(pickListName: "windsAloft", selectedIndex: newIndex)
                             }
                         }
                         
@@ -290,6 +289,9 @@ struct WeatherView: View {
                                 }
                                 .pickerStyle(SegmentedPickerStyle())
                                 .padding(.vertical, 4)
+                                .onChange(of: soundingModelSelectedIndex) { oldIndex, newIndex in
+                                    userSettingsViewModel.updatePickListSelection(pickListName: "soundingModel", selectedIndex: newIndex)
+                                }
                             }
                             
                             let soundingModelURL = AppURLManager.shared.getAppURL(URLName: "latestModelSoundingURL") ?? "<Unknown forecast map URL>"
@@ -334,23 +336,19 @@ struct WeatherView: View {
             TFRviewModel.fetchTFRs()
             
             // Weather Alerts
-            weatherAlertCodeOptions = AppRegionCodesManager.shared.getWeatherAlertCodes()
-            if !weatherAlertCodeOptions.isEmpty {
-                weatherAlertSelectedIndex = 0
-                weatherAlertViewModel.getWeatherAlerts()
-            }
+            weatherAlertViewModel.getWeatherAlerts()
             
             // AFD
             afdCodeOptions = AppRegionCodesManager.shared.getAFDCodes()
             if !afdCodeOptions.isEmpty {
-                afdSelectedIndex = 0
+                afdSelectedIndex = userSettingsViewModel.getPickListSelection(pickListName: "afd")
                 afdViewModel.fetchAFD(airportCode: afdCodeOptions[0].code)
             }
             
             // Soaring forecast (rich/simple and basic)
             soaringForecastCodeOptions = AppRegionCodesManager.shared.getSoaringForecastCodes()
             if !soaringForecastCodeOptions.isEmpty {
-                soaringForecastSelectedIndex = 0
+                soaringForecastSelectedIndex = userSettingsViewModel.getPickListSelection(pickListName: "soaringForecast")
                 if soaringForecastCodeOptions[0].forecastType == "rich" {
                     soaringForecastViewModel.fetchSoaringForecast(airportCode: soaringForecastCodeOptions[0].code)
                 } else {
@@ -361,14 +359,14 @@ struct WeatherView: View {
             // Winds aloft forecast
             windsAloftCodeOptions = AppRegionCodesManager.shared.getWindsAloftCodes()
             if !windsAloftCodeOptions.isEmpty {
-                windsAloftSelectedIndex = 0
+                windsAloftSelectedIndex = userSettingsViewModel.getPickListSelection(pickListName: "windsAloft")
                 windsAloftViewModel.getWindsAloftData(airportCode: windsAloftCodeOptions[0].code)
             }
             
             // Latest sounding model
             soundingModelCodeOptions = AppRegionCodesManager.shared.getSoundingModelCodes()
             if !soundingModelCodeOptions.isEmpty {
-                soundingModelSelectedIndex = 0
+                soundingModelSelectedIndex = userSettingsViewModel.getPickListSelection(pickListName: "soundingModel")
             }
 
         }

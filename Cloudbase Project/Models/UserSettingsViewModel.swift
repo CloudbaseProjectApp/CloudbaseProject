@@ -38,11 +38,8 @@ struct UserFavoriteSite: Identifiable, Codable, Equatable {
 struct UserPickListSelection: Identifiable, Codable, Equatable {
     var id = UUID()
     var appRegion: String
-    var weatherAlertSelectedIndex: Int?
-    var afdSelectedIndex: Int?
-    var soaringForecastSelectedIndex: Int?
-    var windsAloftSelectedIndex: Int?
-    var soundingModelSelectedIndex: Int?
+    var pickListName: String
+    var selectedIndex: Int?
 }
 
 class UserSettingsViewModel: ObservableObject {
@@ -164,6 +161,7 @@ class UserSettingsViewModel: ObservableObject {
         )
         userFavoriteSites.append(newFavorite)
     }
+    
     func removeFavorite(favoriteType: String, favoriteID: String) throws {
         guard let index = userFavoriteSites.firstIndex(where: {
             $0.favoriteType == favoriteType && $0.favoriteID == favoriteID
@@ -233,6 +231,35 @@ class UserSettingsViewModel: ObservableObject {
         
         // Sort array by sortSequence so in-memory order matches
         userFavoriteSites.sort { $0.sortSequence < $1.sortSequence }
+    }
+    
+    func updatePickListSelection(pickListName: String, selectedIndex: Int) {
+        let currentRegion = RegionManager.shared.activeAppRegion
+
+        if let index = userPickListSelections.firstIndex(where: {
+            $0.appRegion == currentRegion && $0.pickListName == pickListName
+        }) {
+            // Update existing selection
+            userPickListSelections[index].selectedIndex = selectedIndex
+        } else {
+            // Create and append a new selection
+            let newSelection = UserPickListSelection(
+                appRegion: currentRegion,
+                pickListName: pickListName,
+                selectedIndex: selectedIndex
+            )
+            userPickListSelections.append(newSelection)
+        }
+    }
+    
+    func getPickListSelection(pickListName: String) -> Int {
+        let currentRegion = RegionManager.shared.activeAppRegion
+        if let selection = userPickListSelections.first(where: {
+            $0.appRegion == currentRegion && $0.pickListName == pickListName
+        }), let index = selection.selectedIndex {
+            return index
+        }
+        return 0
     }
 }
 

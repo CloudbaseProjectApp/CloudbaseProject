@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AreaForecastDiscussionView: View {
     @ObservedObject var viewModel: AFDViewModel
+    @ObservedObject var userSettingsViewModel: UserSettingsViewModel
     let codeOptions: [(name:String,code:String)]
     @Binding var selectedIndex: Int
     let openLink: (URL) -> Void
@@ -42,6 +43,7 @@ struct AreaForecastDiscussionView: View {
                         .onChange(of: selectedIndex) { oldIndex, newIndex in
                             let code = codeOptions[newIndex].code
                             viewModel.fetchAFD(airportCode: code)
+                            userSettingsViewModel.updatePickListSelection(pickListName: "afd", selectedIndex: newIndex)
                         }
                     }
                     

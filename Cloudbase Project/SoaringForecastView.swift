@@ -1,8 +1,9 @@
 import SwiftUI
 
 struct SoaringForecastView: View {
-    @ObservedObject var richVM:   SoaringForecastViewModel
-    @ObservedObject var basicVM:  SoaringForecastBasicViewModel
+    @ObservedObject var richVM:                 SoaringForecastViewModel
+    @ObservedObject var basicVM:                SoaringForecastBasicViewModel
+    @ObservedObject var userSettingsViewModel:  UserSettingsViewModel
     let codeOptions: [(name: String, forecastType: String, code: String)]
     @Binding var selectedIndex: Int
     let openLink: (URL) -> Void
@@ -47,6 +48,7 @@ struct SoaringForecastView: View {
                         } else {
                             basicVM.fetchSoaringForecast(airportCode: code)
                         }
+                        userSettingsViewModel.updatePickListSelection(pickListName: "soaringForecast", selectedIndex: newIndex)
                     }
                 }
                 
