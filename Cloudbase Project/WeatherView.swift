@@ -148,23 +148,23 @@ struct WeatherView: View {
                 
                 // Area Forecast Discussion (AFD)
                 AreaForecastDiscussionView(
-                  viewModel:                afdViewModel,
-                  userSettingsViewModel:    userSettingsViewModel,
-                  codeOptions:              afdCodeOptions,
-                  selectedIndex:            $afdSelectedIndex,
-                  openLink:                 openLink(_:)
+                    viewModel:                afdViewModel,
+                    userSettingsViewModel:    userSettingsViewModel,
+                    codeOptions:              afdCodeOptions,
+                    selectedIndex:            $afdSelectedIndex,
+                    openLink:                 openLink(_:)
                 )
                 
                 // Soaring forecast
                 SoaringForecastView(
-                  richVM:                   soaringForecastViewModel,
-                  basicVM:                  soaringForecastBasicViewModel,
-                  userSettingsViewModel:    userSettingsViewModel,
-                  codeOptions:              soaringForecastCodeOptions,
-                  selectedIndex:            $soaringForecastSelectedIndex,
-                  openLink:                 openLink(_:)
+                    richVM:                   soaringForecastViewModel,
+                    basicVM:                  soaringForecastBasicViewModel,
+                    userSettingsViewModel:    userSettingsViewModel,
+                    codeOptions:              soaringForecastCodeOptions,
+                    selectedIndex:            $soaringForecastSelectedIndex,
+                    openLink:                 openLink(_:)
                 )
-
+                
                 // Winds aloft forecast
                 Section(header: Text("Winds Aloft Forecast")
                     .font(.headline)
@@ -320,14 +320,12 @@ struct WeatherView: View {
                         Text("SLC Morning Sounding data served by Matt Hansen")
                             .font(.caption)
                             .foregroundColor(infoFontColor)
-                            .padding(.top, 2)
                         Text("https://wasatchwind.github.io/")
                             .font(.caption)
                             .foregroundColor(infoFontColor)
-                            .padding(.bottom, 4)
                     }
+                    .listRowBackground(attributionBackgroundColor)
                 }
-                
             }
         }
         .onAppear {

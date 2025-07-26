@@ -40,19 +40,19 @@ struct SiteView: View {
                 
                 // Show standard sites
                 let groupedSites = Dictionary(grouping: siteViewModel.sites) { $0.area }
-                let sortedGroupedSites = groupedSites.sorted(by: { $0.key < $1.key })
-                
-                ForEach(sortedGroupedSites, id: \.key) { area, areaSites in
-                    let areaName = area
-                        .split(separator: " ", maxSplits: 1)
-                        .dropFirst()
-                        .joined(separator: " ")
-                    
+                let sortedGroupedSites: [(String, [Site])] = siteViewModel.areaOrder.compactMap { areaName in
+                    guard let sitesInArea = groupedSites[areaName] else { return nil }
+                    return (areaName, sitesInArea)
+                }
+                ForEach(sortedGroupedSites, id: \.0) { pair in
+                    let area = pair.0
+                    let areaSites = pair.1
+
                     Section(header:
-                                Text(areaName)
-                        .font(.subheadline)
-                        .foregroundColor(sectionHeaderColor)
-                        .bold()
+                        Text(area)
+                            .font(.subheadline)
+                            .foregroundColor(sectionHeaderColor)
+                            .bold()
                     ) {
                         ForEach(areaSites) { site in
                             SiteRow(site: site, onSelect: openSiteDetail)
@@ -67,6 +67,7 @@ struct SiteView: View {
                         .font(.caption)
                         .foregroundColor(infoFontColor)
                 }
+                .listRowBackground(attributionBackgroundColor)
             }
             .environment(\.editMode, .constant(isEditingFavorites ? .active : .inactive))
         }
@@ -146,7 +147,9 @@ struct FavoritesSection: View {
             header:
                 HStack {
                     Text("Favorites")
-                        .font(.subheadline).bold()
+                        .font(.subheadline)
+                        .foregroundColor(sectionHeaderColor)
+                        .bold()
                     Spacer()
                     Button {
                         isEditingFavorites.toggle()
@@ -355,6 +358,8 @@ struct FavoriteRow: View {
                             Button("Rename") {
                                 renamingFavoriteID = myID
                             }
+                            .font(.caption)
+                            .buttonStyle(BorderlessButtonStyle())
                         }
                         .onLongPressGesture {
                             renamingFavoriteID = myID

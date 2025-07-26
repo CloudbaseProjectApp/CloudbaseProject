@@ -8,12 +8,12 @@ struct LinkView: View {
     @Environment(\.openURL) var openURL     // Used to open URL links as an in-app sheet using Safari
     @State private var externalURL: URL?    // Used to open URL links as an in-app sheet using Safari
     @State private var showWebView = false  // Used to open URL links as an in-app sheet using Safari
-    
+
     var body: some View {
         Group {
             if linkViewModel.isLoading {
                 loadingView
-            } else if linkViewModel.groupedLinks.isEmpty {
+            } else if linkViewModel.sortedGroupedLinks().isEmpty {
                 emptyView
             } else {
                 contentView
@@ -22,21 +22,20 @@ struct LinkView: View {
         .onAppear {
             linkViewModel.fetchLinks()
         }
-        // Used to open URL links as an in-app sheet using Safari
         .sheet(isPresented: $showWebView) {
             if let url = externalURL { SafariView(url: url) }
         }
     }
-    
+
     private var loadingView: some View {
         VStack {
             Spacer()
-            ProgressView() // ("Loading links…")
+            ProgressView()
                 .progressViewStyle(CircularProgressViewStyle())
             Spacer()
         }
     }
-    
+
     private var emptyView: some View {
         VStack {
             Spacer()
@@ -47,37 +46,41 @@ struct LinkView: View {
             Spacer()
         }
     }
-    
+
     private var contentView: some View {
         List {
-            ForEach(linkViewModel.groupedLinks.keys.sorted(), id: \.self) { category in
-                // Split is used to strip the order sequence number from the front of the category on display
-                Section(header: Text(category.split(separator: " ", maxSplits: 1)[1])
-                    .font(.subheadline)
-                    .foregroundColor(sectionHeaderColor)
-                    .bold()) {
-                        ForEach(linkViewModel.groupedLinks[category] ?? []) { item in
-                            Button(action: {
-                                if let url = URL(string: item.link) {
-                                    externalURL = url
-                                    showWebView = true
-                                }
-                            }) {
-                                VStack(alignment: .leading) {
-                                    Text(item.title)
-                                        .font(.subheadline)
-                                        .foregroundColor(rowHeaderColor)
-                                    Text(item.description)
-                                        .font(.subheadline)
-                                }
-                                .padding(.vertical, 2)
+            ForEach(linkViewModel.sortedGroupedLinks(), id: \.0) { category, items in
+                Section(header:
+                    Text(category)
+                        .font(.subheadline)
+                        .foregroundColor(sectionHeaderColor)
+                        .bold()
+                ) {
+                    ForEach(items) { item in
+                        Button(action: {
+                            if let url = URL(string: item.link) {
+                                externalURL = url
+                                showWebView = true
                             }
+                        }) {
+                            VStack(alignment: .leading) {
+                                Text(item.title)
+                                    .font(.subheadline)
+                                    .foregroundColor(rowHeaderColor)
+                                Text(item.description)
+                                    .font(.subheadline)
+                            }
+                            .padding(.vertical, 2)
                         }
                     }
+                }
             }
         }
     }
-    
-    // Used to open URL links as an in-app sheet using Safari
-    func openLink(_ url: URL) { externalURL = url; showWebView = true }
+
+    // Open URL in in-app Safari view
+    func openLink(_ url: URL) {
+        externalURL = url
+        showWebView = true
+    }
 }

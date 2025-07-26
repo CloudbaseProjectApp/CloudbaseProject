@@ -267,6 +267,7 @@ struct SiteDetailView: View {
                         .font(.caption)
                         .foregroundColor(infoFontColor)
                 }
+                .listRowBackground(attributionSheetBackgroundColor)
             }
             Spacer() // Push the content to the top of the sheet
         }

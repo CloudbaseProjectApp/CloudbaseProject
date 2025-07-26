@@ -4,7 +4,7 @@ import Foundation
 import MapKit
 
 // Set development build flags
-let devMenuAvailable: Bool = false
+let devMenuAvailable: Bool = true
 let logThermalCalcs: Bool = false
 let printReadingsURL: Bool = false
 let printForecastURL: Bool = false

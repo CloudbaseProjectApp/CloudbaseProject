@@ -295,7 +295,7 @@ struct MapSettingsView: View {
                             .font(.caption)
                             .foregroundColor(infoFontColor)
                     }
-
+                    .listRowBackground(attributionSheetBackgroundColor)
                 }
             }
             .padding(.horizontal)

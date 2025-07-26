@@ -24,6 +24,7 @@ struct SitesResponse: Codable {
 }
 
 class SiteViewModel: ObservableObject {
+    @Published var areaOrder: [String] = []
     @Published var sites: [Site] = []
     private var cancellables = Set<AnyCancellable>()
     
@@ -81,11 +82,49 @@ class SiteViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .handleEvents(receiveOutput: { [weak self] sites in
                 self?.sites = sites
-            }, receiveCompletion: { _ in
-                completion()
+            }, receiveCompletion: { [weak self] _ in
+                // Fetch area order once sites are loaded
+                self?.fetchAreaOrder { orderedAreas in
+                    DispatchQueue.main.async {
+                        self?.areaOrder = orderedAreas
+                        completion()
+                    }
+                }
             })
             .sink { _ in }
             .store(in: &cancellables)
+    }
+    
+    func fetchAreaOrder(completion: @escaping ([String]) -> Void) {
+        let rangeName = "Areas"
+
+        guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(),
+              let areaURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(rangeName)!A2:B?alt=json&key=\(googleAPIKey)") else {
+            print("Invalid or missing region Google Sheet ID for Areas tab.")
+            completion([])
+            return
+        }
+
+        URLSession.shared.dataTask(with: areaURL) { data, response, error in
+            guard let data = data,
+                  let response = try? JSONDecoder().decode(SitesResponse.self, from: data) else {
+                print("Failed to fetch or parse Areas tab.")
+                completion([])
+                return
+            }
+
+            // Column A = Exclude flag, Column B = Area name
+            let orderedAreas = response.values.compactMap { row -> String? in
+                guard row.count >= 2 else { return nil }
+
+                let exclude = row[0].trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "yes"
+                let areaName = row[1].trimmingCharacters(in: .whitespacesAndNewlines)
+
+                return exclude ? nil : areaName
+            }
+
+            completion(orderedAreas)
+        }.resume()
     }
     
 }

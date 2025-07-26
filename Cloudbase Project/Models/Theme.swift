@@ -24,6 +24,8 @@ let rowHeaderColor: Color = .sky
 let sectionHeaderColor: Color = .white
 let infoFontColor: Color = .titanium
 let warningFontColor: Color = .warning
+let attributionBackgroundColor: Color = .black
+let attributionSheetBackgroundColor: Color = Color(.systemBackground)
 
 // Skew-T chart colors
 let skewTDALRColor: Color = .moodygray
