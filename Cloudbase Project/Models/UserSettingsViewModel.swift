@@ -24,6 +24,7 @@ enum CustomMapStyle: String, Codable, CaseIterable {
 
 struct UserFavoriteSite: Identifiable, Codable, Equatable {
     var id = UUID()
+    let appRegion: String
     let favoriteType: String    // Station or Site
     let favoriteID: String      // site name or station name
     var favoriteName: String    // User specified
@@ -149,6 +150,7 @@ class UserSettingsViewModel: ObservableObject {
         
         // Build and append the new favorite
         let newFavorite = UserFavoriteSite(
+            appRegion:      RegionManager.shared.activeAppRegion,
             favoriteType:   favoriteType,
             favoriteID:     favoriteID,
             favoriteName:   favoriteName,
@@ -170,67 +172,6 @@ class UserSettingsViewModel: ObservableObject {
         }
         
         userFavoriteSites.remove(at: index)
-    }
-    
-    func updateFavorite(
-        favoriteType: String,
-        favoriteID: String,
-        favoriteName: String,
-        readingsSource: String,
-        stationID: String,
-        readingsAlt: String,
-        siteLat: String,
-        siteLon: String,
-        sortSequence newSequence: Int
-    ) throws {
-        // Locate the existing favorite
-        guard let oldIndex = userFavoriteSites.firstIndex(where: {
-            $0.favoriteType == favoriteType && $0.favoriteID == favoriteID
-        }) else {
-            throw FavoriteSiteError.notFound
-        }
-        
-        // Remove it from the list temporarily
-        _ = userFavoriteSites.remove(at: oldIndex)
-        
-        // Shift all favorites whose sequence is ≥ newSequence
-        userFavoriteSites = userFavoriteSites.map { fav in
-            if fav.sortSequence >= newSequence {
-                // bump them up by one
-                return UserFavoriteSite(
-                    favoriteType:   fav.favoriteType,
-                    favoriteID:     fav.favoriteID,
-                    favoriteName:   fav.favoriteName,
-                    readingsSource: fav.readingsSource,
-                    stationID:      fav.stationID,
-                    readingsAlt:    fav.readingsAlt,
-                    siteLat:        fav.siteLat,
-                    siteLon:        fav.siteLon,
-                    sortSequence:   fav.sortSequence + 1
-                )
-            } else {
-                return fav
-            }
-        }
-        
-        // Build the updated favorite at its new sequence
-        let updatedFavorite = UserFavoriteSite(
-            favoriteType:   favoriteType,
-            favoriteID:     favoriteID,
-            favoriteName:   favoriteName,
-            readingsSource: readingsSource,
-            stationID:      stationID,
-            readingsAlt:    readingsAlt,
-            siteLat:        siteLat,
-            siteLon:        siteLon,
-            sortSequence:   newSequence
-        )
-        
-        // Re-insert it
-        userFavoriteSites.append(updatedFavorite)
-        
-        // Sort array by sortSequence so in-memory order matches
-        userFavoriteSites.sort { $0.sortSequence < $1.sortSequence }
     }
     
     func updatePickListSelection(pickListName: String, selectedIndex: Int) {

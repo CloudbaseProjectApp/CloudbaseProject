@@ -68,7 +68,9 @@ struct ReadingsHistoryBarChartView: View {
 }
 
 struct SiteDetailView: View {
-    var site: Site  // Received from parent view
+    var site: Site              // Received from parent view
+    var favoriteName: String?   // Override display name if site detail is for a user favorite
+    
     @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
@@ -107,7 +109,7 @@ struct SiteDetailView: View {
                             try userSettingsViewModel.addFavorite(
                                 favoriteType:   getFavoriteType(siteType: site.siteType),
                                 favoriteID:     site.siteName,
-                                favoriteName:   site.siteName,
+                                favoriteName:   site.siteName.capitalized,
                                 readingsSource: site.readingsSource,
                                 stationID:      site.readingsStation,
                                 readingsAlt:    site.readingsAlt,

@@ -45,7 +45,6 @@ struct Cloudbase_ProjectApp: App {
         let weatherVM           = WeatherCodeViewModel()
         let siteVM              = SiteViewModel()
         let pilotVM             = PilotViewModel()
-        let stationVM           = StationLatestReadingViewModel(siteViewModel: siteVM)
         let userSettingsVM      = UserSettingsViewModel(
             mapRegion: MKCoordinateRegion(
                 center:     CLLocationCoordinate2D(
@@ -63,6 +62,8 @@ struct Cloudbase_ProjectApp: App {
             showSites:          defaultShowSites,
             showStations:       defaultShowStations
         )
+        let stationVM           = StationLatestReadingViewModel(siteViewModel: siteVM, userSettingsViewModel: userSettingsVM)
+
         
         // Populate app region view model (for user to select region and other metadata to load)
         appRegionVM.getAppRegions() {}

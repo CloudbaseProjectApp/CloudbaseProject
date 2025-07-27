@@ -1,6 +1,12 @@
 import SwiftUI
 import Combine
 
+struct SiteSelection: Identifiable, Equatable {
+    var id = UUID()
+    var site: Site
+    var favoriteName: String
+}
+
 struct SiteView: View {
     @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
@@ -10,13 +16,14 @@ struct SiteView: View {
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     
     @Environment(\.scenePhase) private var scenePhase
-    @State private var selectedSite: Site?
+    @State private var selectedSite: SiteSelection?
     @State private var isActive = false
     @State private var isEditingFavorites = false
     @State private var editableFavorites: [UserFavoriteSite] = []
     
     private var favoriteSites: [UserFavoriteSite] {
         userSettingsViewModel.userFavoriteSites
+            .filter { $0.appRegion == RegionManager.shared.activeAppRegion }
             .sorted { $0.sortSequence < $1.sortSequence }
     }
     
@@ -29,9 +36,9 @@ struct SiteView: View {
             
             List {
                 // Show any favorites first
-                if !userSettingsViewModel.userFavoriteSites.isEmpty {
+                if !editableFavorites.isEmpty || isEditingFavorites {
                     FavoritesSection(
-                        favorites: $userSettingsViewModel.userFavoriteSites,
+                        favorites: $editableFavorites,
                         isEditingFavorites: $isEditingFavorites,
                         siteViewModel: siteViewModel,
                         onSelect: openSiteDetail
@@ -71,33 +78,31 @@ struct SiteView: View {
             }
             .environment(\.editMode, .constant(isEditingFavorites ? .active : .inactive))
         }
+        
         .onAppear {
             isActive = true
+            editableFavorites = favoriteSites
             startTimer()
-            guard !siteViewModel.sites.isEmpty else {
-                // Skipping getLatestReadingsData - sites not yet loaded
-                return
-            }
+            guard !siteViewModel.sites.isEmpty else { return }
             stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {}
         }
         
         .onDisappear {
             isActive = false
+            
+            // Save reordered favorites back to user settings
+            persistFavoriteReordering()
         }
-        
         
         .sheet(
             item: $selectedSite,
             onDismiss: {
-                // refresh when they close it
-                guard !siteViewModel.sites.isEmpty else {
-                    // Skipping getLatestReadingsData - sites not yet loaded
-                    return
-                }
+                guard !siteViewModel.sites.isEmpty else { return }
+                // Skipping getLatestReadingsData - sites not yet loaded
                 stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {}
             }
-        ) { site in
-            SiteDetailView(site: site)
+        ) { selection in
+            SiteDetailView(site: selection.site, favoriteName: selection.favoriteName)
         }
         
         .onChange(of: scenePhase) { oldValue, newValue in
@@ -114,10 +119,35 @@ struct SiteView: View {
             }
             
         }
+        
+        .onChange(of: isEditingFavorites) { _, newValue in
+            if newValue == false {
+                persistFavoriteReordering()
+            }
+        }
+        
+        // Get external changes (e.g., adding/removing favorites from site detail sheet)
+        .onChange(of: userSettingsViewModel.userFavoriteSites) { _, newValue in
+            editableFavorites = newValue
+        }
+    }
+    
+    private func persistFavoriteReordering() {
+        let currentRegion = RegionManager.shared.activeAppRegion
+        var updatedFavorites = userSettingsViewModel.userFavoriteSites.filter { $0.appRegion != currentRegion }
+        updatedFavorites.append(contentsOf: editableFavorites)
+        userSettingsViewModel.userFavoriteSites = updatedFavorites
+        userSettingsViewModel.saveToStorage()
     }
     
     private func openSiteDetail(_ site: Site) {
-        selectedSite = site
+        let matchedFavorite = editableFavorites.first {
+            ($0.favoriteType == "Site" && $0.favoriteID == site.siteName) ||
+            ($0.favoriteType == "Station" && $0.stationID == site.readingsStation)
+        }
+
+        let favoriteName = matchedFavorite?.favoriteName ?? ""
+        selectedSite = SiteSelection(site: site, favoriteName: favoriteName)
     }
     
     private func startTimer() {
@@ -168,13 +198,19 @@ struct FavoritesSection: View {
                 }
         ) {
             ForEach(favorites, id: \.id) { favorite in
-                FavoriteRow(
-                    favorite: bindingForFavorite(favorite),
-                    site: siteFromFavorite(favorite), // Pass even if nil
-                    onSelect: onSelect,
-                    renamingFavoriteID: $renamingFavoriteID,
-                    myID: favorite.id
-                )
+                let binding = bindingForFavorite(favorite)
+                if let (site, displayName) = siteFromFavorite(favorite) {
+                    FavoriteRow(
+                        favorite: binding,
+                        site: site,
+                        displayName: displayName, // ✅ pass new param
+                        onSelect: onSelect,
+                        renamingFavoriteID: $renamingFavoriteID,
+                        myID: favorite.id
+                    )
+                } else {
+                    EmptyView()
+                }
             }
             .onMove { from, to in
                 withTransaction(Transaction(animation: nil)) {
@@ -184,17 +220,17 @@ struct FavoritesSection: View {
         }
     }
 
-    private func siteFromFavorite(_ fav: UserFavoriteSite) -> Site? {
+    private func siteFromFavorite(_ fav: UserFavoriteSite) -> (Site, String)? {
         let display = fav.favoriteName.isEmpty ? fav.favoriteID : fav.favoriteName
         switch fav.favoriteType {
         case "Site":
-            return siteViewModel.sites
-                .first { $0.siteName == fav.favoriteID }?
-                .renamed(to: display)
+            if let match = siteViewModel.sites.first(where: { $0.siteName == fav.favoriteID }) {
+                return (match, display)
+            }
         case "Station":
-            return Site(
+            return (Site(
                 area: "Favorites",
-                siteName: display,
+                siteName: fav.favoriteID, // ✅ stay true to ID
                 readingsNote: "",
                 forecastNote: "",
                 siteType: "Station",
@@ -205,10 +241,11 @@ struct FavoritesSection: View {
                 siteLat: fav.siteLat,
                 siteLon: fav.siteLon,
                 sheetRow: 0
-            )
+            ), display)
         default:
             return nil
         }
+        return nil
     }
 
     private func bindingForFavorite(_ favorite: UserFavoriteSite) -> Binding<UserFavoriteSite> {
@@ -232,13 +269,13 @@ struct FavoritesSection: View {
 struct SiteRow: View {
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
     var site: Site
+    var displayName: String? = nil
     var onSelect: (Site) -> Void
-    
+
     var body: some View {
-        
         VStack(alignment: .leading) {
             HStack {
-                Text(site.siteName)
+                Text(displayName ?? site.siteName) // Use (favorite) display name if present
                     .font(.subheadline)
                     .foregroundColor(rowHeaderColor)
                 if site.readingsAlt != "" {
@@ -331,6 +368,7 @@ struct FavoriteRow: View {
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @Binding var favorite: UserFavoriteSite
     var site: Site?
+    var displayName: String? // ✅ New param
     var onSelect: (Site) -> Void
 
     @Binding var renamingFavoriteID: UUID?
@@ -353,7 +391,7 @@ struct FavoriteRow: View {
                 .padding(.vertical, 4)
             } else {
                 if let site = site {
-                    SiteRow(site: site, onSelect: onSelect)
+                    SiteRow(site: site, displayName: displayName, onSelect: onSelect)
                         .contextMenu {
                             Button("Rename") {
                                 renamingFavoriteID = myID

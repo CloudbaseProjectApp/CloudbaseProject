@@ -99,11 +99,15 @@ class StationLatestReadingViewModel: ObservableObject {
 
     private var lastSiteFetchTime: Date? = nil
     private var lastAllFetchTime: Date? = nil
+    private var lastFavoriteStationIDs: Set<String> = []    // Used to force a refresh if new favorite stations are added from map page
 
     let siteViewModel: SiteViewModel
+    let userSettingsViewModel: UserSettingsViewModel
 
-    init(siteViewModel: SiteViewModel) {
+    init(siteViewModel: SiteViewModel,
+         userSettingsViewModel: UserSettingsViewModel) {
         self.siteViewModel = siteViewModel
+        self.userSettingsViewModel = userSettingsViewModel
     }
 
     // sitesOnly determines whether to only get Mesonet readings for stations associated with sites (SiteView)
@@ -111,33 +115,61 @@ class StationLatestReadingViewModel: ObservableObject {
     // These are published as separate structures with separate refresh timers
     func getLatestReadingsData(sitesOnly: Bool,
                                completion: @escaping () -> Void) {
-        
-        // Build list of station parameters based on sites
-        if sitesOnly {
 
-            let mesonetStations = siteViewModel.sites.filter {
-                $0.readingsSource == "Mesonet" && !$0.readingsStation.isEmpty
-            }
-            self.stationParameters = mesonetStations
-                .map { "&stid=\($0.readingsStation)" }
-                .joined()
-            if self.stationParameters.isEmpty {
-                print("No Mesonet stations available to fetch")
+        var favoriteStationIDs: Set<String> = []
+        if sitesOnly {
+            // 1) Gather Mesonet stations from SiteViewModel
+            let mesonetStations = siteViewModel.sites
+                .filter { $0.readingsSource == "Mesonet" && !$0.readingsStation.isEmpty }
+                .map { $0.readingsStation }
+
+            // 2) Gather favorite Mesonet stations in current region
+            let currentRegion = RegionManager.shared.activeAppRegion
+            favoriteStationIDs = Set(
+                userSettingsViewModel.userFavoriteSites
+                    .filter {
+                        $0.appRegion == currentRegion &&
+                        $0.favoriteType.lowercased() == "station" &&
+                        $0.readingsSource == "Mesonet" &&
+                        !$0.stationID.isEmpty
+                    }
+                    .map { $0.stationID }
+            )
+
+            let allStations = Set(mesonetStations).union(favoriteStationIDs)
+            if allStations.isEmpty {
+                print("No Mesonet sites or favorite stations available")
                 completion()
                 return
             }
+
+            self.stationParameters = allStations
+                .map { "&stid=\($0)" }
+                .joined()
+
             if printReadingsURL {
                 print("Computed stationParameters: \(self.stationParameters)")
             }
         }
 
-        // Only fetch data if refresh interval has passed
+        // Check if refresh interval has passed
         let now = Date()
         let lastFetchTime = sitesOnly ? lastSiteFetchTime : lastAllFetchTime
-        if let last = lastFetchTime, now.timeIntervalSince(last) < readingsRefreshInterval {
+        var shouldForceRefresh = false
+
+        if sitesOnly {
+            // Compare favoriteStationIDs to last fetched set
+            if favoriteStationIDs != lastFavoriteStationIDs {
+                shouldForceRefresh = true
+                lastFavoriteStationIDs = favoriteStationIDs
+            }
+        }
+
+        if !shouldForceRefresh, let last = lastFetchTime, now.timeIntervalSince(last) < readingsRefreshInterval {
             completion()
             return
         }
+
         if sitesOnly { lastSiteFetchTime = now } else { lastAllFetchTime = now }
         isLoading = true
 

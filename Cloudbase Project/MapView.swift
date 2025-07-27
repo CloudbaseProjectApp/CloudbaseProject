@@ -720,7 +720,7 @@ struct MapContainerView: View {
     private var cancellables = Set<AnyCancellable>()
     
     init(pilotViewModel: PilotViewModel, siteViewModel: SiteViewModel, userSettingsViewModel: UserSettingsViewModel) {
-        let stationVM = StationLatestReadingViewModel(siteViewModel: siteViewModel)
+        let stationVM = StationLatestReadingViewModel(siteViewModel: siteViewModel, userSettingsViewModel: userSettingsViewModel)
         _stationLatestReadingViewModel = StateObject(wrappedValue: stationVM)
         _stationAnnotationViewModel = StateObject(wrappedValue:
             StationAnnotationViewModel(
@@ -1012,7 +1012,7 @@ struct MapContainerView: View {
                siteLon: "\(station.coordinate.longitude)",
                sheetRow: 0
            )
-           SiteDetailView(site: site)
+           SiteDetailView(site: site, favoriteName: "")
        }
         
        .sheet(item: $selectedPilotTrack) { track in
@@ -1020,7 +1020,7 @@ struct MapContainerView: View {
        }
         
        .sheet(item: $selectedSite) { site in
-           SiteDetailView(site: site)
+           SiteDetailView(site: site, favoriteName: "")
        }
         
         // Make sure pilot live track view model is published
