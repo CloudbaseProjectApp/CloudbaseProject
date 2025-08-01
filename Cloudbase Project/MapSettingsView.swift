@@ -110,8 +110,8 @@ struct MapSettingsView: View {
             }
             .background(Color.blue.opacity(0.2))
             .alert("Select at least one pilot", isPresented: $showSelectionError) {
-                            Button("OK", role: .cancel) { }
-                        }
+                Button("OK", role: .cancel) { }
+            }
 
             List {
                 

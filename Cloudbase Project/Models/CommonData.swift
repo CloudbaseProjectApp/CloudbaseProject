@@ -6,7 +6,7 @@ import MapKit
 // Set development build flags
 let devMenuAvailable: Bool          = false
 let logThermalCalcs: Bool           = false
-let printReadingsURL: Bool          = true
+let printReadingsURL: Bool          = false
 let printForecastURL: Bool          = false
 let printPilotTracksTimings: Bool   = false
 let printPilotTrackURLs: Bool       = false

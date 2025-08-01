@@ -39,7 +39,6 @@ class SiteViewModel: ObservableObject {
     func getSites(completion: @escaping () -> Void) {
         let rangeName = "Sites"
         
-        // Build region sheet URL
         guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(),
               let regionURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)") else {
             print("Invalid or missing region Google Sheet ID for region: \(RegionManager.shared.activeAppRegion)")
@@ -52,24 +51,16 @@ class SiteViewModel: ObservableObject {
             .decode(type: SitesResponse.self, decoder: JSONDecoder())
             .map { response in
                 response.values.enumerated().compactMap { index, row -> Site? in
-                    
-                    // Skip the header row
                     guard index > 0 else { return nil }
-                    
-                    // Skip row if data missing
                     guard row.count >= 12 else { return nil }
-                    
-                    // Skip row not to be used in app (e.g., site is not active)
                     guard row[0] != "Yes" else { return nil }
-                    
-                    // Make sure coordinates are valid
                     let siteLat = row[10].trimmingCharacters(in: .whitespacesAndNewlines)
                     let siteLon = row[11].trimmingCharacters(in: .whitespacesAndNewlines)
                     guard let _ = Double(siteLat), let _ = Double(siteLon) else {
                         print("Skipping row with invalid coordinates: \(row[10]), \(row[11])")
                         return nil
                     }
-                    
+
                     return Site(
                         area:               row[1],
                         siteName:           row[2],
@@ -82,7 +73,7 @@ class SiteViewModel: ObservableObject {
                         pressureZoneReadingTime: row[9],
                         siteLat:            siteLat,
                         siteLon:            siteLon,
-                        sheetRow:           index + 1, // Store the source row index and add one (Google sheets start at 1, not 0)
+                        sheetRow:           index + 1,
                         windDirectionN:     row.count > 12 ? row[12] : "",
                         windDirectionNE:    row.count > 13 ? row[13] : "",
                         windDirectionE:     row.count > 14 ? row[14] : "",
@@ -96,21 +87,19 @@ class SiteViewModel: ObservableObject {
             }
             .replaceError(with: [])
             .receive(on: DispatchQueue.main)
-            .handleEvents(receiveOutput: { [weak self] sites in
+            .sink { [weak self] sites in
                 self?.sites = sites
-            }, receiveCompletion: { [weak self] _ in
-                // Fetch area order once sites are loaded
+
                 self?.fetchAreaOrder { orderedAreas in
                     DispatchQueue.main.async {
                         self?.areaOrder = orderedAreas
                         completion()
                     }
                 }
-            })
-            .sink { _ in }
+            }
             .store(in: &cancellables)
     }
-    
+
     func fetchAreaOrder(completion: @escaping ([String]) -> Void) {
         let rangeName = "Areas"
 

@@ -20,8 +20,9 @@ let toolbarActiveFontColor          : Color = .white
 let navigationBackgroundColor       : Color = .darksky
 
 // View page colors
-let rowHeaderColor                  : Color = .sky
 let sectionHeaderColor              : Color = .white
+let rowHeaderColor                  : Color = .sky
+let rowTextColor                    : Color = .white
 let infoFontColor                   : Color = .titanium
 let warningFontColor                : Color = .warning
 let attributionBackgroundColor      : Color = .black

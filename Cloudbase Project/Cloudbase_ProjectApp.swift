@@ -136,6 +136,7 @@ struct BaseAppView: View {
     @EnvironmentObject var siteViewModel: SiteViewModel
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
+    @ObservedObject var regionManager = RegionManager.shared
 
     var body: some View {
         
@@ -173,15 +174,18 @@ struct BaseAppView: View {
                 showAppRegionSelector = true
             }
         }
-        
-        .onChange(of: RegionManager.shared.activeAppRegion) { _, newRegion in
+
+        .onChange(of: regionManager.activeAppRegion) { _, newRegion in
             if !newRegion.isEmpty && !metadataLoaded {
                 loadInitialMetadata()
             }
         }
-        
+
         .onChange(of: refreshMetadata) { _, newValue in
             if newValue {
+
+                // Force station latest readings refresh when region changes
+                stationLatestReadingViewModel.resetLastFetchTimes()
                 isActive = false
                 metadataLoaded = false
                 if !RegionManager.shared.activeAppRegion.isEmpty {
@@ -207,9 +211,7 @@ struct BaseAppView: View {
 
             group.enter()
             appURLViewModel.getAppURLs() {
-                
-                // Only get other data after appURLs are available
-                
+
                 group.enter()
                 appRegionCodesViewModel.getAppRegionCodes() {
                     group.leave()
@@ -224,12 +226,12 @@ struct BaseAppView: View {
                 weatherCodesViewModel.getWeatherCodes {
                     group.leave()
                 }
-                
+
                 group.enter()
                 sunriseSunsetViewModel.getSunriseSunset() {
                     group.leave()
                 }
-                
+
                 group.enter()
                 pilotViewModel.getPilots() {
                     group.leave()
@@ -237,22 +239,22 @@ struct BaseAppView: View {
 
                 group.enter()
                 siteViewModel.getSites() {
-                    // Once site data is available, load stations
                     stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {
                         group.leave()
                     }
                 }
-                
-                group.leave()
+
+                group.leave() // Done initiating all the above
+            }
+
+            // Place notify after all enter calls
+            group.notify(queue: .main) {
+                metadataLoaded = true
+                checkIfReadyToTransition()
             }
         }
 
         initializeLoggingFile()
-
-        group.notify(queue: .main) {
-            metadataLoaded = true
-            checkIfReadyToTransition()
-        }
     }
 
     private func checkIfReadyToTransition() {

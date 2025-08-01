@@ -121,11 +121,17 @@ class StationLatestReadingViewModel: ObservableObject {
     
     let siteViewModel: SiteViewModel
     let userSettingsViewModel: UserSettingsViewModel
-    
+
     init(siteViewModel: SiteViewModel,
          userSettingsViewModel: UserSettingsViewModel) {
         self.siteViewModel = siteViewModel
         self.userSettingsViewModel = userSettingsViewModel
+    }
+    
+    // Allows forced reset when user changes regions, resets metadata, etc.
+    func resetLastFetchTimes() {
+        lastSiteFetchTime = nil
+        lastAllFetchTime = nil
     }
     
     // sitesOnly determines whether to only get Mesonet readings for stations associated with sites (SiteView)
@@ -133,7 +139,6 @@ class StationLatestReadingViewModel: ObservableObject {
     // These are published as separate structures with separate refresh timers
     func getLatestReadingsData(sitesOnly: Bool,
                                completion: @escaping () -> Void) {
-        
         var favoriteStationIDs: Set<String> = []
         if sitesOnly {
             // 1) Gather Mesonet stations from SiteViewModel
@@ -160,11 +165,9 @@ class StationLatestReadingViewModel: ObservableObject {
                 completion()
                 return
             }
-            
             self.stationParameters = allStations
                 .map { "&stid=\($0)" }
                 .joined()
-            
             if printReadingsURL {
                 print("Computed stationParameters: \(self.stationParameters)")
             }
@@ -188,7 +191,12 @@ class StationLatestReadingViewModel: ObservableObject {
             return
         }
         
-        if sitesOnly { lastSiteFetchTime = now } else { lastAllFetchTime = now }
+        // Update last fetch times
+        if sitesOnly {
+            lastSiteFetchTime = now
+        } else {
+            lastAllFetchTime = now
+        }
         isLoading = true
         
         // Build API call parameters
@@ -284,7 +292,9 @@ class StationLatestReadingViewModel: ObservableObject {
                 .compactMap { $0.value.first }
         )
         guard !CUASAStations.isEmpty else {
-            print("CUASA stations are empty")
+            if printReadingsURL {
+                print("CUASA stations are empty")
+            }
             completion([])
             return
         }
@@ -382,7 +392,9 @@ class StationLatestReadingViewModel: ObservableObject {
                 .compactMap { $0.value.first }
         )
         guard !RMHPAStations.isEmpty else {
-            print("RMPHA stations are empty")
+            if printReadingsURL {
+                print("RMPHA stations are empty")
+            }
             completion([])
             return
         }

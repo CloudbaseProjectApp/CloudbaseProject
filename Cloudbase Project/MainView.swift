@@ -161,7 +161,6 @@ struct MainView: View {
                                 }
                             }
                             Spacer()
-/*
                             Button {
                                 selectedView = .potential
                                 siteViewActive = false
@@ -186,7 +185,6 @@ struct MainView: View {
                                 }
                             }
                             Spacer()
- */
                             Button {
                                 selectedView = .map
                                 siteViewActive = false
@@ -230,6 +228,7 @@ struct MainView: View {
                             }
 
                             Spacer()
+                            /* Commented out; links and FlySkyHy moved to About page
                             Button {
                                 selectedView = .link
                                 siteViewActive = false
@@ -250,6 +249,7 @@ struct MainView: View {
                                         .padding(.top, 4)
                                 }
                             }
+                             */
                         }
 
                     }

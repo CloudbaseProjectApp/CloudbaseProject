@@ -44,7 +44,7 @@ struct FlyingPotentialView: View {
     
     var body: some View {
         VStack {
-            Text("Tap on a site readings history and forecast")
+            Text("Tap on a site for readings history and forecast")
                 .font(.caption)
                 .foregroundColor(infoFontColor)
                 .padding(.top, 8)
