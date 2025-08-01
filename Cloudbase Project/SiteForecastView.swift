@@ -15,7 +15,6 @@ struct ThermalCell: View {
     let text: String
     let newDateFlag: Bool
     
-    // these used to live up in SiteForecastView
     let dataWidth: CGFloat
     let dataHeight: CGFloat
     let dividerWidth: CGFloat
@@ -40,7 +39,7 @@ struct SiteForecastView: View {
     @ObservedObject var liftParametersViewModel: LiftParametersViewModel
     @ObservedObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @ObservedObject var weatherCodesViewModel: WeatherCodeViewModel
-    @StateObject private var viewModel: SiteForecastViewModel
+    @StateObject private var siteForecastViewModel: SiteForecastViewModel
     
     var siteLat: String
     var siteLon: String
@@ -59,7 +58,7 @@ struct SiteForecastView: View {
         self._liftParametersViewModel = ObservedObject(wrappedValue: liftParametersViewModel)
         self._sunriseSunsetViewModel = ObservedObject(wrappedValue: sunriseSunsetViewModel)
         self._weatherCodesViewModel = ObservedObject(wrappedValue: weatherCodesViewModel)
-        self._viewModel = StateObject(wrappedValue: SiteForecastViewModel(liftParametersViewModel: liftParametersViewModel,
+        self._siteForecastViewModel = StateObject(wrappedValue: SiteForecastViewModel(liftParametersViewModel: liftParametersViewModel,
                                                                           sunriseSunsetViewModel: sunriseSunsetViewModel,
                                                                           weatherCodesViewModel: weatherCodesViewModel))
         self.siteLat = siteLat
@@ -71,7 +70,7 @@ struct SiteForecastView: View {
     
     var body: some View {
         VStack (alignment: .leading) {
-            if let forecastData = viewModel.forecastData {
+            if let forecastData = siteForecastViewModel.forecastData {
                 VStack(alignment: .leading) {
                     let topOfChartAltitude = 18000.0
                     let surfaceAltitude = convertMetersToFeet(forecastData.elevation)
@@ -80,7 +79,7 @@ struct SiteForecastView: View {
                         .foregroundColor(infoFontColor)
                         .padding(.bottom, 5)
                     
-                    let maxPressureReading = viewModel.maxPressureReading
+                    let maxPressureReading = siteForecastViewModel.maxPressureReading
                     let dataWidth: CGFloat = 48                                     // Width for each data column
                     let dataRows: Int = forecastData.hourly.dateTime?.count ?? 0    // Total count of data rows returned
                     let dataFrameWidth: CGFloat = CGFloat(dataRows) * (dataWidth)   // Width for all data tables and charts
@@ -658,17 +657,10 @@ struct SiteForecastView: View {
                 }
             }
         }
-        .onAppear { viewModel.fetchForecast(siteName: siteName,
-                                            latitude: siteLat,
-                                            longitude: siteLon)
-        }
-    }
-    
-    func getDividerColor (_ newDateFlag: Bool) -> Color {
-        if newDateFlag {
-            return tableMajorDividerColor
-        } else {
-            return tableMinorDividerColor
+        .onAppear { siteForecastViewModel.fetchForecast(siteName: siteName,
+                                                        latitude: siteLat,
+                                                        longitude: siteLon,
+                                                        siteType: siteType)
         }
     }
     

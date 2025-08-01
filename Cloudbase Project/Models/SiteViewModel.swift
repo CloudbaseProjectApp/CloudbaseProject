@@ -16,7 +16,15 @@ struct Site: Codable, Identifiable, Equatable, Hashable {
     var pressureZoneReadingTime: String
     var siteLat: String
     var siteLon: String
-    var sheetRow: Int // New property to store the row index
+    var sheetRow: Int           // Used to manage updates to Google sheet via API
+    var windDirectionN: String  // Used to specify good/ok wind directions for flying
+    var windDirectionNE: String
+    var windDirectionE: String
+    var windDirectionSE: String
+    var windDirectionS: String
+    var windDirectionSW: String
+    var windDirectionW: String
+    var windDirectionNW: String
 }
 
 struct SitesResponse: Codable {
@@ -63,18 +71,26 @@ class SiteViewModel: ObservableObject {
                     }
                     
                     return Site(
-                        area: row[1],
-                        siteName: row[2],
-                        readingsNote: row[3],
-                        forecastNote: row[4],
-                        siteType: row[5],
-                        readingsAlt: row[6],
-                        readingsSource: row[7],
-                        readingsStation: row[8],
+                        area:               row[1],
+                        siteName:           row[2],
+                        readingsNote:       row[3],
+                        forecastNote:       row[4],
+                        siteType:           row[5],
+                        readingsAlt:        row[6],
+                        readingsSource:     row[7],
+                        readingsStation:    row[8],
                         pressureZoneReadingTime: row[9],
-                        siteLat: siteLat,
-                        siteLon: siteLon,
-                        sheetRow: index + 1 // Store the source row index and add one (Google sheets start at 1, not 0)
+                        siteLat:            siteLat,
+                        siteLon:            siteLon,
+                        sheetRow:           index + 1, // Store the source row index and add one (Google sheets start at 1, not 0)
+                        windDirectionN:     row.count > 12 ? row[12] : "",
+                        windDirectionNE:    row.count > 13 ? row[13] : "",
+                        windDirectionE:     row.count > 14 ? row[14] : "",
+                        windDirectionSE:    row.count > 15 ? row[15] : "",
+                        windDirectionS:     row.count > 16 ? row[16]: "",
+                        windDirectionSW:    row.count > 17 ? row[17] : "",
+                        windDirectionW:     row.count > 18 ? row[18]: "",
+                        windDirectionNW:    row.count > 19 ? row[19] : ""
                     )
                 }
             }

@@ -106,7 +106,9 @@ func windSpeedColor(windSpeed: Int?, siteType: String) -> Color {
         }
     case "Soaring":
         switch windSpeed {
-        case 0...19:
+        case 0...8:
+            return displayValueLime
+        case 9...19:
             return displayValueGreen
         case 20...24:
             return displayValueYellow
@@ -140,18 +142,63 @@ func thermalColor(_ thermalVelocity: Double?) -> Color {
     
     // Assumes thermalVelocity already rounded to nearest tenth
     switch thermalVelocity {
-    case ...1.0:
+    case ...0.9:
         return displayValueWhite
-    case 1.1...3.0:
+    case 1.0...1.9:
+        return displayValueLime
+    case 2.0...3.9:
         return displayValueGreen
-    case 3.0...4.0:
+    case 4.0...4.9:
         return displayValueYellow
-    case 4.0...5.0:
+    case 5.0...5.9:
         return displayValueOrange
     case 6.0...:
         return displayValueRed
     default:
         return .clear
+    }
+}
+
+// Color values for potential forecast ratings
+enum FlyingPotentialColor: Int {
+    case white  = 0
+    case lime   = 1
+    case green  = 2
+    case yellow = 3
+    case orange = 4
+    case red    = 5
+    var color: Color {
+        switch self {
+        case .white : return displayValueWhite
+        case .lime  : return displayValueLime
+        case .green : return displayValueGreen
+        case .yellow: return displayValueYellow
+        case .orange: return displayValueOrange
+        case .red   : return displayValueRed
+        }
+    }
+    static func color(for value: Int) -> Color {
+        return FlyingPotentialColor(rawValue: value)?.color ?? .clear
+    }
+    
+    // Converts a color to a value
+    static func value(for color: Color) -> Int {
+        for value in FlyingPotentialColor.allCases {
+            if value.color.description == color.description {
+                return value.rawValue
+            }
+        }
+        return -1
+    }
+}
+extension FlyingPotentialColor: CaseIterable {}
+
+
+func getDividerColor (_ newDateFlag: Bool) -> Color {
+    if newDateFlag {
+        return tableMajorDividerColor
+    } else {
+        return tableMinorDividerColor
     }
 }
 
@@ -475,8 +522,64 @@ func windsAloftCycle() -> String {
     case 3...13:
         return "12"
     case 14...18:
-        return "06"
+        return "6"
     default:
         return "24"
     }
+}
+
+// Used to convert color name (string) to color.
+// Colors need to be stored as strings in the site forecast HourlyData structure for it to remain Codable.
+extension Color {
+    static func from(name: String) -> Color {
+        switch name.lowercased() {
+        case "white"    : return .white
+        case "blue"     : return .displayValueBlue
+        case "teal"     : return .displayValueTeal
+        case "lime"     : return .displayValueLime
+        case "green"    : return .displayValueGreen
+        case "yellow"   : return .displayValueYellow
+        case "orange"   : return .displayValueOrange
+        case "red"      : return .displayValueRed
+        case "clear"    : return .clear
+        default         : return .gray // fallback
+        }
+    }
+}
+
+func directionToDegreeRange(_ direction: String) -> (minDegrees: Int, maxDegrees: Int)? {
+    // Define center bearings for 16 compass points
+    let directionDegrees: [String: Int] = [
+        "N"     : 0,
+        "NNE"   : 22,
+        "NE"    : 45,
+        "ENE"   : 67,
+        "E"     : 90,
+        "ESE"   : 112,
+        "SE"    : 135,
+        "SSE"   : 157,
+        "S"     : 180,
+        "SSW"   : 202,
+        "SW"    : 225,
+        "WSW"   : 247,
+        "W"     : 270,
+        "WNW"   : 292,
+        "NW"    : 315,
+        "NNW"   : 337
+    ]
+    guard let center = directionDegrees[direction.uppercased()] else {
+        return nil // invalid input
+    }
+    // Define a -22 / +23 range to make sure all degrees are covered
+    let negativeRange = 22
+    let positiveRange = 23
+
+    var minDegrees = center - negativeRange
+    var maxDegrees = center + positiveRange
+    
+    // Special cases for wrap-arounds (e.g., North and NNW)
+    if minDegrees < 0 { minDegrees = 360 + minDegrees }
+    if maxDegrees >= 360 { maxDegrees = maxDegrees - 360 }
+
+    return (minDegrees: minDegrees, maxDegrees: maxDegrees)
 }

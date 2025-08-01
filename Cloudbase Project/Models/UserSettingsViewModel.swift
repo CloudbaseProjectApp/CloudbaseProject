@@ -25,7 +25,7 @@ enum CustomMapStyle: String, Codable, CaseIterable {
 struct UserFavoriteSite: Identifiable, Codable, Equatable {
     var id = UUID()
     let appRegion: String
-    let favoriteType: String    // Station or Site
+    let favoriteType: String    // "station" or "site"
     let favoriteID: String      // site name or station name
     var favoriteName: String    // User specified
     let readingsSource: String  // for stations only (used to build mock site for favorites)

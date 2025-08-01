@@ -87,6 +87,17 @@ struct HourlyData: Codable {
     var formattedPrecipProbability: [String]?
     var formattedCloudCover: [String]?
     var formattedSurfaceTemp: [String]?
+    // Flying potential data
+    var combinedColorValue: [Int]?
+    var cloudCoverColorValue: [Int]?
+    var precipColorValue: [Int]?
+    var CAPEColorValue: [Int]?
+    var windDirectionColorValue: [Int]?
+    var surfaceWindColorValue: [Int]?
+    var surfaceGustColorValue: [Int]?
+    var gustFactorColorValue: [Int]?
+    var windsAloftColorValue: [Int]?
+    var thermalVelocityColorValue: [Int]?
 }
 
 // Structure used to store data that is common for all altitudes and pass to thermal calculation function
@@ -100,11 +111,11 @@ struct ForecastBaseData {
 
 class SiteForecastViewModel: ObservableObject {
     @Published var forecastData: ForecastData?
+    @Published var maxPressureReading: Int = defaultMaxPressureReading
+    
     private var liftParametersViewModel: LiftParametersViewModel
     private var sunriseSunsetViewModel: SunriseSunsetViewModel
     private var weatherCodesViewModel: WeatherCodeViewModel
-    @Published var weatherCodes: [String: String] = [:]
-    @Published var maxPressureReading: Int = 1000       // Pressure to start displaying winds aloft (1000 hpa is sea level)
     
     // Make thermal lift parameters, weather code images, and sunrise/sunset times available in this view model
     init(liftParametersViewModel: LiftParametersViewModel,
@@ -117,7 +128,8 @@ class SiteForecastViewModel: ObservableObject {
     
     func fetchForecast(siteName: String,
                        latitude: String,
-                       longitude: String) {
+                       longitude: String,
+                       siteType: String) {
         
         let encodedTimezone = AppRegionManager.shared.getRegionEncodedTimezone() ?? ""
 
@@ -137,7 +149,9 @@ class SiteForecastViewModel: ObservableObject {
                 // Uses the original data as the default if the removal of nulls failed
                 if let forecastData = try? decoder.decode(ForecastData.self, from: modifiedData ?? data) {
                     DispatchQueue.main.async {
-                        self.forecastData = self.filterForecastData(siteName: siteName, data: forecastData)
+                        (self.maxPressureReading, self.forecastData) = self.processForecastData(siteName: siteName,
+                                                                                               siteType: siteType,
+                                                                                               data: forecastData)
                     }
                 } else {
                     print("JSON decode failed for forecast")
@@ -146,9 +160,60 @@ class SiteForecastViewModel: ObservableObject {
         }.resume()
     }
     
-    func filterForecastData(siteName: String, data: ForecastData) -> ForecastData {
+    // Overloaded version with completion handler for use in FlyingPotentialView
+    func fetchForecast(siteName: String,
+                       latitude: String,
+                       longitude: String,
+                       siteType: String,
+                       completion: @escaping (ForecastData?) -> Void) {
         
-        var filteredHourly = HourlyData(
+        let encodedTimezone = AppRegionManager.shared.getRegionEncodedTimezone() ?? ""
+        let baseForecastURL = AppURLManager.shared.getAppURL(URLName: "forecastURL") ?? "<Unknown forecast URL>"
+        
+        var updatedForecastURL = updateURL(url: baseForecastURL, parameter: "latitude", value: latitude)
+        updatedForecastURL = updateURL(url: updatedForecastURL, parameter: "longitude", value: longitude)
+        updatedForecastURL = updateURL(url: updatedForecastURL, parameter: "encodedTimezone", value: encodedTimezone)
+        
+        if printForecastURL { print(updatedForecastURL) }
+        
+        guard let forecastURL = URL(string: updatedForecastURL) else {
+            completion(nil)
+            return
+        }
+
+        URLSession.shared.dataTask(with: forecastURL) { data, response, error in
+            if let data = data {
+                let decoder = JSONDecoder()
+                let modifiedData = replaceNullsInJSON(data: data)
+                do {
+                    let forecastData = try decoder.decode(ForecastData.self, from: modifiedData ?? data)
+                    let (_, filtered) = self.processForecastData(siteName: siteName,
+                                                                siteType: siteType,
+                                                                data: forecastData)
+                    DispatchQueue.main.async {
+                        completion(filtered)
+                    }
+                } catch {
+                    print("Decoding error: \(error)")
+                    print("Raw JSON: \(String(data: modifiedData ?? data, encoding: .utf8) ?? "Invalid data")")
+                    DispatchQueue.main.async {
+                        completion(nil)
+                    }
+                }
+                
+            } else {
+                DispatchQueue.main.async {
+                    completion(nil)
+                }
+            }
+        }.resume()
+    }
+    
+    func processForecastData(siteName: String,
+                            siteType: String,
+                            data: ForecastData) -> (maxPressureReading: Int, ForecastData) {
+        
+        var processedHourly = HourlyData(
             time: [],
             weathercode: [],
             cloudcover: [],
@@ -226,7 +291,17 @@ class SiteForecastViewModel: ObservableObject {
             formattedCAPE: [],
             formattedPrecipProbability: [],
             formattedCloudCover: [],
-            formattedSurfaceTemp: []
+            formattedSurfaceTemp: [],
+            combinedColorValue: [],
+            cloudCoverColorValue: [],
+            precipColorValue: [],
+            CAPEColorValue: [],
+            windDirectionColorValue: [],
+            surfaceWindColorValue: [],
+            surfaceGustColorValue: [],
+            gustFactorColorValue: [],
+            windsAloftColorValue: [],
+            thermalVelocityColorValue: []
         )
         
         // Get sunrise/sunset times from environment object
@@ -253,7 +328,7 @@ class SiteForecastViewModel: ObservableObject {
         // by reducing the number of rows to display and specifying the max pressure reading to display
         let surfaceAltitude = Double(convertMetersToFeet(data.elevation) + 10).rounded()
         let surfaceBuffer = 200.0           // Don't display winds aloft within surface buffer distance above surface
-        var maxPressureReading: Int = 1000  // hPa, which is sea level
+        var maxPressureReading: Int = maxPressureReading
         if (data.hourly.geopotential_height_900hPa.first ?? 0).rounded() < (surfaceAltitude + surfaceBuffer) { maxPressureReading = 850 }
         if (data.hourly.geopotential_height_850hPa.first ?? 0).rounded() < (surfaceAltitude + surfaceBuffer) { maxPressureReading = 800 }
         if (data.hourly.geopotential_height_800hPa.first ?? 0).rounded() < (surfaceAltitude + surfaceBuffer) { maxPressureReading = 750 }
@@ -263,7 +338,6 @@ class SiteForecastViewModel: ObservableObject {
         if (data.hourly.geopotential_height_600hPa.first ?? 0).rounded() < (surfaceAltitude + surfaceBuffer) { maxPressureReading = 550 }
         if (data.hourly.geopotential_height_550hPa.first ?? 0).rounded() < (surfaceAltitude + surfaceBuffer) { maxPressureReading = 500 }
         if (data.hourly.geopotential_height_500hPa.first ?? 0).rounded() < (surfaceAltitude + surfaceBuffer) { maxPressureReading = 450 }
-        self.maxPressureReading = maxPressureReading
 
         for (index, time) in data.hourly.time.enumerated() {
             let timeFormatter = DateFormatter()
@@ -490,91 +564,161 @@ class SiteForecastViewModel: ObservableObject {
                         // Only append display structure for times that are no more than an hour ago
                         // (earlier times only processed to determine if thermal trigger temp has already been reached today)
                         if timeObj >= oneHourAgo {
-                            filteredHourly.time.append(time)
-                            filteredHourly.dateTime?.append(timeObj)
-                            filteredHourly.formattedDay?.append(formattedDay)
-                            filteredHourly.formattedDate?.append(formattedDate)
-                            filteredHourly.formattedTime?.append(formattedTime)
-                            filteredHourly.newDateFlag?.append(newDateFlag)
-                            filteredHourly.weatherCodeImage?.append(weatherCodeImage)
-                            filteredHourly.weathercode.append(data.hourly.weathercode[index])
-                            filteredHourly.cloudcover.append(data.hourly.cloudcover[index])
+                            processedHourly.time.append(time)
+                            processedHourly.dateTime?.append(timeObj)
+                            processedHourly.formattedDay?.append(formattedDay)
+                            processedHourly.formattedDate?.append(formattedDate)
+                            processedHourly.formattedTime?.append(formattedTime)
+                            processedHourly.newDateFlag?.append(newDateFlag)
+                            processedHourly.weatherCodeImage?.append(weatherCodeImage)
+                            processedHourly.weathercode.append(data.hourly.weathercode[index])
+                            processedHourly.cloudcover.append(data.hourly.cloudcover[index])
                             if data.hourly.cloudcover[index] == 0 {
-                                filteredHourly.formattedCloudCover?.append("")
+                                processedHourly.formattedCloudCover?.append("")
                             } else {
-                                filteredHourly.formattedCloudCover?.append(String(Int(data.hourly.cloudcover[index])))
+                                processedHourly.formattedCloudCover?.append(String(Int(data.hourly.cloudcover[index])))
                             }
-                            filteredHourly.precipitation_probability.append(data.hourly.precipitation_probability[index])
+                            processedHourly.precipitation_probability.append(data.hourly.precipitation_probability[index])
                             if data.hourly.precipitation_probability[index] == 0 {
-                                filteredHourly.formattedPrecipProbability?.append("")
+                                processedHourly.formattedPrecipProbability?.append("")
                             } else {
-                                filteredHourly.formattedPrecipProbability?.append(String(Int(data.hourly.precipitation_probability[index])))
+                                processedHourly.formattedPrecipProbability?.append(String(Int(data.hourly.precipitation_probability[index])))
                             }
-                            filteredHourly.cape.append(data.hourly.cape[index])
+                            processedHourly.cape.append(data.hourly.cape[index])
                             if data.hourly.cape[index].rounded() == 0 {
-                                filteredHourly.formattedCAPE?.append("")
+                                processedHourly.formattedCAPE?.append("")
                             } else {
-                                filteredHourly.formattedCAPE?.append(String(Int(data.hourly.cape[index].rounded())))
+                                processedHourly.formattedCAPE?.append(String(Int(data.hourly.cape[index].rounded())))
                             }
-                            filteredHourly.temperature_2m.append(Double(surfaceTemp))
-                            filteredHourly.formattedSurfaceTemp?.append(String(surfaceTemp) + "°")
-                            filteredHourly.windspeed_500hPa.append(data.hourly.windspeed_500hPa[index].rounded())
-                            filteredHourly.windspeed_550hPa.append(data.hourly.windspeed_550hPa[index].rounded())
-                            filteredHourly.windspeed_600hPa.append(data.hourly.windspeed_600hPa[index].rounded())
-                            filteredHourly.windspeed_650hPa.append(data.hourly.windspeed_650hPa[index].rounded())
-                            filteredHourly.windspeed_700hPa.append(data.hourly.windspeed_700hPa[index].rounded())
-                            filteredHourly.windspeed_750hPa.append(data.hourly.windspeed_750hPa[index].rounded())
-                            filteredHourly.windspeed_800hPa.append(data.hourly.windspeed_800hPa[index].rounded())
-                            filteredHourly.windspeed_850hPa.append(data.hourly.windspeed_850hPa[index].rounded())
-                            filteredHourly.windspeed_900hPa.append(data.hourly.windspeed_900hPa[index].rounded())
-                            filteredHourly.windspeed_10m.append(data.hourly.windspeed_10m[index].rounded())
-                            filteredHourly.windgusts_10m.append(data.hourly.windgusts_10m[index].rounded())
-                            filteredHourly.winddirection_500hPa.append(data.hourly.winddirection_500hPa[index])
-                            filteredHourly.winddirection_550hPa.append(data.hourly.winddirection_550hPa[index])
-                            filteredHourly.winddirection_600hPa.append(data.hourly.winddirection_600hPa[index])
-                            filteredHourly.winddirection_650hPa.append(data.hourly.winddirection_650hPa[index])
-                            filteredHourly.winddirection_700hPa.append(data.hourly.winddirection_700hPa[index])
-                            filteredHourly.winddirection_750hPa.append(data.hourly.winddirection_750hPa[index])
-                            filteredHourly.winddirection_800hPa.append(data.hourly.winddirection_800hPa[index])
-                            filteredHourly.winddirection_850hPa.append(data.hourly.winddirection_850hPa[index])
-                            filteredHourly.winddirection_900hPa.append(data.hourly.winddirection_900hPa[index])
-                            filteredHourly.winddirection_10m.append(data.hourly.winddirection_10m[index])
+                            processedHourly.temperature_2m.append(Double(surfaceTemp))
+                            processedHourly.formattedSurfaceTemp?.append(String(surfaceTemp) + "°")
+                            processedHourly.windspeed_500hPa.append(data.hourly.windspeed_500hPa[index].rounded())
+                            processedHourly.windspeed_550hPa.append(data.hourly.windspeed_550hPa[index].rounded())
+                            processedHourly.windspeed_600hPa.append(data.hourly.windspeed_600hPa[index].rounded())
+                            processedHourly.windspeed_650hPa.append(data.hourly.windspeed_650hPa[index].rounded())
+                            processedHourly.windspeed_700hPa.append(data.hourly.windspeed_700hPa[index].rounded())
+                            processedHourly.windspeed_750hPa.append(data.hourly.windspeed_750hPa[index].rounded())
+                            processedHourly.windspeed_800hPa.append(data.hourly.windspeed_800hPa[index].rounded())
+                            processedHourly.windspeed_850hPa.append(data.hourly.windspeed_850hPa[index].rounded())
+                            processedHourly.windspeed_900hPa.append(data.hourly.windspeed_900hPa[index].rounded())
+                            processedHourly.windspeed_10m.append(data.hourly.windspeed_10m[index].rounded())
+                            processedHourly.windgusts_10m.append(data.hourly.windgusts_10m[index].rounded())
+                            processedHourly.winddirection_500hPa.append(data.hourly.winddirection_500hPa[index])
+                            processedHourly.winddirection_550hPa.append(data.hourly.winddirection_550hPa[index])
+                            processedHourly.winddirection_600hPa.append(data.hourly.winddirection_600hPa[index])
+                            processedHourly.winddirection_650hPa.append(data.hourly.winddirection_650hPa[index])
+                            processedHourly.winddirection_700hPa.append(data.hourly.winddirection_700hPa[index])
+                            processedHourly.winddirection_750hPa.append(data.hourly.winddirection_750hPa[index])
+                            processedHourly.winddirection_800hPa.append(data.hourly.winddirection_800hPa[index])
+                            processedHourly.winddirection_850hPa.append(data.hourly.winddirection_850hPa[index])
+                            processedHourly.winddirection_900hPa.append(data.hourly.winddirection_900hPa[index])
+                            processedHourly.winddirection_10m.append(data.hourly.winddirection_10m[index])
                             // Heights are divided by 1,000 and rounded so they can be displayed like "12k ft"
-                            filteredHourly.geopotential_height_500hPa.append((data.hourly.geopotential_height_500hPa[index]/1000).rounded())
-                            filteredHourly.geopotential_height_550hPa.append((data.hourly.geopotential_height_550hPa[index]/1000).rounded())
-                            filteredHourly.geopotential_height_600hPa.append((data.hourly.geopotential_height_600hPa[index]/1000).rounded())
-                            filteredHourly.geopotential_height_650hPa.append((data.hourly.geopotential_height_650hPa[index]/1000).rounded())
-                            filteredHourly.geopotential_height_700hPa.append((data.hourly.geopotential_height_700hPa[index]/1000).rounded())
-                            filteredHourly.geopotential_height_750hPa.append((data.hourly.geopotential_height_750hPa[index]/1000).rounded())
-                            filteredHourly.geopotential_height_800hPa.append((data.hourly.geopotential_height_800hPa[index]/1000).rounded())
-                            filteredHourly.geopotential_height_850hPa.append((data.hourly.geopotential_height_850hPa[index]/1000).rounded())
-                            filteredHourly.geopotential_height_900hPa.append((data.hourly.geopotential_height_900hPa[index]/1000).rounded())
-                            filteredHourly.thermalVelocity_900hPa?.append(thermalVelocity_900hPa)
-                            filteredHourly.thermalVelocity_850hPa?.append(thermalVelocity_850hPa)
-                            filteredHourly.thermalVelocity_800hPa?.append(thermalVelocity_800hPa)
-                            filteredHourly.thermalVelocity_750hPa?.append(thermalVelocity_750hPa)
-                            filteredHourly.thermalVelocity_700hPa?.append(thermalVelocity_700hPa)
-                            filteredHourly.thermalVelocity_650hPa?.append(thermalVelocity_650hPa)
-                            filteredHourly.thermalVelocity_600hPa?.append(thermalVelocity_600hPa)
-                            filteredHourly.thermalVelocity_550hPa?.append(thermalVelocity_550hPa)
-                            filteredHourly.thermalVelocity_500hPa?.append(thermalVelocity_500hPa)
+                            processedHourly.geopotential_height_500hPa.append((data.hourly.geopotential_height_500hPa[index]/1000).rounded())
+                            processedHourly.geopotential_height_550hPa.append((data.hourly.geopotential_height_550hPa[index]/1000).rounded())
+                            processedHourly.geopotential_height_600hPa.append((data.hourly.geopotential_height_600hPa[index]/1000).rounded())
+                            processedHourly.geopotential_height_650hPa.append((data.hourly.geopotential_height_650hPa[index]/1000).rounded())
+                            processedHourly.geopotential_height_700hPa.append((data.hourly.geopotential_height_700hPa[index]/1000).rounded())
+                            processedHourly.geopotential_height_750hPa.append((data.hourly.geopotential_height_750hPa[index]/1000).rounded())
+                            processedHourly.geopotential_height_800hPa.append((data.hourly.geopotential_height_800hPa[index]/1000).rounded())
+                            processedHourly.geopotential_height_850hPa.append((data.hourly.geopotential_height_850hPa[index]/1000).rounded())
+                            processedHourly.geopotential_height_900hPa.append((data.hourly.geopotential_height_900hPa[index]/1000).rounded())
+                            processedHourly.thermalVelocity_900hPa?.append(thermalVelocity_900hPa)
+                            processedHourly.thermalVelocity_850hPa?.append(thermalVelocity_850hPa)
+                            processedHourly.thermalVelocity_800hPa?.append(thermalVelocity_800hPa)
+                            processedHourly.thermalVelocity_750hPa?.append(thermalVelocity_750hPa)
+                            processedHourly.thermalVelocity_700hPa?.append(thermalVelocity_700hPa)
+                            processedHourly.thermalVelocity_650hPa?.append(thermalVelocity_650hPa)
+                            processedHourly.thermalVelocity_600hPa?.append(thermalVelocity_600hPa)
+                            processedHourly.thermalVelocity_550hPa?.append(thermalVelocity_550hPa)
+                            processedHourly.thermalVelocity_500hPa?.append(thermalVelocity_500hPa)
                             // Add top of lift results to data structure
-                            filteredHourly.formattedCloudbaseAltitude?.append(formattedCloudbaseAltitude)
+                            processedHourly.formattedCloudbaseAltitude?.append(formattedCloudbaseAltitude)
                             if topOfLiftAltitude.isNaN {
                                 print(String(topOfLiftAltitude))
                                 topOfLiftAltitude = 0 }
                             // Set top of lift altitude to a minimum of surface altitude for area chart
                             // (leaves formatted top of lift altitude set to ""
-                            filteredHourly.topOfLiftAltitude?.append(max(topOfLiftAltitude, surfaceAltitude))
-                            filteredHourly.formattedTopOfLiftAltitude?.append(formattedTopOfLiftAltitude)
-                            filteredHourly.topOfLiftTemp?.append(Double(topOfLiftTempF))
-                            filteredHourly.formattedTopOfLiftTemp?.append(String(topOfLiftTempF) + "°")
+                            processedHourly.topOfLiftAltitude?.append(max(topOfLiftAltitude, surfaceAltitude))
+                            processedHourly.formattedTopOfLiftAltitude?.append(formattedTopOfLiftAltitude)
+                            processedHourly.topOfLiftTemp?.append(Double(topOfLiftTempF))
+                            processedHourly.formattedTopOfLiftTemp?.append(String(topOfLiftTempF) + "°")
+                            
+                            //------------------------------------------------------------------------------------------------------
+                            // Flying potential section
+                            //------------------------------------------------------------------------------------------------------
+                            
+                            let cloudCoverColorValue = FlyingPotentialColor.value(for: cloudCoverColor(Int(data.hourly.cloudcover[index])))
+                            let precipColorValue = FlyingPotentialColor.value(for: precipColor(Int(data.hourly.precipitation_probability[index])))
+                            let CAPEColorValue = FlyingPotentialColor.value(for: CAPEColor(Int(data.hourly.cape[index])))
+                            let surfaceWindColorValue = FlyingPotentialColor.value(for: windSpeedColor(windSpeed: Int(data.hourly.windspeed_10m[index]), siteType: siteType))
+                            let surfaceGustColorValue = FlyingPotentialColor.value(for: windSpeedColor(windSpeed: Int(data.hourly.windgusts_10m[index]), siteType: siteType))
+// !!!!!
+                            let gustFactorColorValue = 99
+                            
+                            // Winds aloft and thermals up to 6k ft (800 hpa) for all sites; higher altitude for mountain sites
+                            var windsAloftColorValue = max(
+                                FlyingPotentialColor.value(for: windSpeedColor(
+                                    windSpeed: Int(data.hourly.windspeed_900hPa[index]), siteType: siteType)),
+                                FlyingPotentialColor.value(for: windSpeedColor(
+                                    windSpeed: Int(data.hourly.windspeed_850hPa[index]), siteType: siteType)),
+                                FlyingPotentialColor.value(for: windSpeedColor(
+                                    windSpeed: Int(data.hourly.windspeed_800hPa[index]), siteType: siteType)))
+                            
+                            var thermalVelocityColorValue = max(
+                                FlyingPotentialColor.value(for: thermalColor(thermalVelocity_900hPa)),
+                                FlyingPotentialColor.value(for: thermalColor(thermalVelocity_850hPa)),
+                                FlyingPotentialColor.value(for: thermalColor(thermalVelocity_800hPa)))
+
+                            if siteType == "Mountain" {
+                                windsAloftColorValue = max(windsAloftColorValue,
+                                    FlyingPotentialColor.value(for: windSpeedColor(windSpeed: Int(data.hourly.windspeed_750hPa[index]), siteType: siteType)),
+                                    FlyingPotentialColor.value(for: windSpeedColor(windSpeed: Int(data.hourly.windspeed_700hPa[index]), siteType: siteType)),
+                                    FlyingPotentialColor.value(for: windSpeedColor(windSpeed: Int(data.hourly.windspeed_650hPa[index]), siteType: siteType)))
+                                
+                                thermalVelocityColorValue = max(thermalVelocityColorValue,
+                                    FlyingPotentialColor.value(for: thermalColor(thermalVelocity_750hPa)),
+                                    FlyingPotentialColor.value(for: thermalColor(thermalVelocity_700hPa)),
+                                    FlyingPotentialColor.value(for: thermalColor(thermalVelocity_650hPa)))
+                            }
+// !!!!!!!
+                            let windDirectionColorValue = 99
+
+                            // Determine potential
+                            var combinedColorValue = max(cloudCoverColorValue,
+                                                         precipColorValue,
+                                                         CAPEColorValue,
+                                                         windsAloftColorValue,
+                                                         surfaceWindColorValue,
+                                                         surfaceGustColorValue)
+                            
+                            // For soaring sites, reduce the value if wind speed can is too low to soar
+                            if siteType == "Soaring" {
+                                if combinedColorValue <= FlyingPotentialColor.value(for: .green) {
+                                    // No warning conditions; base color on wind, including "downgrading" if there isn't enough surface wind
+                                    combinedColorValue = max(surfaceWindColorValue, surfaceGustColorValue)
+                                }
+                            }
+                            // Note:  Not currently checking top of lift to limit winds aloft readings
+                            
+                            // Store potential results
+                            processedHourly.combinedColorValue?.append(combinedColorValue)
+                            processedHourly.cloudCoverColorValue?.append(cloudCoverColorValue)
+                            processedHourly.precipColorValue?.append(precipColorValue)
+                            processedHourly.CAPEColorValue?.append(CAPEColorValue)
+                            processedHourly.windDirectionColorValue?.append(windDirectionColorValue)
+                            processedHourly.surfaceWindColorValue?.append(surfaceWindColorValue)
+                            processedHourly.surfaceGustColorValue?.append(surfaceGustColorValue)
+                            processedHourly.gustFactorColorValue?.append(gustFactorColorValue)
+                            processedHourly.windsAloftColorValue?.append(windsAloftColorValue)
+                            processedHourly.thermalVelocityColorValue?.append(thermalVelocityColorValue)
+                            
                         }
                     }
                 }
             }
         }
-        return ForecastData(elevation: data.elevation, hourly: filteredHourly)
+        return (maxPressureReading, ForecastData(elevation: data.elevation, hourly: processedHourly))
     }
     
     struct ThermalResult {

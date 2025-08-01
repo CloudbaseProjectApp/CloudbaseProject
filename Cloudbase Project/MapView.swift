@@ -43,7 +43,7 @@ class ArrowOverlayRenderer: MKOverlayRenderer {
         
         // Use zoomLevel instead of zoomScale directly
         let sizeFactor: CGFloat = zoomLevelSizeFactor(for: zoomLevel)
-        let size: CGFloat = CGFloat(arrow.size) * zoomLevel * mapPilotAnnotationZoomScaleFactor * sizeFactor
+        let size: CGFloat = CGFloat(arrow.size) * zoomLevel * mapPilotAnnotationZoomFactor * sizeFactor
         let path = CGMutablePath()
         path.move(to: CGPoint(x: center.x, y: center.y - size / 2))
         path.addLine(to: CGPoint(x: center.x - size / 2, y: center.y + size / 2))
@@ -353,7 +353,7 @@ struct MapView: UIViewRepresentable {
                 if trackNodeType != "normal" {
                     annotationSizingFactor = 3
                 }
-                let dotDiameter: CGFloat = parent.zoomLevel * mapPilotAnnotationZoomScaleFactor * annotationSizingFactor
+                let dotDiameter: CGFloat = parent.zoomLevel * mapPilotAnnotationZoomFactor * annotationSizingFactor
                 let container = UIView()
                 container.backgroundColor = .clear
                 
@@ -682,10 +682,10 @@ struct MapView: UIViewRepresentable {
         
 func getPilotLabelHeightFromMapSpan(span: MKCoordinateSpan) -> CGFloat {
     if span.latitudeDelta < pilotNodeLabelThreeRowSpan {
-        return pilotNodeAnnotationTextThreeRowHeight
+        return pilotNodeLabelTextThreeRowHeight
     }
     else {
-        return pilotNodeAnnotationTextOneRowHeight
+        return pilotNodeLabelTextOneRowHeight
     }
 }
 
@@ -998,19 +998,28 @@ struct MapContainerView: View {
         
        .sheet(item: $selectedStation) { station in
            let site = Site(
-               id: UUID(),
-               area: "",
-               siteName: station.title ?? "",
-               readingsNote: "",
-               forecastNote: "",
-               siteType: "Station",
-               readingsAlt: String(Int(station.altitude)),
-               readingsSource: station.readingsSource,
-               readingsStation: station.annotationID,
+               id:                  UUID(),
+               area:                "",
+               siteName:            station.title ?? "",
+               readingsNote:        "",
+               forecastNote:        "",
+               siteType:            "station",
+               readingsAlt:         String(Int(station.altitude)),
+               readingsSource:      station.readingsSource,
+               readingsStation:     station.annotationID,
                pressureZoneReadingTime: "",
-               siteLat: "\(station.coordinate.latitude)",
-               siteLon: "\(station.coordinate.longitude)",
-               sheetRow: 0
+               siteLat:             "\(station.coordinate.latitude)",
+               siteLon:             "\(station.coordinate.longitude)",
+               sheetRow:            0,
+               windDirectionN:     "",
+               windDirectionNE:    "",
+               windDirectionE:     "",
+               windDirectionSE:    "",
+               windDirectionS:     "",
+               windDirectionSW:    "",
+               windDirectionW:     "",
+               windDirectionNW:    ""
+
            )
            SiteDetailView(site: site, favoriteName: "")
        }

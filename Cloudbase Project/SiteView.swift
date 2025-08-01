@@ -29,7 +29,7 @@ struct SiteView: View {
     
     var body: some View {
         VStack {
-            Text("Tap on a site for forecast and readings history")
+            Text("Tap on a site for readings history and forecast")
                 .font(.caption)
                 .foregroundColor(infoFontColor)
                 .padding(.top, 8)
@@ -142,8 +142,8 @@ struct SiteView: View {
     
     private func openSiteDetail(_ site: Site) {
         let matchedFavorite = editableFavorites.first {
-            ($0.favoriteType == "Site" && $0.favoriteID == site.siteName) ||
-            ($0.favoriteType == "Station" && $0.stationID == site.readingsStation)
+            ($0.favoriteType == "site" && $0.favoriteID == site.siteName) ||
+            ($0.favoriteType == "station" && $0.stationID == site.readingsStation)
         }
 
         let favoriteName = matchedFavorite?.favoriteName ?? ""
@@ -203,7 +203,7 @@ struct FavoritesSection: View {
                     FavoriteRow(
                         favorite: binding,
                         site: site,
-                        displayName: displayName, // ✅ pass new param
+                        displayName: displayName,
                         onSelect: onSelect,
                         renamingFavoriteID: $renamingFavoriteID,
                         myID: favorite.id
@@ -223,24 +223,32 @@ struct FavoritesSection: View {
     private func siteFromFavorite(_ fav: UserFavoriteSite) -> (Site, String)? {
         let display = fav.favoriteName.isEmpty ? fav.favoriteID : fav.favoriteName
         switch fav.favoriteType {
-        case "Site":
+        case "site":
             if let match = siteViewModel.sites.first(where: { $0.siteName == fav.favoriteID }) {
                 return (match, display)
             }
-        case "Station":
+        case "station":
             return (Site(
-                area: "Favorites",
-                siteName: fav.favoriteID, // ✅ stay true to ID
-                readingsNote: "",
-                forecastNote: "",
-                siteType: "Station",
-                readingsAlt: fav.readingsAlt,
-                readingsSource: fav.readingsSource,
-                readingsStation: fav.stationID,
+                area:               "Favorites",
+                siteName:           fav.favoriteID,
+                readingsNote:       "",
+                forecastNote:       "",
+                siteType:           "station",
+                readingsAlt:        fav.readingsAlt,
+                readingsSource:     fav.readingsSource,
+                readingsStation:    fav.stationID,
                 pressureZoneReadingTime: "",
-                siteLat: fav.siteLat,
-                siteLon: fav.siteLon,
-                sheetRow: 0
+                siteLat:            fav.siteLat,
+                siteLon:            fav.siteLon,
+                sheetRow:           0,
+                windDirectionN:     "",
+                windDirectionNE:    "",
+                windDirectionE:     "",
+                windDirectionSE:    "",
+                windDirectionS:     "",
+                windDirectionSW:    "",
+                windDirectionW:     "",
+                windDirectionNW:    ""
             ), display)
         default:
             return nil
@@ -368,7 +376,7 @@ struct FavoriteRow: View {
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @Binding var favorite: UserFavoriteSite
     var site: Site?
-    var displayName: String? // ✅ New param
+    var displayName: String?
     var onSelect: (Site) -> Void
 
     @Binding var renamingFavoriteID: UUID?

@@ -79,7 +79,7 @@ class StationReadingsHistoryDataModel: ObservableObject {
                         self.readingsHistoryData.errorMessage = nil
                     }
                 }
-            // end of let url...URLSession... section
+
         case "CUASA":
             let readingInterval: Double = 5 * 60 // 5 minutes in seconds
             let readingEnd = Date().timeIntervalSince1970 // current timestamp in seconds
@@ -112,7 +112,10 @@ class StationReadingsHistoryDataModel: ObservableObject {
                     self?.processCUASAReadingsHistoryData(readingsHistoryDataArray)
                 })
                 .store(in: &cancellables)
-            // end of let url...URLSession... section
+
+        case "RMHPA":
+            print("HAVE NOT IMPLEmented RMHPA history readings yet")
+            
         default:
             print("Invalid readings source for station: \(stationID)")
         }

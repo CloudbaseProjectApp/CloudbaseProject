@@ -106,10 +106,12 @@ struct SiteDetailView: View {
                 Button(action: {
                     if !isFavorite {
                         do {
+                            let favoriteType = getFavoriteType(siteType: site.siteType)
+                            let favoriteName = favoriteType == "station" ? site.siteName.capitalized : site.siteName
                             try userSettingsViewModel.addFavorite(
-                                favoriteType:   getFavoriteType(siteType: site.siteType),
+                                favoriteType:   favoriteType,
                                 favoriteID:     site.siteName,
-                                favoriteName:   site.siteName.capitalized,
+                                favoriteName:   favoriteName,
                                 readingsSource: site.readingsSource,
                                 stationID:      site.readingsStation,
                                 readingsAlt:    site.readingsAlt,
@@ -180,6 +182,11 @@ struct SiteDetailView: View {
                                     .font(.caption)
                                     .foregroundColor(infoFontColor)
                                     .padding(.top, 4)
+                            case "RMHPA":
+                                Text("Tap for RMHPA live readings site")
+                                    .font(.caption)
+                                    .foregroundColor(infoFontColor)
+                                    .padding(.top, 4)
                             default:
                                 Text("Invalid readings source; no history available")
                                     .font(.caption)
@@ -203,6 +210,13 @@ struct SiteDetailView: View {
                             if let url = URL(string: updatedReadingsLink) {
                                 openLink(url)
                             }
+                        case "RMHPA":
+                            let readingsLink = AppURLManager.shared.getAppURL(URLName: "RMPHAHistoryReadingsLink") ?? "<Unknown RMPHA readings history URL>"
+                            let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: site.readingsStation)
+                            if let url = URL(string: updatedReadingsLink) {
+                                openLink(url)
+                            }
+
                         default:
                             print ("Invalid readings source")
                         }
@@ -321,9 +335,9 @@ struct SiteDetailView: View {
     }
     
     private func getFavoriteType (siteType: String) -> String {
-        var favoriteType: String = "Site"
-        if siteType == "Station" {
-            favoriteType = "Station"
+        var favoriteType: String = "site"
+        if siteType == "station" {
+            favoriteType = "station"
         }
         return favoriteType
     }

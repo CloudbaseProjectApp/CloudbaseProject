@@ -1,6 +1,16 @@
 import SwiftUI
 import MapKit
 
+// Page navigation values
+enum NavBarSelectedView: Int {
+    case site = 0
+    case weather = 1
+    case potential = 2
+    case map = 3
+    case webcam = 4
+    case link = 5
+}
+
 struct MainView: View {
     @Binding var refreshMetadata: Bool
     @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
@@ -14,6 +24,7 @@ struct MainView: View {
     @State var selectedView:NavBarSelectedView = .site
     @State var siteViewActive =         true
     @State var weatherViewActive =      false
+    @State var potentialViewActive =    false
     @State var mapViewActive =          false
     @State var webcamViewActive =       false
     @State var linkViewActive =         false
@@ -36,6 +47,13 @@ struct MainView: View {
                 if selectedView == .weather {
                     WeatherView()
                 }
+                if selectedView == .potential {
+                    FlyingPotentialView(
+                        liftVM: liftParametersViewModel,
+                        sunriseVM: sunriseSunsetViewModel,
+                        weatherVM: weatherCodesViewModel
+                    )
+                }
                 if selectedView == .map {
                     MapContainerView(
                         pilotViewModel: pilotViewModel,
@@ -43,7 +61,6 @@ struct MainView: View {
                         userSettingsViewModel: userSettingsViewModel
                     )
                     .environmentObject(siteViewModel)
-                    .environmentObject(userSettingsViewModel)
                     .environmentObject(pilotViewModel)
                     .environmentObject(stationLatestReadingViewModel)
                 }
@@ -106,6 +123,7 @@ struct MainView: View {
                                 selectedView = .site
                                 siteViewActive = true
                                 weatherViewActive = false
+                                potentialViewActive = false
                                 mapViewActive = false
                                 webcamViewActive = false
                                 linkViewActive = false
@@ -113,7 +131,8 @@ struct MainView: View {
                                 VStack {
                                     Image(systemName: "cloud.sun")
                                         .foregroundColor(siteViewActive ? toolbarActiveImageColor : toolbarImageColor)
-                                        .imageScale(.medium)
+                                        .font(.system(size: toolbarItemSize))
+                                        .frame(width: toolbarItemSize, height: toolbarItemSize)
                                     Text("Sites")
                                         .foregroundColor(siteViewActive ? toolbarActiveFontColor : toolbarFontColor)
                                         .font(.caption)
@@ -125,6 +144,7 @@ struct MainView: View {
                                 selectedView = .weather
                                 siteViewActive = false
                                 weatherViewActive = true
+                                potentialViewActive = false
                                 mapViewActive = false
                                 webcamViewActive = false
                                 linkViewActive = false
@@ -132,7 +152,8 @@ struct MainView: View {
                                 VStack {
                                     Image(systemName: "cloud.sun")
                                         .foregroundColor(weatherViewActive ? toolbarActiveImageColor : toolbarImageColor)
-                                        .imageScale(.medium)
+                                        .font(.system(size: toolbarItemSize))
+                                        .frame(width: toolbarItemSize, height: toolbarItemSize)
                                     Text("Weather")
                                         .foregroundColor(weatherViewActive ? toolbarActiveFontColor : toolbarFontColor)
                                         .font(.caption)
@@ -140,10 +161,37 @@ struct MainView: View {
                                 }
                             }
                             Spacer()
+/*
+                            Button {
+                                selectedView = .potential
+                                siteViewActive = false
+                                weatherViewActive = false
+                                potentialViewActive = true
+                                mapViewActive = false
+                                webcamViewActive = false
+                                linkViewActive = false
+                            } label: {
+                                VStack {
+                                    Image("PGIconSystemImage")
+                                        .renderingMode(.template)
+                                        .resizable()
+                                        .scaledToFit()
+                                        // Customizing frame dimensions as it seems dependent on original image size
+                                        .frame(width: toolbarItemSize * 1.6, height: toolbarItemSize * 1.6)                                        //.offset(y: 1) // Adjust height relative to other toolbar icons
+                                        .foregroundColor(potentialViewActive ? toolbarActiveImageColor : toolbarImageColor)
+                                    Text("Potential")
+                                        .foregroundColor(potentialViewActive ? toolbarActiveFontColor : toolbarFontColor)
+                                        .font(.caption)
+                                        .padding(.top, 0)
+                                }
+                            }
+                            Spacer()
+ */
                             Button {
                                 selectedView = .map
                                 siteViewActive = false
                                 weatherViewActive = false
+                                potentialViewActive = false
                                 mapViewActive = true
                                 webcamViewActive = false
                                 linkViewActive = false
@@ -151,7 +199,8 @@ struct MainView: View {
                                 VStack {
                                     Image(systemName: "map")
                                         .foregroundColor(mapViewActive ? toolbarActiveImageColor : toolbarImageColor)
-                                        .imageScale(.medium)
+                                        .font(.system(size: toolbarItemSize))
+                                        .frame(width: toolbarItemSize, height: toolbarItemSize)
                                     Text("Map")
                                         .foregroundColor(mapViewActive ? toolbarActiveFontColor : toolbarFontColor)
                                         .font(.caption)
@@ -163,6 +212,7 @@ struct MainView: View {
                                 selectedView = .webcam
                                 siteViewActive = false
                                 weatherViewActive = false
+                                potentialViewActive = false
                                 mapViewActive = false
                                 webcamViewActive = true
                                 linkViewActive = false
@@ -170,7 +220,8 @@ struct MainView: View {
                                 VStack {
                                     Image(systemName: "photo")
                                         .foregroundColor(webcamViewActive ? toolbarActiveImageColor : toolbarImageColor)
-                                        .imageScale(.medium)
+                                        .font(.system(size: toolbarItemSize))
+                                        .frame(width: toolbarItemSize, height: toolbarItemSize)
                                     Text("Cams")
                                         .foregroundColor(webcamViewActive ? toolbarActiveFontColor : toolbarFontColor)
                                         .font(.caption)
@@ -183,6 +234,7 @@ struct MainView: View {
                                 selectedView = .link
                                 siteViewActive = false
                                 weatherViewActive = false
+                                potentialViewActive = false
                                 mapViewActive = false
                                 webcamViewActive = false
                                 linkViewActive = true
@@ -190,7 +242,8 @@ struct MainView: View {
                                 VStack {
                                     Image(systemName: "link")
                                         .foregroundColor(linkViewActive ? toolbarActiveImageColor : toolbarImageColor)
-                                        .imageScale(.medium)
+                                        .font(.system(size: toolbarItemSize))
+                                        .frame(width: toolbarItemSize, height: toolbarItemSize)
                                     Text("Links")
                                         .foregroundColor(linkViewActive ? toolbarActiveFontColor : toolbarFontColor)
                                         .font(.caption)

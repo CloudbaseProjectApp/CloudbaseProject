@@ -45,6 +45,7 @@ struct MesonetLatestStation: Codable {
         case observations = "OBSERVATIONS"
     }
 }
+
 struct MesonetLatestObservations: Codable {
     let airTemp: MesonetLatestObservationsValues?
     let windSpeed: MesonetLatestObservationsValues?
@@ -58,6 +59,7 @@ struct MesonetLatestObservations: Codable {
         case windGust = "wind_gust_value_1"
     }
 }
+
 struct MesonetLatestObservationsValues: Codable {
     let value: Double?
     let dateTime: String?
@@ -91,38 +93,54 @@ struct CUASAReadingsData: Codable {
     var pwm: Double?
 }
 
+// Decoding model for API response
+struct RMHPAAPIResponse: Decodable {
+    let station: String
+    let data: [RMHPAReadingData]
+}
+
+struct RMHPAReadingData: Decodable {
+    let station: String
+    let timestamp: String
+    let wind: Double?
+    let gust: Double?
+    let dir: Double?
+    let temp: Double?
+    let name: String
+}
+
 class StationLatestReadingViewModel: ObservableObject {
     @Published var latestSiteReadings: [StationLatestReading] = []
     @Published var latestAllReadings: [StationLatestReading] = []
     @Published var stationParameters: String = ""
     @Published var isLoading = false
-
+    
     private var lastSiteFetchTime: Date? = nil
     private var lastAllFetchTime: Date? = nil
     private var lastFavoriteStationIDs: Set<String> = []    // Used to force a refresh if new favorite stations are added from map page
-
+    
     let siteViewModel: SiteViewModel
     let userSettingsViewModel: UserSettingsViewModel
-
+    
     init(siteViewModel: SiteViewModel,
          userSettingsViewModel: UserSettingsViewModel) {
         self.siteViewModel = siteViewModel
         self.userSettingsViewModel = userSettingsViewModel
     }
-
+    
     // sitesOnly determines whether to only get Mesonet readings for stations associated with sites (SiteView)
     // or all stations in region (MapView)
     // These are published as separate structures with separate refresh timers
     func getLatestReadingsData(sitesOnly: Bool,
                                completion: @escaping () -> Void) {
-
+        
         var favoriteStationIDs: Set<String> = []
         if sitesOnly {
             // 1) Gather Mesonet stations from SiteViewModel
             let mesonetStations = siteViewModel.sites
                 .filter { $0.readingsSource == "Mesonet" && !$0.readingsStation.isEmpty }
                 .map { $0.readingsStation }
-
+            
             // 2) Gather favorite Mesonet stations in current region
             let currentRegion = RegionManager.shared.activeAppRegion
             favoriteStationIDs = Set(
@@ -135,28 +153,28 @@ class StationLatestReadingViewModel: ObservableObject {
                     }
                     .map { $0.stationID }
             )
-
+            
             let allStations = Set(mesonetStations).union(favoriteStationIDs)
             if allStations.isEmpty {
                 print("No Mesonet sites or favorite stations available")
                 completion()
                 return
             }
-
+            
             self.stationParameters = allStations
                 .map { "&stid=\($0)" }
                 .joined()
-
+            
             if printReadingsURL {
                 print("Computed stationParameters: \(self.stationParameters)")
             }
         }
-
+        
         // Check if refresh interval has passed
         let now = Date()
         let lastFetchTime = sitesOnly ? lastSiteFetchTime : lastAllFetchTime
         var shouldForceRefresh = false
-
+        
         if sitesOnly {
             // Compare favoriteStationIDs to last fetched set
             if favoriteStationIDs != lastFavoriteStationIDs {
@@ -164,15 +182,15 @@ class StationLatestReadingViewModel: ObservableObject {
                 lastFavoriteStationIDs = favoriteStationIDs
             }
         }
-
+        
         if !shouldForceRefresh, let last = lastFetchTime, now.timeIntervalSince(last) < readingsRefreshInterval {
             completion()
             return
         }
-
+        
         if sitesOnly { lastSiteFetchTime = now } else { lastAllFetchTime = now }
         isLoading = true
-
+        
         // Build API call parameters
         let regionCountry = AppRegionManager.shared.getRegionCountry() ?? ""
         let stationParams: String
@@ -180,22 +198,28 @@ class StationLatestReadingViewModel: ObservableObject {
             stationParams = self.stationParameters
         } else {
             stationParams = (regionCountry == "US")
-                ? "&state=\(RegionManager.shared.activeAppRegion)"
-                : "&country=\(regionCountry)"
+            ? "&state=\(RegionManager.shared.activeAppRegion)"
+            : "&country=\(regionCountry)"
         }
-
-        // Fetch Mesonet & CUASA in parallel
+        
+        // Fetch Mesonet, CUASA, RMPHA in parallel
         var combinedReadings: [StationLatestReading] = []
         let group = DispatchGroup()
-
+        
         group.enter()
         getLatestMesonetReadings(stationParameters: stationParams) { readings in
             combinedReadings.append(contentsOf: readings)
             group.leave()
         }
-
+        
         group.enter()
         getLatestCUASAReadings { readings in
+            combinedReadings.append(contentsOf: readings)
+            group.leave()
+        }
+        
+        group.enter()
+        getLatestRMHPAReadings { readings in
             combinedReadings.append(contentsOf: readings)
             group.leave()
         }
@@ -210,7 +234,7 @@ class StationLatestReadingViewModel: ObservableObject {
             completion()
         }
     }
-        
+    
     func getLatestMesonetReadings(stationParameters: String, completion: @escaping ([StationLatestReading]) -> Void) {
         let readingsLink = AppURLManager.shared.getAppURL(URLName: "mesonetLatestReadingsAPI") ?? "<Unknown Mesonet readings API URL>"
         let updatedReadingsLink = updateURL(url: readingsLink, parameter: "stationlist", value: stationParameters) + synopticsAPIToken
@@ -229,16 +253,16 @@ class StationLatestReadingViewModel: ObservableObject {
                               let _ = station.observations.windSpeed?.dateTime
                         else { return nil }
                         return StationLatestReading(
-                            stationID: station.stationID,
-                            stationName: station.stationName,
-                            readingsSource: "Mesonet",
-                            stationElevation: station.elevation,
-                            stationLatitude: station.latitude,
-                            stationLongitude: station.longitude,
-                            windSpeed: station.observations.windSpeed?.value,
-                            windDirection: station.observations.windDirection?.value,
-                            windGust: station.observations.windGust?.value,
-                            windTime: station.observations.windSpeed?.dateTime
+                            stationID:          station.stationID,
+                            stationName:        station.stationName,
+                            readingsSource:     "Mesonet",
+                            stationElevation:   station.elevation,
+                            stationLatitude:    station.latitude,
+                            stationLongitude:   station.longitude,
+                            windSpeed:          station.observations.windSpeed?.value,
+                            windDirection:      station.observations.windDirection?.value,
+                            windGust:           station.observations.windGust?.value,
+                            windTime:           station.observations.windSpeed?.dateTime
                         )
                     }
                     DispatchQueue.main.async {
@@ -253,7 +277,7 @@ class StationLatestReadingViewModel: ObservableObject {
             }
         }.resume()
     }
-
+    
     func getLatestCUASAReadings(completion: @escaping ([StationLatestReading]) -> Void) {
         let CUASAStations = Array(
             Dictionary(grouping: siteViewModel.sites.filter { $0.readingsSource == "CUASA" }, by: { $0.readingsStation })
@@ -274,8 +298,11 @@ class StationLatestReadingViewModel: ObservableObject {
 
         for station in CUASAStations {
             group.enter()
-            let readingsLink = AppURLManager.shared.getAppURL(URLName: "CUASALatestReadingsAPI") ?? "<Unknown CUASA latest readings API URL>"
+            let readingsLink = AppURLManager.shared.getAppURL(URLName: "CUASAStationInfoAPI") ?? "<Unknown CUASA station info API URL>"
             let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: station.readingsStation)
+            if printReadingsURL {
+                print("CUASA station info URL: \(updatedReadingsLink)")
+            }
             guard let stationInfoURL = URL(string: updatedReadingsLink) else {
                 group.leave()
                 continue
@@ -299,7 +326,9 @@ class StationLatestReadingViewModel: ObservableObject {
                         return
                     }
 
-                    if printReadingsURL { print(readingsURL) }
+                    if printReadingsURL {
+                        print("Latest CUASA readings URL: \(readingsURL)")
+                    }
 
                     URLSession.shared.dataTask(with: readingsURL) { data, response, error in
                         DispatchQueue.main.async {
@@ -344,5 +373,85 @@ class StationLatestReadingViewModel: ObservableObject {
         group.notify(queue: .main) {
             completion(collectedReadings)  // Return combined array
         }
+    }
+
+    func getLatestRMHPAReadings(completion: @escaping ([StationLatestReading]) -> Void) {
+
+        let RMHPAStations = Array(
+            Dictionary(grouping: siteViewModel.sites.filter { $0.readingsSource == "RMHPA" }, by: { $0.readingsStation })
+                .compactMap { $0.value.first }
+        )
+        guard !RMHPAStations.isEmpty else {
+            print("RMPHA stations are empty")
+            completion([])
+            return
+        }
+
+        var collectedReadings: [StationLatestReading] = []
+        let group = DispatchGroup()
+
+        for station in RMHPAStations {
+            group.enter()
+            let readingsLink = AppURLManager.shared.getAppURL(URLName: "RMPHALatestReadingsAPI") ?? "<Unknown RMPHA latest readings API URL>"
+            let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: station.readingsStation)
+            
+            if printReadingsURL {
+                print("RMHPA latest readings URL: \(updatedReadingsLink)")
+            }
+
+            guard let latestReadingsURL = URL(string: updatedReadingsLink) else {
+                group.leave()
+                continue
+            }
+            
+            var request = URLRequest(url: latestReadingsURL)
+            request.httpMethod = "GET"
+            request.setValue(RMHPAAPIKey, forHTTPHeaderField: "x-api-key")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+            URLSession.shared.dataTask(with: request) { data, response, error in
+                DispatchQueue.main.async {
+                    defer { group.leave() }
+                    guard
+                        let data = data,
+                        let apiResponse = try? JSONDecoder().decode(RMHPAAPIResponse.self, from: data),
+                        let reading = apiResponse.data.first
+                    else {
+                        print("Error getting valid RMHPA response for station: \(station.readingsStation)")
+                        return
+                    }
+                    
+                    // Get time from data in format: "2025-07-31T05:45:00.000"
+                    var formattedTime = ""
+                    let inputFormatter = DateFormatter()
+                    inputFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS"
+                    let outputFormatter = DateFormatter()
+                    outputFormatter.dateFormat = "h:mm"
+                    if let date = inputFormatter.date(from: reading.timestamp) {
+                        formattedTime = outputFormatter.string(from: date)
+                    }
+                    
+                    let newReading = StationLatestReading(
+                        stationID:          apiResponse.station,
+                        stationName:        reading.name,
+                        readingsSource:     "RMHPA",
+                        stationElevation:   station.readingsAlt,
+                        stationLatitude:    "",          // MISSING
+                        stationLongitude:   "",          // MISSING
+                        windSpeed:          reading.wind,       // Provided in mph
+                        windDirection:      reading.dir,
+                        windGust:           reading.gust,       // Provided in mph
+                        windTime:           formattedTime
+                    )
+                    
+                    collectedReadings.append(newReading)
+                }
+            }.resume()
+        }
+        
+        group.notify(queue: .main) {
+            completion(collectedReadings)  // Return combined array
+        }
+ 
     }
 }

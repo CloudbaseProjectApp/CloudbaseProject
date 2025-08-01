@@ -24,7 +24,9 @@ class WindsAloftViewModel: ObservableObject {
             isLoading = false
             return
         }
-        let updatedURL = updateURL(url: baseURL, parameter: "cycle", value: windsAloftCycle())
+        let cycle = windsAloftCycle()
+        self.cycle = cycle
+        let updatedURL = updateURL(url: baseURL, parameter: "cycle", value: cycle)
         
         // Format URL
         guard let URL = URL(string: updatedURL)
