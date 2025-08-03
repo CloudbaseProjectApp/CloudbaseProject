@@ -11,20 +11,13 @@ func tempColor(_ tempF: Int?) -> Color {
     }
 
     switch tempF {
-    case ...32:
-        return displayValueBlue
-    case 33...59:
-        return displayValueTeal
-    case 60...79:
-        return displayValueGreen
-    case 80...89:
-        return displayValueYellow
-    case 90...99:
-        return displayValueOrange
-    case 100...:
-        return displayValueRed
-    default:
-        return .clear
+        case ...32:     return displayValueBlue
+        case 33...59:   return displayValueTeal
+        case 60...79:   return displayValueGreen
+        case 80...89:   return displayValueYellow
+        case 90...99:   return displayValueOrange
+        case 100...:    return displayValueRed
+        default:        return .clear
     }
 }
 
@@ -34,16 +27,11 @@ func cloudCoverColor(_ cloudCoverPct: Int?) -> Color {
     }
 
     switch cloudCoverPct {
-    case ...39:
-        return displayValueGreen
-    case 40...59:
-        return displayValueYellow
-    case 60...79:
-        return displayValueOrange
-    case 80...:
-        return displayValueRed
-    default:
-        return .clear
+        case ...39:     return displayValueGreen
+        case 40...59:   return displayValueYellow
+        case 60...79:   return displayValueOrange
+        case 80...:     return displayValueRed
+        default:        return .clear
     }
 }
 
@@ -53,16 +41,11 @@ func precipColor(_ precipPct: Int?) -> Color {
     }
 
     switch precipPct {
-    case ...19:
-        return displayValueGreen
-    case 20...39:
-        return displayValueYellow
-    case 40...59:
-        return displayValueOrange
-    case 60...:
-        return displayValueRed
-    default:
-        return .clear
+        case ...19:     return displayValueGreen
+        case 20...39:   return displayValueYellow
+        case 40...59:   return displayValueOrange
+        case 60...:     return displayValueRed
+        default:        return .clear
     }
 }
 
@@ -72,16 +55,11 @@ func CAPEColor(_ CAPEvalue: Int?) -> Color {
     }
 
     switch CAPEvalue {
-    case 0...299:
-        return displayValueGreen
-    case 300...599:
-        return displayValueYellow
-    case 600...799:
-        return displayValueOrange
-    case 800...:
-        return displayValueRed
-    default:
-        return .clear
+        case 0...299:   return displayValueGreen
+        case 300...599: return displayValueYellow
+        case 600...799: return displayValueOrange
+        case 800...:    return displayValueRed
+        default:        return .clear
     }
 }
 
@@ -93,44 +71,28 @@ func windSpeedColor(windSpeed: Int?, siteType: String) -> Color {
     switch siteType {
     case "Aloft", "Mountain":
         switch windSpeed {
-        case 0...11:
-            return displayValueGreen
-        case 12...17:
-            return displayValueYellow
-        case 18...23:
-            return displayValueOrange
-        case 24...:
-            return displayValueRed
-        default:
-            return .clear
+            case 0...11:    return displayValueGreen
+            case 12...17:   return displayValueYellow
+            case 18...23:   return displayValueOrange
+            case 24...:     return displayValueRed
+            default:        return .clear
         }
     case "Soaring":
         switch windSpeed {
-        case 0...8:
-            return displayValueLime
-        case 9...19:
-            return displayValueGreen
-        case 20...24:
-            return displayValueYellow
-        case 25...29:
-            return displayValueOrange
-        case 30...:
-            return displayValueRed
-        default:
-            return .clear
+            case 0...8:     return displayValueLime
+            case 9...19:    return displayValueGreen
+            case 20...24:   return displayValueYellow
+            case 25...29:   return displayValueOrange
+            case 30...:     return displayValueRed
+            default:        return .clear
         }
     default:
         switch windSpeed {
-        case 0...11:
-            return displayValueGreen
-        case 12...17:
-            return displayValueYellow
-        case 18...23:
-            return displayValueOrange
-        case 24...:
-            return displayValueRed
-        default:
-            return .clear
+            case 0...11:    return displayValueGreen
+            case 12...17:   return displayValueYellow
+            case 18...23:   return displayValueOrange
+            case 24...:     return displayValueRed
+            default:        return .clear
         }
     }
 }
@@ -142,20 +104,64 @@ func thermalColor(_ thermalVelocity: Double?) -> Color {
     
     // Assumes thermalVelocity already rounded to nearest tenth
     switch thermalVelocity {
-    case ...0.9:
-        return displayValueWhite
-    case 1.0...1.9:
-        return displayValueLime
-    case 2.0...3.9:
-        return displayValueGreen
-    case 4.0...4.9:
-        return displayValueYellow
-    case 5.0...5.9:
-        return displayValueOrange
-    case 6.0...:
-        return displayValueRed
-    default:
+        case ...0.9:    return displayValueWhite
+        case 1.0...1.9: return displayValueLime
+        case 2.0...3.9: return displayValueGreen
+        case 4.0...4.9: return displayValueYellow
+        case 5.0...5.9: return displayValueOrange
+        case 6.0...:    return displayValueRed
+        default:        return .clear
+    }
+}
+
+func gustFactorColor(_ gustFactor: Int?) -> Color {
+    guard let gustFactor = gustFactor else {
         return .clear
+    }
+    switch gustFactor {
+        case 0...5:     return displayValueGreen
+        case 6...7:     return displayValueYellow
+        case 8...9:     return displayValueOrange
+        case 10...:     return displayValueRed
+        default:        return .clear
+    }
+}
+
+func windDirectionColor(siteWindDirection: SiteWindDirection,
+                        siteType: String,
+                        windDirection: Int?,
+                        windSpeed: Int?,
+                        windGust: Int?) -> Color {
+    guard let windDirection = windDirection else {
+        return .clear
+    }
+    
+    // Check the wind direction
+    var windDirectionQuality: String
+    switch headingForWindDirection(windDirection: windDirection) {
+        case "N":   windDirectionQuality = siteWindDirection.N
+        case "NE":  windDirectionQuality = siteWindDirection.NE
+        case "E":   windDirectionQuality = siteWindDirection.E
+        case "SE":  windDirectionQuality = siteWindDirection.SE
+        case "S":   windDirectionQuality = siteWindDirection.S
+        case "SW":  windDirectionQuality = siteWindDirection.SW
+        case "W":   windDirectionQuality = siteWindDirection.W
+        case "NW":  windDirectionQuality = siteWindDirection.NW
+        default:    windDirectionQuality = ""
+    }
+    
+    // If the wind direction is not "Good", check the wind and gust speed
+    // If light and variable (5 mph or less) for a mountain (non-soaring) site, then consider "Ok" rather than "Marginal" or "Bad"
+    if windDirectionQuality != "Good" && windSpeed ?? 0 <= 5 && windGust ?? 0 <= 5 && siteType == "Mountain" {
+        windDirectionQuality = "Ok"
+    }
+    
+    switch windDirectionQuality {
+        case "Good":        return displayValueGreen
+        // "Ok" used for light and variable but not an ideal direction
+        case "Ok":          return displayValueLime
+        case "Marginal":    return displayValueYellow
+        default:            return displayValueRed
     }
 }
 
@@ -193,6 +199,18 @@ enum FlyingPotentialColor: Int {
 }
 extension FlyingPotentialColor: CaseIterable {}
 
+func FlyingPotentialImageSize (_ color: Color) -> CGFloat {
+    switch color {
+        case displayValueWhite:     return 12
+        case displayValueLime:      return 16
+        case displayValueGreen:     return 20
+        case displayValueYellow:    return 16
+        case displayValueOrange:    return 12
+        case displayValueRed:       return 8
+        default:                    return 20
+    }
+
+}
 
 func getDividerColor (_ newDateFlag: Bool) -> Color {
     if newDateFlag {
@@ -547,39 +565,29 @@ extension Color {
     }
 }
 
-func directionToDegreeRange(_ direction: String) -> (minDegrees: Int, maxDegrees: Int)? {
-    // Define center bearings for 16 compass points
-    let directionDegrees: [String: Int] = [
-        "N"     : 0,
-        "NNE"   : 22,
-        "NE"    : 45,
-        "ENE"   : 67,
-        "E"     : 90,
-        "ESE"   : 112,
-        "SE"    : 135,
-        "SSE"   : 157,
-        "S"     : 180,
-        "SSW"   : 202,
-        "SW"    : 225,
-        "WSW"   : 247,
-        "W"     : 270,
-        "WNW"   : 292,
-        "NW"    : 315,
-        "NNW"   : 337
-    ]
-    guard let center = directionDegrees[direction.uppercased()] else {
-        return nil // invalid input
+func headingForWindDirection(windDirection: Int?) -> String {
+    guard let windDirection = windDirection else {
+        return ""
     }
-    // Define a -22 / +23 range to make sure all degrees are covered
-    let negativeRange = 22
-    let positiveRange = 23
-
-    var minDegrees = center - negativeRange
-    var maxDegrees = center + positiveRange
     
-    // Special cases for wrap-arounds (e.g., North and NNW)
-    if minDegrees < 0 { minDegrees = 360 + minDegrees }
-    if maxDegrees >= 360 { maxDegrees = maxDegrees - 360 }
-
-    return (minDegrees: minDegrees, maxDegrees: maxDegrees)
+    switch windDirection {
+    case 0...22, 338...359:
+        return "N"
+    case 23...67:
+        return "NE"
+    case 68...112:
+        return "E"
+    case 113...157:
+        return "SE"
+    case 158...202:
+        return "S"
+    case 203...247:
+        return "SW"
+    case 248...292:
+        return "W"
+    case 293...337:
+        return "NW"
+    default:
+        return ""
+    }
 }

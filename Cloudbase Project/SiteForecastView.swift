@@ -41,11 +41,12 @@ struct SiteForecastView: View {
     @ObservedObject var weatherCodesViewModel: WeatherCodeViewModel
     @StateObject private var siteForecastViewModel: SiteForecastViewModel
     
-    var siteLat: String
-    var siteLon: String
-    var forecastNote: String
-    var siteName: String
-    var siteType: String
+    var siteLat:            String
+    var siteLon:            String
+    var forecastNote:       String
+    var siteName:           String
+    var siteType:           String
+    var siteWindDirection:  SiteWindDirection
     
     init(liftParametersViewModel: LiftParametersViewModel,
          sunriseSunsetViewModel: SunriseSunsetViewModel,
@@ -54,18 +55,20 @@ struct SiteForecastView: View {
          siteLon: String,
          forecastNote: String,
          siteName: String,
-         siteType: String) {
+         siteType: String,
+         siteWindDirection: SiteWindDirection) {
         self._liftParametersViewModel = ObservedObject(wrappedValue: liftParametersViewModel)
-        self._sunriseSunsetViewModel = ObservedObject(wrappedValue: sunriseSunsetViewModel)
-        self._weatherCodesViewModel = ObservedObject(wrappedValue: weatherCodesViewModel)
-        self._siteForecastViewModel = StateObject(wrappedValue: SiteForecastViewModel(liftParametersViewModel: liftParametersViewModel,
+        self._sunriseSunsetViewModel =  ObservedObject(wrappedValue: sunriseSunsetViewModel)
+        self._weatherCodesViewModel =   ObservedObject(wrappedValue: weatherCodesViewModel)
+        self._siteForecastViewModel =   StateObject(wrappedValue: SiteForecastViewModel(liftParametersViewModel: liftParametersViewModel,
                                                                           sunriseSunsetViewModel: sunriseSunsetViewModel,
                                                                           weatherCodesViewModel: weatherCodesViewModel))
-        self.siteLat = siteLat
-        self.siteLon = siteLon
-        self.forecastNote = forecastNote
-        self.siteName = siteName
-        self.siteType = siteType
+        self.siteLat =              siteLat
+        self.siteLon =              siteLon
+        self.forecastNote =         forecastNote
+        self.siteName =             siteName
+        self.siteType =             siteType
+        self.siteWindDirection =    siteWindDirection
     }
     
     var body: some View {
@@ -80,7 +83,7 @@ struct SiteForecastView: View {
                         .padding(.bottom, 5)
                     
                     let maxPressureReading = siteForecastViewModel.maxPressureReading
-                    let dataWidth: CGFloat = 48                                     // Width for each data column
+                    let dataWidth: CGFloat = 44                                     // Width for each data column
                     let dataRows: Int = forecastData.hourly.dateTime?.count ?? 0    // Total count of data rows returned
                     let dataFrameWidth: CGFloat = CGFloat(dataRows) * (dataWidth)   // Width for all data tables and charts
 
@@ -271,7 +274,7 @@ struct SiteForecastView: View {
                                                 .renderingMode(.original) // Use .multicolor for multicolor rendering
                                                 .resizable()
                                                 .scaledToFit()
-                                                .frame(width: dataWidth * imageScalingFactor)
+                                                .frame(width: dataWidth * imageScalingFactor, height: imageHeight)
                                                 // Display divider when date changes
                                                 .frame(width: dataWidth)
                                                 .overlay ( Divider() .frame(width: dateChangeDividerSize, height: imageHeight) .background(getDividerColor(forecastData.hourly.newDateFlag?[index] ?? true)), alignment: .leading )
@@ -657,10 +660,11 @@ struct SiteForecastView: View {
                 }
             }
         }
-        .onAppear { siteForecastViewModel.fetchForecast(siteName: siteName,
-                                                        latitude: siteLat,
-                                                        longitude: siteLon,
-                                                        siteType: siteType)
+        .onAppear { siteForecastViewModel.fetchForecast(siteName:           siteName,
+                                                        latitude:           siteLat,
+                                                        longitude:          siteLon,
+                                                        siteType:           siteType,
+                                                        siteWindDirection:  siteWindDirection)
         }
     }
     

@@ -78,6 +78,7 @@ struct HourlyData: Codable {
     var thermalVelocity_850hPa: [Double]?
     var thermalVelocity_900hPa: [Double]?
     var topOfLiftTemp: [Double]?
+    var gustFactor: [Double]?
     // formatted variables to prevent errors where compiler cannot determine types when converting double to string in a view
     var formattedCloudbaseAltitude: [String]?
     var topOfLiftAltitude: [Double]?
@@ -109,6 +110,12 @@ struct ForecastBaseData {
     var surfaceTemp: Double
 }
 
+// Used to prevent re-querying and processing forecast for a given site if recently processed
+private struct ForecastCacheEntry {
+    let data: ForecastData
+    let timestamp: Date
+}
+
 class SiteForecastViewModel: ObservableObject {
     @Published var forecastData: ForecastData?
     @Published var maxPressureReading: Int = defaultMaxPressureReading
@@ -116,6 +123,10 @@ class SiteForecastViewModel: ObservableObject {
     private var liftParametersViewModel: LiftParametersViewModel
     private var sunriseSunsetViewModel: SunriseSunsetViewModel
     private var weatherCodesViewModel: WeatherCodeViewModel
+
+    // Forecast cache based on each forecast URL
+    private var forecastCache: [String: ForecastCacheEntry] = [:]
+    private let cacheExpiration: TimeInterval = 600  // 10 minutes
     
     // Make thermal lift parameters, weather code images, and sunrise/sunset times available in this view model
     init(liftParametersViewModel: LiftParametersViewModel,
@@ -126,32 +137,49 @@ class SiteForecastViewModel: ObservableObject {
         self.weatherCodesViewModel = weatherCodesViewModel
     }
     
+    func clearForecastCache() {
+        forecastCache.removeAll()
+    }
+    
     func fetchForecast(siteName: String,
                        latitude: String,
                        longitude: String,
-                       siteType: String) {
-        
-        let encodedTimezone = AppRegionManager.shared.getRegionEncodedTimezone() ?? ""
+                       siteType: String,
+                       siteWindDirection: SiteWindDirection) {
 
-        // Get forecast
-        // Using "best match" model, which equates to GFS Seamless, which means HRRR for short term and GFS for long term forecasts
+        let encodedTimezone = AppRegionManager.shared.getRegionEncodedTimezone() ?? ""
         let baseForecastURL = AppURLManager.shared.getAppURL(URLName: "forecastURL") ?? "<Unknown forecast URL>"
         var updatedForecastURL = updateURL(url: baseForecastURL, parameter: "latitude", value: latitude)
         updatedForecastURL = updateURL(url: updatedForecastURL, parameter: "longitude", value: longitude)
         updatedForecastURL = updateURL(url: updatedForecastURL, parameter: "encodedTimezone", value: encodedTimezone)
+        
         if printForecastURL { print(updatedForecastURL) }
+
+        // Cache check
+        if let cached = forecastCache[updatedForecastURL],
+           Date().timeIntervalSince(cached.timestamp) < cacheExpiration {
+            DispatchQueue.main.async {
+                self.forecastData = cached.data
+                self.maxPressureReading = self.maxPressureReading  // Optional: re-process if needed
+            }
+            return
+        }
+
         guard let forecastURL = URL(string: updatedForecastURL) else { return }
+
         URLSession.shared.dataTask(with: forecastURL) { data, response, error in
             if let data = data {
                 let decoder = JSONDecoder()
-                // Remove occasional value of null in the results
                 let modifiedData = replaceNullsInJSON(data: data)
-                // Uses the original data as the default if the removal of nulls failed
                 if let forecastData = try? decoder.decode(ForecastData.self, from: modifiedData ?? data) {
                     DispatchQueue.main.async {
-                        (self.maxPressureReading, self.forecastData) = self.processForecastData(siteName: siteName,
-                                                                                               siteType: siteType,
-                                                                                               data: forecastData)
+                        let (maxPressure, processed) = self.processForecastData(siteName: siteName,
+                                                                                siteType: siteType,
+                                                                                siteWindDirection: siteWindDirection,
+                                                                                data: forecastData)
+                        self.forecastData = processed
+                        self.maxPressureReading = maxPressure
+                        self.forecastCache[updatedForecastURL] = ForecastCacheEntry(data: processed, timestamp: Date())
                     }
                 } else {
                     print("JSON decode failed for forecast")
@@ -165,17 +193,27 @@ class SiteForecastViewModel: ObservableObject {
                        latitude: String,
                        longitude: String,
                        siteType: String,
+                       siteWindDirection: SiteWindDirection,
                        completion: @escaping (ForecastData?) -> Void) {
-        
+
         let encodedTimezone = AppRegionManager.shared.getRegionEncodedTimezone() ?? ""
         let baseForecastURL = AppURLManager.shared.getAppURL(URLName: "forecastURL") ?? "<Unknown forecast URL>"
         
         var updatedForecastURL = updateURL(url: baseForecastURL, parameter: "latitude", value: latitude)
         updatedForecastURL = updateURL(url: updatedForecastURL, parameter: "longitude", value: longitude)
         updatedForecastURL = updateURL(url: updatedForecastURL, parameter: "encodedTimezone", value: encodedTimezone)
-        
+
         if printForecastURL { print(updatedForecastURL) }
-        
+
+        // Cache check
+        if let cached = forecastCache[updatedForecastURL],
+           Date().timeIntervalSince(cached.timestamp) < cacheExpiration {
+            DispatchQueue.main.async {
+                completion(cached.data)
+            }
+            return
+        }
+
         guard let forecastURL = URL(string: updatedForecastURL) else {
             completion(nil)
             return
@@ -187,11 +225,13 @@ class SiteForecastViewModel: ObservableObject {
                 let modifiedData = replaceNullsInJSON(data: data)
                 do {
                     let forecastData = try decoder.decode(ForecastData.self, from: modifiedData ?? data)
-                    let (_, filtered) = self.processForecastData(siteName: siteName,
-                                                                siteType: siteType,
-                                                                data: forecastData)
+                    let (_, processed) = self.processForecastData(siteName: siteName,
+                                                                  siteType: siteType,
+                                                                  siteWindDirection: siteWindDirection,
+                                                                  data: forecastData)
                     DispatchQueue.main.async {
-                        completion(filtered)
+                        self.forecastCache[updatedForecastURL] = ForecastCacheEntry(data: processed, timestamp: Date())
+                        completion(processed)
                     }
                 } catch {
                     print("Decoding error: \(error)")
@@ -200,7 +240,6 @@ class SiteForecastViewModel: ObservableObject {
                         completion(nil)
                     }
                 }
-                
             } else {
                 DispatchQueue.main.async {
                     completion(nil)
@@ -211,6 +250,7 @@ class SiteForecastViewModel: ObservableObject {
     
     func processForecastData(siteName: String,
                             siteType: String,
+                            siteWindDirection: SiteWindDirection,
                             data: ForecastData) -> (maxPressureReading: Int, ForecastData) {
         
         var processedHourly = HourlyData(
@@ -284,6 +324,7 @@ class SiteForecastViewModel: ObservableObject {
             thermalVelocity_850hPa: [],
             thermalVelocity_900hPa: [],
             topOfLiftTemp: [],
+            gustFactor: [],
             formattedCloudbaseAltitude: [],
             topOfLiftAltitude: [],
             formattedTopOfLiftAltitude: [],
@@ -560,6 +601,9 @@ class SiteForecastViewModel: ObservableObject {
                         }
                         // Convert top of Lift Temp to F
                         let topOfLiftTempF = convertCelsiusToFahrenheit(Int(topOfLiftTemp))
+                        
+                        // Calculate surface gust factor
+                        let gustFactor =  Int(data.hourly.windgusts_10m[index]) - Int(data.hourly.windspeed_10m[index])
 
                         // Only append display structure for times that are no more than an hour ago
                         // (earlier times only processed to determine if thermal trigger temp has already been reached today)
@@ -643,6 +687,7 @@ class SiteForecastViewModel: ObservableObject {
                             processedHourly.formattedTopOfLiftAltitude?.append(formattedTopOfLiftAltitude)
                             processedHourly.topOfLiftTemp?.append(Double(topOfLiftTempF))
                             processedHourly.formattedTopOfLiftTemp?.append(String(topOfLiftTempF) + "°")
+                            processedHourly.gustFactor?.append(Double(gustFactor))
                             
                             //------------------------------------------------------------------------------------------------------
                             // Flying potential section
@@ -653,8 +698,7 @@ class SiteForecastViewModel: ObservableObject {
                             let CAPEColorValue = FlyingPotentialColor.value(for: CAPEColor(Int(data.hourly.cape[index])))
                             let surfaceWindColorValue = FlyingPotentialColor.value(for: windSpeedColor(windSpeed: Int(data.hourly.windspeed_10m[index]), siteType: siteType))
                             let surfaceGustColorValue = FlyingPotentialColor.value(for: windSpeedColor(windSpeed: Int(data.hourly.windgusts_10m[index]), siteType: siteType))
-// !!!!!
-                            let gustFactorColorValue = 99
+                            let gustFactorColorValue = FlyingPotentialColor.value(for: gustFactorColor(gustFactor))
                             
                             // Winds aloft and thermals up to 6k ft (800 hpa) for all sites; higher altitude for mountain sites
                             var windsAloftColorValue = max(
@@ -681,8 +725,14 @@ class SiteForecastViewModel: ObservableObject {
                                     FlyingPotentialColor.value(for: thermalColor(thermalVelocity_700hPa)),
                                     FlyingPotentialColor.value(for: thermalColor(thermalVelocity_650hPa)))
                             }
-// !!!!!!!
-                            let windDirectionColorValue = 99
+
+                            // Determine wind direction color for site
+                            let windDirectionColorValue = FlyingPotentialColor.value(for: windDirectionColor(
+                                siteWindDirection:  siteWindDirection,
+                                siteType:           siteType,
+                                windDirection:      Int(data.hourly.winddirection_10m[index]),
+                                windSpeed:          Int(data.hourly.windspeed_10m[index]),
+                                windGust:           Int(data.hourly.windgusts_10m[index])))
 
                             // Determine potential
                             var combinedColorValue = max(cloudCoverColorValue,
@@ -690,7 +740,9 @@ class SiteForecastViewModel: ObservableObject {
                                                          CAPEColorValue,
                                                          windsAloftColorValue,
                                                          surfaceWindColorValue,
-                                                         surfaceGustColorValue)
+                                                         surfaceGustColorValue,
+                                                         gustFactorColorValue,
+                                                         windDirectionColorValue)
                             
                             // For soaring sites, reduce the value if wind speed can is too low to soar
                             if siteType == "Soaring" {

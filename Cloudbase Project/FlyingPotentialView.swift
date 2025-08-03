@@ -48,6 +48,11 @@ struct FlyingPotentialView: View {
                 .font(.caption)
                 .foregroundColor(infoFontColor)
                 .padding(.top, 8)
+            Text("Tap on a circle for details on the paragliding potential")
+                .font(.caption)
+                .foregroundColor(infoFontColor)
+                .padding(.top, 8)
+
 
             List {
                 if includeFavorites {
@@ -125,10 +130,11 @@ struct FlyingPotentialView: View {
             }()
 
             for site in allSites {
-                siteForecastViewModel.fetchForecast(siteName:   site.siteName,
-                                                    latitude:   site.siteLat,
-                                                    longitude:  site.siteLon,
-                                                    siteType:   site.siteType) { forecast in
+                siteForecastViewModel.fetchForecast(siteName:           site.siteName,
+                                                    latitude:           site.siteLat,
+                                                    longitude:          site.siteLon,
+                                                    siteType:           site.siteType,
+                                                    siteWindDirection:  site.windDirection) { forecast in
 
                     DispatchQueue.main.async {
                         if let forecast = forecast {
@@ -171,6 +177,8 @@ struct FlyingPotentialView: View {
                 return nil
             }
         case "station":
+            let windDirection = SiteWindDirection( N:  "", NE: "", E:  "", SE: "", S:  "", SW: "", W:  "", NW: "" )
+            
             return (Site(
                 area:               "Favorites",
                 siteName:           fav.favoriteID,
@@ -184,14 +192,7 @@ struct FlyingPotentialView: View {
                 siteLat:            fav.siteLat,
                 siteLon:            fav.siteLon,
                 sheetRow:           0,
-                windDirectionN:     "",
-                windDirectionNE:    "",
-                windDirectionE:     "",
-                windDirectionSE:    "",
-                windDirectionS:     "",
-                windDirectionSW:    "",
-                windDirectionW:     "",
-                windDirectionNW:    ""
+                windDirection:      windDirection
             ), display)
         default:
             return nil
@@ -228,6 +229,9 @@ struct FavoritesPotentialSection: View {
                 onSelect: onSelect,
                 forecastMap: forecastMap
             )
+        } else {
+            Text("Add favorites from Sites page to display paragliding potential here")
+            Text("Note:  Only favorite Mountain/Soaring sites are displayed")
         }
  
     }
@@ -256,7 +260,7 @@ struct SiteGridSection: View {
                 let hourly = anyForecast.hourly
                 if let dateTimeCount = hourly.dateTime?.count {
                     
-                    let dataWidth: CGFloat = 48
+                    let dataWidth: CGFloat = 44
                     let rowHeight: CGFloat = 32
                     
                     HStack(alignment: .top, spacing: 0) {
@@ -267,9 +271,14 @@ struct SiteGridSection: View {
                                 Text(" ")
                                     .font(.caption)
                                     .frame(width: 100, height: rowHeight / 2, alignment: .leading)
+                                    .padding(.top, 8)
                                 Text(" ")
                                     .font(.caption)
                                     .frame(width: 100, height: rowHeight / 2, alignment: .leading)
+                                Text(" ")
+                                    .font(.caption)
+                                    .frame(width: 100, height: rowHeight / 2, alignment: .leading)
+                                    .padding(.bottom, 4)
                             }
                             
                             // Data rows
@@ -279,6 +288,11 @@ struct SiteGridSection: View {
                                     .font(.subheadline)
                                     .foregroundColor(rowHeaderColor)
                                     .frame(width: 100, height: rowHeight, alignment: .leading)
+                                    .padding(1)
+                                    .contentShape(Rectangle()) // Makes entire area tappable
+                                    .onTapGesture {
+                                        onSelect(site)
+                                    }
                             }
                         }
                         .padding(4)
@@ -287,9 +301,9 @@ struct SiteGridSection: View {
                         ScrollView(.horizontal, showsIndicators: true) {
                             VStack(alignment: .leading, spacing: 0) {
                                 // Header row
-                                HStack(spacing: 8) {
+                                HStack(spacing: 4) {
                                     ForEach(hourly.dateTime?.indices ?? 0..<0, id: \.self) { i in
-                                        Group {
+                                        VStack {
                                             if hourly.newDateFlag?[i] ?? true {
                                                 Text(hourly.formattedDay?[i] ?? "")
                                                     .font(.caption)
@@ -300,7 +314,6 @@ struct SiteGridSection: View {
                                                 Text(hourly.formattedDate?[i] ?? "")
                                                     .font(.caption)
                                                     .frame(width: dataWidth)
-                                                    .padding(.top, 4)
                                                 // Display divider when date changes
                                                     .overlay ( Divider() .frame(width: dateChangeDividerSize, height: headingHeight) .background(getDividerColor(hourly.newDateFlag?[i] ?? true)), alignment: .leading )
                                             } else {
@@ -315,10 +328,15 @@ struct SiteGridSection: View {
                                                     .font(.caption)
                                                     .foregroundColor(repeatDateTimeColor)
                                                     .frame(width: dataWidth)
-                                                    .padding(.top, 4)
                                                 // Display divider when date changes
                                                     .overlay ( Divider() .frame(width: dateChangeDividerSize, height: headingHeight) .background(getDividerColor(hourly.newDateFlag?[i] ?? true)), alignment: .leading )
                                             }
+                                            Text(hourly.formattedTime?[i] ?? "")
+                                                .font(.caption)
+                                                .frame(width: dataWidth)
+                                                .padding(.bottom, 4)
+                                            // Display divider when date changes
+                                                .overlay ( Divider() .frame(width: dateChangeDividerSize, height: headingHeight) .background(getDividerColor(hourly.newDateFlag?[i] ?? true)), alignment: .leading )
                                         }
                                     }
                                 }
@@ -329,14 +347,17 @@ struct SiteGridSection: View {
                                     if let forecast = forecastMap[site.siteName],
                                        let combinedColorValue = forecast.hourly.combinedColorValue {
                                         
-                                        HStack(spacing: 0) {
+                                        HStack(spacing: 4) {
                                             ForEach(0..<dateTimeCount, id: \.self) { i in
                                                 if i < combinedColorValue.count {
                                                     let displayColor = FlyingPotentialColor.color(for: combinedColorValue[i])
+                                                    let displaySize = FlyingPotentialImageSize(displayColor)
                                                     Image(systemName: flyingPotentialImage)
                                                         .resizable()
                                                         .scaledToFit()
-                                                        .imageScale(.medium)
+                                                        .font(.system(size: displaySize))
+                                                        .frame(width: displaySize, height: displaySize)
+                                                    //                                                        .imageScale(.medium)
                                                         .foregroundColor(Color(displayColor))
                                                         .padding(8)
                                                         .frame(width: dataWidth, height: rowHeight)
@@ -347,15 +368,17 @@ struct SiteGridSection: View {
                                                 }
                                             }
                                         }
+                                        .padding(1)
                                     } else {
                                         // fallback if forecast missing
-                                        HStack(spacing: 8) {
+                                        HStack(spacing: 4) {
                                             ForEach(0..<dateTimeCount, id: \.self) { _ in
                                                 Text("-")
                                                     .font(.caption)
                                                     .frame(width: dataWidth, height: rowHeight)
                                             }
                                         }
+                                        .padding(1)
                                     }
                                 }
                             }

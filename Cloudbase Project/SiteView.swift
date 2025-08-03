@@ -127,8 +127,12 @@ struct SiteView: View {
         }
         
         // Get external changes (e.g., adding/removing favorites from site detail sheet)
-        .onChange(of: userSettingsViewModel.userFavoriteSites) { _, newValue in
-            editableFavorites = newValue
+        .onChange(of: userSettingsViewModel.userFavoriteSites) { oldValue, newValue in
+            editableFavorites = favoriteSites
+        }
+        
+        .onChange(of: RegionManager.shared.activeAppRegion) { _, _ in
+            editableFavorites = favoriteSites
         }
     }
     
@@ -146,7 +150,7 @@ struct SiteView: View {
             ($0.favoriteType == "station" && $0.stationID == site.readingsStation)
         }
 
-        let favoriteName = matchedFavorite?.favoriteName ?? ""
+        let favoriteName = matchedFavorite?.favoriteName ?? site.siteName
         selectedSite = SiteSelection(site: site, favoriteName: favoriteName)
     }
     
@@ -167,7 +171,7 @@ struct SiteView: View {
 struct FavoritesSection: View {
     @Binding var favorites: [UserFavoriteSite]
     @Binding var isEditingFavorites: Bool
-    @State private var renamingFavoriteID: UUID?
+    @State private var renamingFavoriteID: String?
 
     let siteViewModel: SiteViewModel
     let onSelect: (Site) -> Void
@@ -228,6 +232,8 @@ struct FavoritesSection: View {
                 return (match, display)
             }
         case "station":
+            let windDirection = SiteWindDirection( N:  "", NE: "", E:  "", SE: "", S:  "", SW: "", W:  "", NW: "" )
+            
             return (Site(
                 area:               "Favorites",
                 siteName:           fav.favoriteID,
@@ -241,14 +247,7 @@ struct FavoritesSection: View {
                 siteLat:            fav.siteLat,
                 siteLon:            fav.siteLon,
                 sheetRow:           0,
-                windDirectionN:     "",
-                windDirectionNE:    "",
-                windDirectionE:     "",
-                windDirectionSE:    "",
-                windDirectionS:     "",
-                windDirectionSW:    "",
-                windDirectionW:     "",
-                windDirectionNW:    ""
+                windDirection:      windDirection
             ), display)
         default:
             return nil
@@ -379,8 +378,8 @@ struct FavoriteRow: View {
     var displayName: String?
     var onSelect: (Site) -> Void
 
-    @Binding var renamingFavoriteID: UUID?
-    let myID: UUID
+    @Binding var renamingFavoriteID: String?
+    let myID: String
 
     @FocusState private var isTextFieldFocused: Bool
     private var isRenaming: Bool { renamingFavoriteID == myID }

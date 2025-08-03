@@ -87,6 +87,7 @@ struct SiteDetailView: View {
     @State private var isFavorite: Bool = false
         
     var body: some View {
+        let displayName = favoriteName ?? site.siteName
         VStack(alignment: .leading) {
             HStack {
                 Button(action: {
@@ -100,7 +101,7 @@ struct SiteDetailView: View {
                     }
                 }
                 Spacer()
-                Text(site.siteName)
+                Text(displayName)
                     .foregroundColor(sectionHeaderColor)
                     .bold()
                 Button(action: {
@@ -243,14 +244,15 @@ struct SiteDetailView: View {
                     .bold())
                 {
                     SiteForecastView (
-                        liftParametersViewModel: liftParametersViewModel,
-                        sunriseSunsetViewModel: sunriseSunsetViewModel,
-                        weatherCodesViewModel: weatherCodesViewModel,
-                        siteLat: site.siteLat,
-                        siteLon: site.siteLon,
-                        forecastNote: site.forecastNote,
-                        siteName: site.siteName,
-                        siteType: site.siteType )
+                        liftParametersViewModel:    liftParametersViewModel,
+                        sunriseSunsetViewModel:     sunriseSunsetViewModel,
+                        weatherCodesViewModel:      weatherCodesViewModel,
+                        siteLat:                    site.siteLat,
+                        siteLon:                    site.siteLon,
+                        forecastNote:               site.forecastNote,
+                        siteName:                   site.siteName,
+                        siteType:                   site.siteType,
+                        siteWindDirection:          site.windDirection)
                 }
                 
                 VStack(alignment: .leading) {

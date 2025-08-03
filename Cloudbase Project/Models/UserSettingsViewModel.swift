@@ -23,7 +23,7 @@ enum CustomMapStyle: String, Codable, CaseIterable {
 }
 
 struct UserFavoriteSite: Identifiable, Codable, Equatable {
-    var id = UUID()
+    var id: String { "\(appRegion)-\(favoriteType)-\(favoriteID)" }
     let appRegion: String
     let favoriteType: String    // "station" or "site"
     let favoriteID: String      // site name or station name
@@ -34,10 +34,11 @@ struct UserFavoriteSite: Identifiable, Codable, Equatable {
     let siteLat: String         // for stations only
     let siteLon: String         // for stations only
     var sortSequence: Int       // allows user to re-sort favorites
+    
 }
 
 struct UserPickListSelection: Identifiable, Codable, Equatable {
-    var id = UUID()
+    var id: String { "\(appRegion)-\(pickListName)" }
     var appRegion: String
     var pickListName: String
     var selectedIndex: Int?
@@ -128,6 +129,18 @@ class UserSettingsViewModel: ObservableObject {
         }
     }
     
+    func isDuplicateFavorite(
+        favoriteType: String,
+        favoriteID: String,
+        appRegion: String
+    ) -> Bool {
+        userFavoriteSites.contains {
+            $0.favoriteType == favoriteType &&
+            $0.favoriteID == favoriteID &&
+            $0.appRegion == appRegion
+        }
+    }
+    
     func addFavorite(
         favoriteType: String,
         favoriteID: String,
@@ -138,10 +151,10 @@ class UserSettingsViewModel: ObservableObject {
         siteLat: String,
         siteLon: String
     ) throws {
+        
         // Check for duplicates
-        if userFavoriteSites.contains(where: {
-            $0.favoriteType == favoriteType && $0.favoriteID == favoriteID
-        }) {
+        let region = RegionManager.shared.activeAppRegion
+        if isDuplicateFavorite(favoriteType: favoriteType, favoriteID: favoriteID, appRegion: region) {
             throw FavoriteSiteError.alreadyExists
         }
         
@@ -165,12 +178,15 @@ class UserSettingsViewModel: ObservableObject {
     }
     
     func removeFavorite(favoriteType: String, favoriteID: String) throws {
+        let region = RegionManager.shared.activeAppRegion
+        let favoriteKey = "\(region)-\(favoriteType)-\(favoriteID)"
+
         guard let index = userFavoriteSites.firstIndex(where: {
-            $0.favoriteType == favoriteType && $0.favoriteID == favoriteID
+            $0.id == favoriteKey
         }) else {
             throw FavoriteSiteError.notFound
         }
-        
+
         userFavoriteSites.remove(at: index)
     }
     

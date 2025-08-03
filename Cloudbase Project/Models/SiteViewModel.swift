@@ -1,6 +1,18 @@
 import SwiftUI
 import Combine
 
+// Used to specify good/ok wind directions for flying
+struct SiteWindDirection: Codable, Equatable, Hashable {
+    var N:  String
+    var NE: String
+    var E:  String
+    var SE: String
+    var S:  String
+    var SW: String
+    var W:  String
+    var NW: String
+}
+
 struct Site: Codable, Identifiable, Equatable, Hashable {
     var id = UUID()
     var area: String
@@ -17,14 +29,7 @@ struct Site: Codable, Identifiable, Equatable, Hashable {
     var siteLat: String
     var siteLon: String
     var sheetRow: Int           // Used to manage updates to Google sheet via API
-    var windDirectionN: String  // Used to specify good/ok wind directions for flying
-    var windDirectionNE: String
-    var windDirectionE: String
-    var windDirectionSE: String
-    var windDirectionS: String
-    var windDirectionSW: String
-    var windDirectionW: String
-    var windDirectionNW: String
+    var windDirection: SiteWindDirection
 }
 
 struct SitesResponse: Codable {
@@ -61,6 +66,17 @@ class SiteViewModel: ObservableObject {
                         return nil
                     }
 
+                    let windDirection = SiteWindDirection(
+                        N:  row.count > 12 ? row[12] : "",
+                        NE: row.count > 13 ? row[13] : "",
+                        E:  row.count > 14 ? row[14] : "",
+                        SE: row.count > 15 ? row[15] : "",
+                        S:  row.count > 16 ? row[16] : "",
+                        SW: row.count > 17 ? row[17] : "",
+                        W:  row.count > 18 ? row[18] : "",
+                        NW: row.count > 19 ? row[19] : ""
+                    )
+
                     return Site(
                         area:               row[1],
                         siteName:           row[2],
@@ -74,14 +90,7 @@ class SiteViewModel: ObservableObject {
                         siteLat:            siteLat,
                         siteLon:            siteLon,
                         sheetRow:           index + 1,
-                        windDirectionN:     row.count > 12 ? row[12] : "",
-                        windDirectionNE:    row.count > 13 ? row[13] : "",
-                        windDirectionE:     row.count > 14 ? row[14] : "",
-                        windDirectionSE:    row.count > 15 ? row[15] : "",
-                        windDirectionS:     row.count > 16 ? row[16]: "",
-                        windDirectionSW:    row.count > 17 ? row[17] : "",
-                        windDirectionW:     row.count > 18 ? row[18]: "",
-                        windDirectionNW:    row.count > 19 ? row[19] : ""
+                        windDirection:      windDirection
                     )
                 }
             }

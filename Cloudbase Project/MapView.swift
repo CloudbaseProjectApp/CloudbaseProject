@@ -997,6 +997,8 @@ struct MapContainerView: View {
        }
         
        .sheet(item: $selectedStation) { station in
+           let windDirection = SiteWindDirection( N:  "", NE: "", E:  "", SE: "", S:  "", SW: "", W:  "", NW: "" )
+
            let site = Site(
                id:                  UUID(),
                area:                "",
@@ -1011,15 +1013,7 @@ struct MapContainerView: View {
                siteLat:             "\(station.coordinate.latitude)",
                siteLon:             "\(station.coordinate.longitude)",
                sheetRow:            0,
-               windDirectionN:     "",
-               windDirectionNE:    "",
-               windDirectionE:     "",
-               windDirectionSE:    "",
-               windDirectionS:     "",
-               windDirectionSW:    "",
-               windDirectionW:     "",
-               windDirectionNW:    ""
-
+               windDirection:       windDirection
            )
            SiteDetailView(site: site, favoriteName: "")
        }
