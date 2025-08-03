@@ -10,6 +10,8 @@ struct FlyingPotentialView: View {
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @StateObject private var siteForecastViewModel: SiteForecastViewModel
+    
+    @State private var selectedFlyingDetail: SelectedSiteDetail?
 
     init(
         liftVM: LiftParametersViewModel,
@@ -56,15 +58,13 @@ struct FlyingPotentialView: View {
 
             List {
                 if includeFavorites {
-                    if !favorites.isEmpty {
-                        FavoritesPotentialSection(
-                            favorites: $favorites,
-                            siteViewModel: siteViewModel,
-                            onSelect: openSiteDetail,
-                            forecastMap: forecastMap,
-                            siteFromFavorite: siteFromFavorite
-                        )
-                    }
+                    FavoritesPotentialSection(
+                        onDetailTap: { detail in selectedFlyingDetail = detail }, favorites: $favorites,
+                        siteViewModel: siteViewModel,
+                        onSelect: openSiteDetail,
+                        forecastMap: forecastMap,
+                        siteFromFavorite: siteFromFavorite
+                    )
                 }
 
                 if includeSites {
@@ -82,13 +82,12 @@ struct FlyingPotentialView: View {
                     }
                     
                     ForEach(sortedGroupedSites, id: \.0) { (area, sites) in
-                        let displaySites = sites.map { ($0, $0.siteName) }
-                        SiteGridSection(
-                            title: area,
-                            sites: displaySites,
-                            onSelect: openSiteDetail,
-                            forecastMap: forecastMap
-                        )
+                        let displaySites = sites.map { SiteWithDisplayName(site: $0, displayName: $0.siteName) }
+                        SiteGridSection(title:          area,
+                                        sites:          displaySites,
+                                        onSelect:       openSiteDetail,
+                                        onDetailTap:    { detail in selectedFlyingDetail = detail },
+                                        forecastMap:    forecastMap)
                     }
                 }
 
@@ -102,6 +101,7 @@ struct FlyingPotentialView: View {
                         .foregroundColor(infoFontColor)
                 }
                 .listRowBackground(attributionBackgroundColor)
+                .padding(.top, 8)
             }
         }
         
@@ -148,6 +148,16 @@ struct FlyingPotentialView: View {
         
         .sheet(item: $selectedSite) { selection in
             SiteDetailView(site: selection.site, favoriteName: selection.favoriteName)
+        }
+        
+        .sheet(item: $selectedFlyingDetail) { detail in
+            FlyingPotentialDetailView(
+               site: detail.site,
+               favoriteName: detail.displayName,
+               forecastData: forecastMap[detail.site.siteName]!,
+               forecastIndex: detail.forecastIndex
+            )
+            .interactiveDismissDisabled(true)
         }
         
         // Get external changes (e.g., adding/removing favorites from site detail sheet)
@@ -201,6 +211,7 @@ struct FlyingPotentialView: View {
 }
 
 struct FavoritesPotentialSection: View {
+    let onDetailTap: (SelectedSiteDetail) -> Void
     @Binding var favorites: [UserFavoriteSite]
     let siteViewModel: SiteViewModel
     let onSelect: (Site) -> Void
@@ -214,34 +225,56 @@ struct FavoritesPotentialSection: View {
 
     var body: some View {
 
-        let filteredFavorites = favorites.compactMap { favorite -> (Site, String)? in
+        let filteredFavorites: [SiteWithDisplayName] = favorites.compactMap { favorite in
             guard let (site, displayName) = siteFromFavorite(favorite),
                   site.siteType == "Soaring" || site.siteType == "Mountain" else {
                 return nil
             }
-            return (site, displayName)
+            return SiteWithDisplayName(site: site, displayName: displayName)
         }
-
+        
         if !filteredFavorites.isEmpty {
-            SiteGridSection(
-                title: "Favorites",
-                sites: filteredFavorites,
-                onSelect: onSelect,
-                forecastMap: forecastMap
-            )
+            SiteGridSection(title:          "Favorites",
+                            sites:          filteredFavorites,
+                            onSelect:       onSelect,
+                            onDetailTap:    onDetailTap,
+                            forecastMap:    forecastMap)
+            
         } else {
-            Text("Add favorites from Sites page to display paragliding potential here")
-            Text("Note:  Only favorite Mountain/Soaring sites are displayed")
+            VStack (alignment: .leading) {
+                Text("Add favorites from the Sites page to see paragliding potential here")
+                    .font(.subheadline)
+                    .padding(.vertical, 8)
+                
+                Text("Note: Only Mountain/Soaring sites are displayed")
+                    .font(.subheadline)
+                    .foregroundColor(infoFontColor)
+                    .padding(.vertical, 8)
+            }
         }
  
     }
 
 }
 
+struct SiteWithDisplayName: Identifiable, Equatable {
+    let site: Site
+    let displayName: String
+    var id: String { site.siteName }
+}
+
+struct SelectedSiteDetail: Identifiable, Equatable {
+    let site: Site
+    let displayName: String
+    let forecastIndex: Int
+    var id: String { "\(site.siteName)-\(forecastIndex)" }
+}
+
 struct SiteGridSection: View {
     let title: String
-    let sites: [(Site, String)]
+    let sites: [SiteWithDisplayName]
     let onSelect: (Site) -> Void
+    let onDetailTap: (SelectedSiteDetail) -> Void
     let forecastMap: [String: ForecastData]
     
     private let columns: [GridItem] = [
@@ -256,7 +289,7 @@ struct SiteGridSection: View {
                 .foregroundColor(sectionHeaderColor)
                 .bold()
         ) {
-            if let anyForecast = sites.compactMap({ forecastMap[$0.0.siteName] }).first {
+            if let anyForecast = sites.compactMap({ forecastMap[$0.site.siteName] }).first {
                 let hourly = anyForecast.hourly
                 if let dateTimeCount = hourly.dateTime?.count {
                     
@@ -283,15 +316,15 @@ struct SiteGridSection: View {
                             
                             // Data rows
                             ForEach(sites.indices, id: \.self) { index in
-                                let (site, displayName) = sites[index]
-                                Text(displayName != "" ? displayName : site.siteName)
+                                let siteInfo = sites[index]
+                                Text(siteInfo.displayName != "" ? siteInfo.displayName : siteInfo.site.siteName)
                                     .font(.subheadline)
                                     .foregroundColor(rowHeaderColor)
                                     .frame(width: 100, height: rowHeight, alignment: .leading)
                                     .padding(1)
                                     .contentShape(Rectangle()) // Makes entire area tappable
                                     .onTapGesture {
-                                        onSelect(site)
+                                        onSelect(siteInfo.site)
                                     }
                             }
                         }
@@ -309,41 +342,46 @@ struct SiteGridSection: View {
                                                     .font(.caption)
                                                     .frame(width: dataWidth)
                                                     .padding(.top, 8)
-                                                // Display divider when date changes
-                                                    .overlay ( Divider() .frame(width: dateChangeDividerSize, height: headingHeight) .background(getDividerColor(hourly.newDateFlag?[i] ?? true)), alignment: .leading )
+                                                    .overlay(Divider().frame(width: dateChangeDividerSize, height: headingHeight)
+                                                                .background(getDividerColor(hourly.newDateFlag?[i] ?? true)), alignment: .leading)
+                                                
                                                 Text(hourly.formattedDate?[i] ?? "")
                                                     .font(.caption)
                                                     .frame(width: dataWidth)
-                                                // Display divider when date changes
-                                                    .overlay ( Divider() .frame(width: dateChangeDividerSize, height: headingHeight) .background(getDividerColor(hourly.newDateFlag?[i] ?? true)), alignment: .leading )
+                                                    .overlay(Divider().frame(width: dateChangeDividerSize, height: headingHeight)
+                                                                .background(getDividerColor(hourly.newDateFlag?[i] ?? true)), alignment: .leading)
                                             } else {
                                                 Text(hourly.formattedDay?[i] ?? "")
                                                     .font(.caption)
                                                     .foregroundColor(repeatDateTimeColor)
                                                     .frame(width: dataWidth)
                                                     .padding(.top, 8)
-                                                // Display divider when date changes
-                                                    .overlay ( Divider() .frame(width: dateChangeDividerSize, height: headingHeight) .background(getDividerColor(hourly.newDateFlag?[i] ?? true)), alignment: .leading )
+                                                    .overlay(Divider().frame(width: dateChangeDividerSize, height: headingHeight)
+                                                                .background(getDividerColor(hourly.newDateFlag?[i] ?? true)), alignment: .leading)
+                                                
                                                 Text(hourly.formattedDate?[i] ?? "")
                                                     .font(.caption)
                                                     .foregroundColor(repeatDateTimeColor)
                                                     .frame(width: dataWidth)
-                                                // Display divider when date changes
-                                                    .overlay ( Divider() .frame(width: dateChangeDividerSize, height: headingHeight) .background(getDividerColor(hourly.newDateFlag?[i] ?? true)), alignment: .leading )
+                                                    .overlay(Divider().frame(width: dateChangeDividerSize, height: headingHeight)
+                                                                .background(getDividerColor(hourly.newDateFlag?[i] ?? true)), alignment: .leading)
                                             }
+                                            
                                             Text(hourly.formattedTime?[i] ?? "")
                                                 .font(.caption)
                                                 .frame(width: dataWidth)
                                                 .padding(.bottom, 4)
-                                            // Display divider when date changes
-                                                .overlay ( Divider() .frame(width: dateChangeDividerSize, height: headingHeight) .background(getDividerColor(hourly.newDateFlag?[i] ?? true)), alignment: .leading )
+                                                .overlay(Divider().frame(width: dateChangeDividerSize, height: headingHeight)
+                                                            .background(getDividerColor(hourly.newDateFlag?[i] ?? true)), alignment: .leading)
                                         }
                                     }
                                 }
                                 
                                 // Forecast rows
                                 ForEach(sites.indices, id: \.self) { index in
-                                    let (site, _) = sites[index]
+                                    let siteInfo = sites[index]
+                                    let site = siteInfo.site
+                                    
                                     if let forecast = forecastMap[site.siteName],
                                        let combinedColorValue = forecast.hourly.combinedColorValue {
                                         
@@ -352,15 +390,23 @@ struct SiteGridSection: View {
                                                 if i < combinedColorValue.count {
                                                     let displayColor = FlyingPotentialColor.color(for: combinedColorValue[i])
                                                     let displaySize = FlyingPotentialImageSize(displayColor)
+                                                    
                                                     Image(systemName: flyingPotentialImage)
                                                         .resizable()
                                                         .scaledToFit()
                                                         .font(.system(size: displaySize))
                                                         .frame(width: displaySize, height: displaySize)
-                                                    //                                                        .imageScale(.medium)
                                                         .foregroundColor(Color(displayColor))
                                                         .padding(8)
                                                         .frame(width: dataWidth, height: rowHeight)
+                                                        .contentShape(Rectangle())
+                                                        .onTapGesture {
+                                                            let detail = SelectedSiteDetail(
+                                                                site:           site,
+                                                                displayName:    siteInfo.displayName,
+                                                                forecastIndex:  i)
+                                                            onDetailTap(detail)
+                                                        }
                                                 } else {
                                                     Rectangle()
                                                         .fill(Color.gray.opacity(0.2))

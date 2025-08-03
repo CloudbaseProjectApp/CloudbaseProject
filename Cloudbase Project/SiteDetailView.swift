@@ -2,71 +2,6 @@ import SwiftUI
 import Combine
 import Charts
 
-struct ReadingsHistoryBarChartView: View {
-    var readingsHistoryData: ReadingsHistoryData
-    var siteType: String
-
-    var body: some View {
-        let count = min(readingsHistoryData.times.count, 10)
-        let dataRange = (readingsHistoryData.times.count - count)..<readingsHistoryData.times.count
-        
-        Chart {
-            ForEach(dataRange, id: \.self) { index in
-                let windSpeed = readingsHistoryData.windSpeed[index].rounded()
-                let windGust = readingsHistoryData.windGust[index]?.rounded() ?? 0.0
-                let windDirection = readingsHistoryData.windDirection[index]
-                let time = readingsHistoryData.times[index]
-                let windColor = windSpeedColor(windSpeed: Int(windSpeed.rounded()), siteType: siteType)
-                let gustColor = windSpeedColor(windSpeed: Int(windGust.rounded()), siteType: siteType)
-                
-                BarMark(
-                    x: .value("Time", time),
-                    yStart: .value("Wind Speed", 0),
-                    yEnd: .value("Wind Speed", windSpeed)
-                )
-                .foregroundStyle(windColor)
-                .annotation(position: .bottom) {
-                    VStack {
-                        Text("\(Int(windSpeed))")
-                            .font(.caption)
-                            .foregroundColor(windColor)
-                            .bold()
-                        Image(systemName: windArrow)
-                            .rotationEffect(.degrees(Double(windDirection + 180)))
-                            .bold()
-                            .font(.footnote)
-                        // Replace x-axis values with hh:mm and strip the am/pm
-                        Text(String(time).split(separator: " ", maxSplits: 1).first ?? "")
-                            .font(.caption)
-                    }
-                }
-                if windGust > 0 {
-                    BarMark(
-                        x: .value("Time", time),
-                        yStart: .value("Wind Speed", windSpeed + 1), // Create a gap
-                        yEnd: .value("Wind Gust", windSpeed + windGust + 1)
-                    )
-                    .foregroundStyle(gustColor)
-                    .annotation(position: .top) {
-                        HStack(spacing: 4) {
-                            Text("g")
-                                .font(.caption)
-                            Text("\(Int(windGust))")
-                                .font(.caption)
-                                .foregroundColor(gustColor)
-                                .bold()
-                        }
-                    }
-                }
-            }
-        }
-        .chartYAxis(.hidden) // Remove the y-axis values
-        .chartXAxis(.hidden)
-        .chartXAxis { AxisMarks(stroke: StrokeStyle(lineWidth: 0)) }  // Hide vertical column separators
-        .frame(height: 90) // Reduce the chart height
-    }
-}
-
 struct SiteDetailView: View {
     var site: Site              // Received from parent view
     var favoriteName: String?   // Override display name if site detail is for a user favorite
@@ -344,4 +279,69 @@ struct SiteDetailView: View {
         return favoriteType
     }
 
+}
+
+struct ReadingsHistoryBarChartView: View {
+    var readingsHistoryData: ReadingsHistoryData
+    var siteType: String
+
+    var body: some View {
+        let count = min(readingsHistoryData.times.count, 10)
+        let dataRange = (readingsHistoryData.times.count - count)..<readingsHistoryData.times.count
+        
+        Chart {
+            ForEach(dataRange, id: \.self) { index in
+                let windSpeed = readingsHistoryData.windSpeed[index].rounded()
+                let windGust = readingsHistoryData.windGust[index]?.rounded() ?? 0.0
+                let windDirection = readingsHistoryData.windDirection[index]
+                let time = readingsHistoryData.times[index]
+                let windColor = windSpeedColor(windSpeed: Int(windSpeed.rounded()), siteType: siteType)
+                let gustColor = windSpeedColor(windSpeed: Int(windGust.rounded()), siteType: siteType)
+                
+                BarMark(
+                    x: .value("Time", time),
+                    yStart: .value("Wind Speed", 0),
+                    yEnd: .value("Wind Speed", windSpeed)
+                )
+                .foregroundStyle(windColor)
+                .annotation(position: .bottom) {
+                    VStack {
+                        Text("\(Int(windSpeed))")
+                            .font(.caption)
+                            .foregroundColor(windColor)
+                            .bold()
+                        Image(systemName: windArrow)
+                            .rotationEffect(.degrees(Double(windDirection + 180)))
+                            .bold()
+                            .font(.footnote)
+                        // Replace x-axis values with hh:mm and strip the am/pm
+                        Text(String(time).split(separator: " ", maxSplits: 1).first ?? "")
+                            .font(.caption)
+                    }
+                }
+                if windGust > 0 {
+                    BarMark(
+                        x: .value("Time", time),
+                        yStart: .value("Wind Speed", windSpeed + 1), // Create a gap
+                        yEnd: .value("Wind Gust", windSpeed + windGust + 1)
+                    )
+                    .foregroundStyle(gustColor)
+                    .annotation(position: .top) {
+                        HStack(spacing: 4) {
+                            Text("g")
+                                .font(.caption)
+                            Text("\(Int(windGust))")
+                                .font(.caption)
+                                .foregroundColor(gustColor)
+                                .bold()
+                        }
+                    }
+                }
+            }
+        }
+        .chartYAxis(.hidden) // Remove the y-axis values
+        .chartXAxis(.hidden)
+        .chartXAxis { AxisMarks(stroke: StrokeStyle(lineWidth: 0)) }  // Hide vertical column separators
+        .frame(height: 90) // Reduce the chart height
+    }
 }
