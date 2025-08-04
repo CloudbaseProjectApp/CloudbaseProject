@@ -95,18 +95,28 @@ struct CUASAReadingsData: Codable {
 
 // Decoding model for API response
 struct RMHPAAPIResponse: Decodable {
-    let station: String
+    let metadata: RHMPHAMetadata
     let data: [RMHPAReadingData]
 }
 
-struct RMHPAReadingData: Decodable {
-    let station: String
-    let timestamp: String
-    let wind: Double?
-    let gust: Double?
-    let dir: Double?
-    let temp: Double?
+struct RHMPHAMetadata: Decodable {
     let name: String
+    let id: String
+    let device_id: String
+    let timezone: String
+    let lat: Double
+    let lon: Double
+    let elevation: Int
+    let link: String
+}
+
+struct RMHPAReadingData: Decodable {
+    let timestamp: String
+    let absolute: Double?
+    let relative: Double?
+    let wind_direction: Double?
+    let wind_gust: Double?
+    let wind_speed: Double?
 }
 
 class StationLatestReadingViewModel: ObservableObject {
@@ -429,9 +439,10 @@ class StationLatestReadingViewModel: ObservableObject {
                         let apiResponse = try? JSONDecoder().decode(RMHPAAPIResponse.self, from: data),
                         let reading = apiResponse.data.first
                     else {
-                        print("Error getting valid RMHPA response for station: \(station.readingsStation)")
+                        print("Error getting valid RMHPA response for station: \(station.readingsStation); error: \(String(describing: error))")
                         return
                     }
+                    let metadata = apiResponse.metadata
                     
                     // Get time from data in format: "2025-07-31T05:45:00.000"
                     var formattedTime = ""
@@ -444,18 +455,17 @@ class StationLatestReadingViewModel: ObservableObject {
                     }
                     
                     let newReading = StationLatestReading(
-                        stationID:          apiResponse.station,
-                        stationName:        reading.name,
+                        stationID:          metadata.device_id,
+                        stationName:        metadata.name,
                         readingsSource:     "RMHPA",
-                        stationElevation:   station.readingsAlt,
-                        stationLatitude:    "",          // MISSING
-                        stationLongitude:   "",          // MISSING
-                        windSpeed:          reading.wind,       // Provided in mph
-                        windDirection:      reading.dir,
-                        windGust:           reading.gust,       // Provided in mph
+                        stationElevation:   String(metadata.elevation),
+                        stationLatitude:    String(metadata.lat),
+                        stationLongitude:   String(metadata.lon),
+                        windSpeed:          reading.wind_speed,         // Provided in mph
+                        windDirection:      reading.wind_direction,
+                        windGust:           reading.wind_gust,          // Provided in mph
                         windTime:           formattedTime
                     )
-                    
                     collectedReadings.append(newReading)
                 }
             }.resume()

@@ -114,8 +114,31 @@ class StationReadingsHistoryDataModel: ObservableObject {
                 .store(in: &cancellables)
 
         case "RMHPA":
-            print("HAVE NOT IMPLEmented RMHPA history readings yet")
-            
+            let readingsLink = AppURLManager.shared.getAppURL(URLName: "RMHPAHistoryReadingsAPI") ?? "<Unknown CUASA readings history API URL>"
+            let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: stationID)
+            guard let url = URL(string: updatedReadingsLink) else {
+                self.readingsHistoryData.errorMessage = "Invalid RMPHA readings URL"
+                print("Invalid RMPHA readings URL")
+                return
+            }
+print(url)
+            if printReadingsURL { print(url) }
+            URLSession.shared.dataTaskPublisher(for: url)
+                .map { $0.data }
+                .decode(type: RMHPAAPIResponse.self, decoder: JSONDecoder())
+                .receive(on: DispatchQueue.main)
+                .sink(receiveCompletion: { completion in
+                    switch completion {
+                    case .failure(let error):
+                        self.readingsHistoryData.errorMessage = error.localizedDescription
+                        print("Error fetching RMPHA data: \(error.localizedDescription)")
+                    case .finished:
+                        break
+                    }
+                }, receiveValue: { [weak self] response in
+                    self?.processRMHPAReadingHistoryData(response.data)
+                })
+                .store(in: &cancellables)
         default:
             print("Invalid readings source for station: \(stationID)")
         }
@@ -137,6 +160,40 @@ class StationReadingsHistoryDataModel: ObservableObject {
         let recentEntries = Array(readingsHistoryDataArray.suffix(8))
         updateCUASAReadingsHistory(with: recentEntries)
     }
+    
+    private func processRMHPAReadingHistoryData(_ readingsHistoryDataArray: [RMHPAReadingData]) {
+
+print("Processing RMHPA readings history data")
+print(readingsHistoryDataArray)
+        
+        guard let latestEntry = readingsHistoryDataArray.last else {
+            self.readingsHistoryData.errorMessage = "No data available"
+            print("No data available from RMHPA")
+            return
+        }
+
+        // Get time from data in format: "2025-07-31T05:45:00.000"
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS"
+        formatter.timeZone = TimeZone(secondsFromGMT: 0) // or use .current if appropriate
+        
+        // Make sure there is a recent reading
+        let twoHoursInSeconds: Double = 2 * 60 * 60
+        if let latestReadingTimestamp = formatter.date(from: latestEntry.timestamp) {
+            if Date().timeIntervalSince(latestReadingTimestamp) > twoHoursInSeconds {
+                self.readingsHistoryData.errorMessage = "Station has not updated in the past 2 hours"
+                print("Station has not updated in the past 2 hours")
+                return
+            }
+        } else {
+            self.readingsHistoryData.errorMessage = "Could not parse timestamp: \(latestEntry.timestamp)"
+            print("Failed to parse timestamp")
+            return
+        }
+        let recentEntries = Array(readingsHistoryDataArray.suffix(8))
+        updateRMPHAReadingHistory(with: recentEntries)
+    }
+
     
     private func updateCUASAReadingsHistory(with readingsHistoryDataArray: [CUASAReadingsData]) {
         var times = [String]()
@@ -160,4 +217,36 @@ class StationReadingsHistoryDataModel: ObservableObject {
             errorMessage: nil
         )
     }
+    
+    private func updateRMPHAReadingHistory(with readingsHistoryDataArray: [RMHPAReadingData]) {
+        var times = [String]()
+        var windSpeed = [Double]()
+        var windGust = [Double?]()
+        var windDirection = [Double]()
+        for data in readingsHistoryDataArray {
+            
+            // Get time from data in format: "2025-07-31T05:45:00.000"
+            var formattedTime = ""
+            let inputFormatter = DateFormatter()
+            inputFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS"
+            let outputFormatter = DateFormatter()
+            outputFormatter.dateFormat = "h:mm"
+            if let date = inputFormatter.date(from: data.timestamp) {
+                formattedTime = outputFormatter.string(from: date)
+            }
+            
+            times.append(formattedTime)
+            windSpeed.append(data.wind_speed ?? 0.0)
+            windGust.append(data.wind_gust)
+            windDirection.append(data.wind_direction ?? 0.0)
+        }
+        self.readingsHistoryData = ReadingsHistoryData(
+            times: times,
+            windSpeed: windSpeed,
+            windGust: windGust,
+            windDirection: windDirection,
+            errorMessage: nil
+        )
+    }
+
 }

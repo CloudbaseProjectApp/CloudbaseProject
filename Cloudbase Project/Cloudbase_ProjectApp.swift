@@ -186,7 +186,7 @@ struct BaseAppView: View {
 
                 // Force station latest readings refresh when region changes
                 stationLatestReadingViewModel.resetLastFetchTimes()
-                // Force forecast cache refresh when region changes
+                
                 isActive = false
                 metadataLoaded = false
                 if !RegionManager.shared.activeAppRegion.isEmpty {

@@ -303,7 +303,8 @@ struct SiteRow: View {
                 else if let latestReading = stationLatestReadingViewModel.latestSiteReadings.first (where: { $0.stationID == site.readingsStation }) {
                     if let windTime = latestReading.windTime {
                         // Split keeps hh:mm and strips the trailing "  %p" the JSON parser is creating
-                        let windTimeText = windTime.split(separator: " ", maxSplits: 1)[0]
+                        let windTimeParts = windTime.split(separator: " ", maxSplits: 1)
+                        let windTimeText = windTimeParts.first.map(String.init) ?? windTime
                         Text(windTimeText)
                             .font(.caption)
                             .foregroundColor(infoFontColor)
