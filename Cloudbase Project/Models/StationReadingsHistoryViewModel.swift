@@ -121,9 +121,14 @@ class StationReadingsHistoryDataModel: ObservableObject {
                 print("Invalid RMPHA readings URL")
                 return
             }
-print(url)
+            
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.setValue(RMHPAAPIKey, forHTTPHeaderField: "x-api-key")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+
             if printReadingsURL { print(url) }
-            URLSession.shared.dataTaskPublisher(for: url)
+            URLSession.shared.dataTaskPublisher(for: request)
                 .map { $0.data }
                 .decode(type: RMHPAAPIResponse.self, decoder: JSONDecoder())
                 .receive(on: DispatchQueue.main)
@@ -163,20 +168,16 @@ print(url)
     
     private func processRMHPAReadingHistoryData(_ readingsHistoryDataArray: [RMHPAReadingData]) {
 
-print("Processing RMHPA readings history data")
-print(readingsHistoryDataArray)
-        
         guard let latestEntry = readingsHistoryDataArray.last else {
             self.readingsHistoryData.errorMessage = "No data available"
             print("No data available from RMHPA")
             return
         }
 
-        // Get time from data in format: "2025-07-31T05:45:00.000"
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS"
-        formatter.timeZone = TimeZone(secondsFromGMT: 0) // or use .current if appropriate
-        
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+        formatter.timeZone = TimeZone(secondsFromGMT: 0) // 'Z' means UTC
+
         // Make sure there is a recent reading
         let twoHoursInSeconds: Double = 2 * 60 * 60
         if let latestReadingTimestamp = formatter.date(from: latestEntry.timestamp) {
@@ -228,13 +229,15 @@ print(readingsHistoryDataArray)
             // Get time from data in format: "2025-07-31T05:45:00.000"
             var formattedTime = ""
             let inputFormatter = DateFormatter()
-            inputFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS"
+            inputFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+            inputFormatter.timeZone = TimeZone(secondsFromGMT: 0) // 'Z' means UTC
             let outputFormatter = DateFormatter()
             outputFormatter.dateFormat = "h:mm"
             if let date = inputFormatter.date(from: data.timestamp) {
                 formattedTime = outputFormatter.string(from: date)
             }
             
+            // Append data for each history reading
             times.append(formattedTime)
             windSpeed.append(data.wind_speed ?? 0.0)
             windGust.append(data.wind_gust)

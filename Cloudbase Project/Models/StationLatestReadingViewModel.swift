@@ -443,11 +443,13 @@ class StationLatestReadingViewModel: ObservableObject {
                         return
                     }
                     let metadata = apiResponse.metadata
-                    
+
                     // Get time from data in format: "2025-07-31T05:45:00.000"
                     var formattedTime = ""
                     let inputFormatter = DateFormatter()
-                    inputFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS"
+                    inputFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+                    inputFormatter.timeZone = TimeZone(secondsFromGMT: 0) // 'Z' means UTC
+
                     let outputFormatter = DateFormatter()
                     outputFormatter.dateFormat = "h:mm"
                     if let date = inputFormatter.date(from: reading.timestamp) {
