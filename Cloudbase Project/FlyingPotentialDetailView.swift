@@ -180,6 +180,8 @@ struct FlyingPotentialDetailView: View {
                 .padding(.vertical, 0)
 
             }
+            .listSectionSpacing(8)
+            
             .onAppear {
                 currentForecastIndex = forecastIndex
             }

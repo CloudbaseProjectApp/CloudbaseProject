@@ -86,7 +86,7 @@ class LinkViewModel: ObservableObject {
 
     // Fetch group names in display order from LinkGroups!A2:A
     private func fetchLinkGroupOrder(completion: @escaping ([String]) -> Void) {
-        let rangeName = "LinkGroups!A2:A"
+        let rangeName = "Validations!A2:A"
 
         guard let url = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(globalGoogleSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)") else {
             print("Invalid LinkGroups URL")

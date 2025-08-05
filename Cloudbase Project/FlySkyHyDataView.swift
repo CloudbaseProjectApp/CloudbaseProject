@@ -114,10 +114,11 @@ struct FlySkyHyDataView: View {
                             showWebView = true
                         }
                     }) {
-                        Text("   FlySkyHy custom data file")
+                        Text("     FlySkyHy custom data file")
                             .font(.subheadline)
                             .bold()
-                            .foregroundColor(infoFontColor)
+                            .underline()
+                            .foregroundColor(rowHeaderColor)
                             .padding(.bottom, stepSpacing)
                     }
                     Text("2. Tap the download icon (and if Google drive is installed, select 'Open' and then 'Download' again")
