@@ -128,7 +128,9 @@ class SiteForecastViewModel: ObservableObject {
 
     // Forecast cache based on each forecast URL
     private var forecastCache: [String: ForecastCacheEntry] = [:]
-    private let cacheExpiration: TimeInterval = 600  // 10 minutes
+    
+    // Define a specific URL session to number of concurrent API requests (e.g., when called from Flying Potential with many sites)
+    private let urlSession: URLSession
     
     // Make thermal lift parameters, weather code images, and sunrise/sunset times available in this view model
     init(liftParametersViewModel: LiftParametersViewModel,
@@ -137,6 +139,12 @@ class SiteForecastViewModel: ObservableObject {
         self.liftParametersViewModel = liftParametersViewModel
         self.sunriseSunsetViewModel = sunriseSunsetViewModel
         self.weatherCodesViewModel = weatherCodesViewModel
+        
+        // Set limit on number of concurrent API requests for this session
+        let config = URLSessionConfiguration.default
+        config.httpMaximumConnectionsPerHost = 3   // allow only 3 concurrent requests
+        self.urlSession = URLSession(configuration: config)
+
     }
     
     func clearForecastCache() {
@@ -159,7 +167,7 @@ class SiteForecastViewModel: ObservableObject {
 
         // Cache check
         if let cached = forecastCache[updatedForecastURL],
-           Date().timeIntervalSince(cached.timestamp) < cacheExpiration {
+           Date().timeIntervalSince(cached.timestamp) < forecastCacheInterval {
             DispatchQueue.main.async {
                 self.forecastData = cached.data
                 self.maxPressureReading = self.maxPressureReading  // Optional: re-process if needed
@@ -168,8 +176,8 @@ class SiteForecastViewModel: ObservableObject {
         }
 
         guard let forecastURL = URL(string: updatedForecastURL) else { return }
-
-        URLSession.shared.dataTask(with: forecastURL) { data, response, error in
+        
+        urlSession.dataTask(with: forecastURL) { data, response, error in
             if let data = data {
                 let decoder = JSONDecoder()
                 let modifiedData = replaceNullsInJSON(data: data)
@@ -209,7 +217,7 @@ class SiteForecastViewModel: ObservableObject {
 
         // Cache check
         if let cached = forecastCache[updatedForecastURL],
-           Date().timeIntervalSince(cached.timestamp) < cacheExpiration {
+           Date().timeIntervalSince(cached.timestamp) < forecastCacheInterval {
             DispatchQueue.main.async {
                 completion(cached.data)
             }
@@ -220,8 +228,8 @@ class SiteForecastViewModel: ObservableObject {
             completion(nil)
             return
         }
-
-        URLSession.shared.dataTask(with: forecastURL) { data, response, error in
+        
+        urlSession.dataTask(with: forecastURL) { data, response, error in
             if let data = data {
                 let decoder = JSONDecoder()
                 let modifiedData = replaceNullsInJSON(data: data)
@@ -721,8 +729,8 @@ class SiteForecastViewModel: ObservableObject {
                                                          thermalVelocity_700hPa,
                                                          thermalVelocity_650hPa)
                             }
-                            var thermalVelocityColorValue = FlyingPotentialColor.value(for: thermalColor(thermalVelocityMax))
-                            var windsAloftColorValue = FlyingPotentialColor.value(for: windSpeedColor(
+                            let thermalVelocityColorValue = FlyingPotentialColor.value(for: thermalColor(thermalVelocityMax))
+                            let windsAloftColorValue = FlyingPotentialColor.value(for: windSpeedColor(
                                     windSpeed: Int(windsAloftMax), siteType: siteType))
 
                             // Determine wind direction color for site

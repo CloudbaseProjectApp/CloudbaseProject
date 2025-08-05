@@ -41,7 +41,7 @@ struct FlyingPotentialView: View {
     
     // Currently only including favorites due to "too many concurrent request" errors
     // would need to revise logic for forecast calls to handle more sites
-    var includeSites: Bool = false
+    var includeSites: Bool = true
     var includeFavorites: Bool = true
     
     var body: some View {
@@ -241,15 +241,22 @@ struct FavoritesPotentialSection: View {
                             forecastMap:    forecastMap)
             
         } else {
-            VStack (alignment: .leading) {
-                Text("Add favorites from the Sites page to see paragliding potential here")
+            Section(
+                header: Text("Favorites")
                     .font(.subheadline)
-                    .padding(.vertical, 8)
-                
-                Text("Note: Only Mountain/Soaring sites are displayed")
-                    .font(.subheadline)
-                    .foregroundColor(infoFontColor)
-                    .padding(.vertical, 8)
+                    .foregroundColor(sectionHeaderColor)
+                    .bold()
+            ) {
+                VStack (alignment: .leading) {
+                    Text("No favorites found; add favorites on Sites page")
+                        .font(.subheadline)
+                        .padding(.top, 8)
+                    
+                    Text("Note: Only Mountain/Soaring sites are displayed")
+                        .font(.subheadline)
+                        .foregroundColor(infoFontColor)
+                        .padding(.vertical, 8)
+                }
             }
         }
  
