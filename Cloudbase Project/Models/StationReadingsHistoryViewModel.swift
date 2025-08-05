@@ -114,11 +114,11 @@ class StationReadingsHistoryDataModel: ObservableObject {
                 .store(in: &cancellables)
 
         case "RMHPA":
-            let readingsLink = AppURLManager.shared.getAppURL(URLName: "RMHPAHistoryReadingsAPI") ?? "<Unknown CUASA readings history API URL>"
+            let readingsLink = AppURLManager.shared.getAppURL(URLName: "RMHPAHistoryReadingsAPI") ?? "<Unknown RMHPA readings history API URL>"
             let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: stationID)
             guard let url = URL(string: updatedReadingsLink) else {
-                self.readingsHistoryData.errorMessage = "Invalid RMPHA readings URL"
-                print("Invalid RMPHA readings URL")
+                self.readingsHistoryData.errorMessage = "Invalid RMHPA readings URL"
+                print("Invalid RMHPA readings URL")
                 return
             }
             
@@ -136,7 +136,7 @@ class StationReadingsHistoryDataModel: ObservableObject {
                     switch completion {
                     case .failure(let error):
                         self.readingsHistoryData.errorMessage = error.localizedDescription
-                        print("Error fetching RMPHA data: \(error.localizedDescription)")
+                        print("Error fetching RMHPA data: \(error.localizedDescription)")
                     case .finished:
                         break
                     }
@@ -192,7 +192,7 @@ class StationReadingsHistoryDataModel: ObservableObject {
             return
         }
         let recentEntries = Array(readingsHistoryDataArray.suffix(8))
-        updateRMPHAReadingHistory(with: recentEntries)
+        updateRMHPAReadingHistory(with: recentEntries)
     }
 
     
@@ -219,7 +219,7 @@ class StationReadingsHistoryDataModel: ObservableObject {
         )
     }
     
-    private func updateRMPHAReadingHistory(with readingsHistoryDataArray: [RMHPAReadingData]) {
+    private func updateRMHPAReadingHistory(with readingsHistoryDataArray: [RMHPAReadingData]) {
         var times = [String]()
         var windSpeed = [Double]()
         var windGust = [Double?]()

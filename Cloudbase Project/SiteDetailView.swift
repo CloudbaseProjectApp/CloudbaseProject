@@ -36,7 +36,7 @@ struct SiteDetailView: View {
                     }
                 }
                 Spacer()
-                Text(displayName)
+                    Text(displayName)
                     .foregroundColor(sectionHeaderColor)
                     .bold()
                 Button(action: {
@@ -147,7 +147,9 @@ struct SiteDetailView: View {
                                 openLink(url)
                             }
                         case "RMHPA":
-                            let readingsLink = AppURLManager.shared.getAppURL(URLName: "RMPHAHistoryReadingsLink") ?? "<Unknown RMPHA readings history URL>"
+                            // Allow for different links based on Ecowitt and Holfuy stations based on length of station name
+                            let urlName: String = site.readingsStation.count < 10 ? "RMHPAHolfuyReadingsLink" : "RMHPAEcowittReadingsLink"
+                            let readingsLink = AppURLManager.shared.getAppURL(URLName: urlName) ?? "<Unknown RMHPA readings history URL>"
                             let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: site.readingsStation)
                             if let url = URL(string: updatedReadingsLink) {
                                 openLink(url)

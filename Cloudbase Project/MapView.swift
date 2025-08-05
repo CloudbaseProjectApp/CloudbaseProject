@@ -1015,7 +1015,7 @@ struct MapContainerView: View {
                sheetRow:            0,
                windDirection:       windDirection
            )
-           SiteDetailView(site: site, favoriteName: "")
+           SiteDetailView(site: site, favoriteName: nil)
        }
         
        .sheet(item: $selectedPilotTrack) { track in
@@ -1023,7 +1023,7 @@ struct MapContainerView: View {
        }
         
        .sheet(item: $selectedSite) { site in
-           SiteDetailView(site: site, favoriteName: "")
+           SiteDetailView(site: site, favoriteName: nil)
        }
         
         // Make sure pilot live track view model is published

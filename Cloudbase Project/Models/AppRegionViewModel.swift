@@ -17,6 +17,7 @@ struct AppRegion {
     let mapInitLatitudeSpan: Double         // Size of map on initial opening
     let mapInitLongitudeSpan: Double        // mapInitLatitudeSpan * 1.5
     let mapDefaultZoomLevel: Double
+    let appRegionStatus: String             // "Development" or blank
 }
 
 struct AppRegionResponse: Codable {
@@ -45,18 +46,19 @@ class AppRegionViewModel: ObservableObject {
                         print("Skipping malformed app region row: \(row)")
                         return nil
                     }
-                    let appRegion = row[0]
-                    let appCountry = row[1]
-                    let appRegionName = row[2]
-                    let appRegionGoogleSheetID = row[3]
-                    let timezone = row[4]
-                    let sunriseLatitude = row.count > 5 ? Double(row[5]) ?? 0.0 : 0.0
-                    let sunriseLongitude = row.count > 6 ? Double(row[6]) ?? 0.0 : 0.0
-                    let mapInitLatitude = row.count > 7 ? Double(row[7]) ?? 0.0 : 0.0
-                    let mapInitLongitude = row.count > 8 ? Double(row[8]) ?? 0.0 : 0.0
-                    let mapInitLatitudeSpan = row.count > 9 ? Double(row[9]) ?? 0.0 : 0.0
-                    let mapInitLongitudeSpan = row.count > 10 ? Double(row[10]) ?? 0.0 : 0.0
-                    let mapDefaultZoomLevel = row.count > 11 ? Double(row[11]) ?? 0.0 : 0.0
+                    let appRegion               = row[0]
+                    let appCountry              = row[1]
+                    let appRegionName           = row[2]
+                    let appRegionGoogleSheetID  = row[3]
+                    let timezone                = row[4]
+                    let sunriseLatitude         = row.count > 5 ? Double(row[5]) ?? 0.0 : 0.0
+                    let sunriseLongitude        = row.count > 6 ? Double(row[6]) ?? 0.0 : 0.0
+                    let mapInitLatitude         = row.count > 7 ? Double(row[7]) ?? 0.0 : 0.0
+                    let mapInitLongitude        = row.count > 8 ? Double(row[8]) ?? 0.0 : 0.0
+                    let mapInitLatitudeSpan     = row.count > 9 ? Double(row[9]) ?? 0.0 : 0.0
+                    let mapInitLongitudeSpan    = row.count > 10 ? Double(row[10]) ?? 0.0 : 0.0
+                    let mapDefaultZoomLevel     = row.count > 11 ? Double(row[11]) ?? 0.0 : 0.0
+                    let appRegionStatus         = row.count > 12 ? row[12] : ""
                     
                     // Make sure region, country, name, Google sheet, and time zone are populated
                     guard !appRegion.isEmpty,
@@ -68,18 +70,19 @@ class AppRegionViewModel: ObservableObject {
                         return nil
                     }
                     
-                    return AppRegion(appRegion: appRegion,
-                                     appCountry: appCountry,
-                                     appRegionName: appRegionName,
-                                     appRegionGoogleSheetID: appRegionGoogleSheetID,
-                                     timezone: timezone,
-                                     sunriseLatitude: sunriseLatitude,
-                                     sunriseLongitude: sunriseLongitude,
-                                     mapInitLatitude: mapInitLatitude,
-                                     mapInitLongitude: mapInitLongitude,
-                                     mapInitLatitudeSpan: mapInitLatitudeSpan,
-                                     mapInitLongitudeSpan: mapInitLongitudeSpan,
-                                     mapDefaultZoomLevel: mapDefaultZoomLevel,
+                    return AppRegion(appRegion:                 appRegion,
+                                     appCountry:                appCountry,
+                                     appRegionName:             appRegionName,
+                                     appRegionGoogleSheetID:    appRegionGoogleSheetID,
+                                     timezone:                  timezone,
+                                     sunriseLatitude:           sunriseLatitude,
+                                     sunriseLongitude:          sunriseLongitude,
+                                     mapInitLatitude:           mapInitLatitude,
+                                     mapInitLongitude:          mapInitLongitude,
+                                     mapInitLatitudeSpan:       mapInitLatitudeSpan,
+                                     mapInitLongitudeSpan:      mapInitLongitudeSpan,
+                                     mapDefaultZoomLevel:       mapDefaultZoomLevel,
+                                     appRegionStatus:           appRegionStatus
                     )
                 }
             }

@@ -226,32 +226,8 @@ struct MainView: View {
                                         .padding(.top, 4)
                                 }
                             }
-
                             Spacer()
-                            /* Commented out; links and FlySkyHy moved to About page
-                            Button {
-                                selectedView = .link
-                                siteViewActive = false
-                                weatherViewActive = false
-                                potentialViewActive = false
-                                mapViewActive = false
-                                webcamViewActive = false
-                                linkViewActive = true
-                            } label: {
-                                VStack {
-                                    Image(systemName: "link")
-                                        .foregroundColor(linkViewActive ? toolbarActiveImageColor : toolbarImageColor)
-                                        .font(.system(size: toolbarItemSize))
-                                        .frame(width: toolbarItemSize, height: toolbarItemSize)
-                                    Text("Links")
-                                        .foregroundColor(linkViewActive ? toolbarActiveFontColor : toolbarFontColor)
-                                        .font(.caption)
-                                        .padding(.top, 4)
-                                }
-                            }
-                             */
                         }
-
                     }
                 }
                 // Separator bar below title bar

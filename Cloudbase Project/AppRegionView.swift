@@ -24,8 +24,9 @@ struct AppRegionView: View {
                         .foregroundColor(sectionHeaderColor)
                         .bold())
                     {
-                        
-                        ForEach(appRegionViewModel.appRegions, id: \.appRegion) { region in
+                        ForEach(appRegionViewModel.appRegions.filter {
+                            $0.appRegionStatus.isEmpty
+                        }, id: \.appRegion) { region in
                             Button(action: {
                                 RegionManager.shared.activeAppRegion = region.appRegion
                                 userSettingsViewModel.mapRegion = MKCoordinateRegion(

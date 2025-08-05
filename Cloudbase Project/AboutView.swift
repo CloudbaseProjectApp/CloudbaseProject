@@ -13,6 +13,7 @@ struct AboutView: View {
     
     @State private var showLinks = false
     @State private var showFlySkyHyLink = false
+    @State private var showDevRegions = false
     
     var body: some View {
         NavigationView {
@@ -40,7 +41,10 @@ struct AboutView: View {
                         .foregroundColor(sectionHeaderColor)
                         .bold())
                     {
-                        ForEach(appRegionViewModel.appRegions, id: \.appRegion) { region in
+                        // Do not show "Development" status regions unless user has set showDevRegions
+                        ForEach(appRegionViewModel.appRegions.filter {
+                            showDevRegions || $0.appRegionStatus.isEmpty
+                        }, id: \.appRegion) { region in
                             Button(action: {
                                 RegionManager.shared.activeAppRegion = region.appRegion
                                 userSettingsViewModel.mapRegion = MKCoordinateRegion(
@@ -62,9 +66,15 @@ struct AboutView: View {
                                 }
                             }) {
                                 HStack {
-                                    Text(region.appRegionName)
-                                        .font(.subheadline)
-                                        .foregroundColor(toolbarActiveFontColor)
+                                    if region.appRegionStatus.isEmpty {
+                                        Text(region.appRegionName)
+                                            .font(.subheadline)
+                                            .foregroundColor(toolbarActiveFontColor)
+                                    } else {
+                                        Text("\(region.appRegionName) (\(region.appRegionStatus))")
+                                            .font(.subheadline)
+                                            .foregroundColor(infoFontColor)
+                                    }
                                     Spacer()
                                     if RegionManager.shared.activeAppRegion == region.appRegion {
                                         Image(systemName: "checkmark")
@@ -175,6 +185,11 @@ struct AboutView: View {
                                 .font(.subheadline)
                                 .foregroundColor(rowHeaderColor)
                         }
+                        
+                        // Allow user to pick app regions that in development
+                        Toggle("Enable regions in development", isOn: $showDevRegions)
+                            .font(.subheadline)
+                            .foregroundColor(rowHeaderColor)
                         
                     }
                     

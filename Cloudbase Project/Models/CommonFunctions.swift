@@ -571,23 +571,56 @@ func headingForWindDirection(windDirection: Int?) -> String {
     }
     
     switch windDirection {
-    case 0...22, 338...359:
-        return "N"
-    case 23...67:
-        return "NE"
-    case 68...112:
-        return "E"
-    case 113...157:
-        return "SE"
-    case 158...202:
-        return "S"
-    case 203...247:
-        return "SW"
-    case 248...292:
-        return "W"
-    case 293...337:
-        return "NW"
-    default:
-        return ""
+    case 0...22, 338...359  : return "N"
+    case 23...67            : return "NE"
+    case 68...112           : return "E"
+    case 113...157          : return "SE"
+    case 158...202          : return "S"
+    case 203...247          : return "SW"
+    case 248...292          : return "W"
+    case 293...337          : return "NW"
+    default                 : return ""
     }
+}
+
+func degreeRangeForHeading(_ heading: String) -> (start: Int, end: Int)? {
+    switch heading.uppercased() {
+    case "N"                : return (338, 22) // Wraps around 0°
+    case "NE"               : return (23, 67)
+    case "E"                : return (68, 112)
+    case "SE"               : return (113, 157)
+    case "S"                : return (158, 202)
+    case "SW"               : return (203, 247)
+    case "W"                : return (248, 292)
+    case "NW"               : return (293, 337)
+    default                 : return nil        // Invalid input
+    }
+}
+
+func windDirectionRanges(from siteWindDirection: SiteWindDirection)
+    -> (goodRanges: [(Double, Double)], marginalRanges: [(Double, Double)])
+{
+    var goodRanges: [(Double, Double)] = []
+    var marginalRanges: [(Double, Double)] = []
+    let directionMap: [(keyPath: KeyPath<SiteWindDirection, String>, label: String)] = [
+        (\.N,  "N"),
+        (\.NE, "NE"),
+        (\.E,  "E"),
+        (\.SE, "SE"),
+        (\.S,  "S"),
+        (\.SW, "SW"),
+        (\.W,  "W"),
+        (\.NW, "NW")
+    ]
+    for (keyPath, label) in directionMap {
+        let value = siteWindDirection[keyPath: keyPath].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let (start, end) = degreeRangeForHeading(label) else { continue }
+        let range = (Double(start), Double(end))
+        if value.caseInsensitiveCompare("Good") == .orderedSame {
+            goodRanges.append(range)
+        } else if value.caseInsensitiveCompare("Marginal") == .orderedSame {
+            marginalRanges.append(range)
+        }
+    }
+    return (goodRanges, marginalRanges)
 }

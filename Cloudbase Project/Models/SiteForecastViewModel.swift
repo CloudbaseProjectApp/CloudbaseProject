@@ -99,6 +99,8 @@ struct HourlyData: Codable {
     var gustFactorColorValue: [Int]?
     var windsAloftColorValue: [Int]?
     var thermalVelocityColorValue: [Int]?
+    var windsAloftMax: [Double]?
+    var thermalVelocityMax: [Double]?
 }
 
 // Structure used to store data that is common for all altitudes and pass to thermal calculation function
@@ -342,7 +344,9 @@ class SiteForecastViewModel: ObservableObject {
             surfaceGustColorValue: [],
             gustFactorColorValue: [],
             windsAloftColorValue: [],
-            thermalVelocityColorValue: []
+            thermalVelocityColorValue: [],
+            windsAloftMax: [],
+            thermalVelocityMax: []
         )
         
         // Get sunrise/sunset times from environment object
@@ -701,30 +705,25 @@ class SiteForecastViewModel: ObservableObject {
                             let gustFactorColorValue = FlyingPotentialColor.value(for: gustFactorColor(gustFactor))
                             
                             // Winds aloft and thermals up to 6k ft (800 hpa) for all sites; higher altitude for mountain sites
-                            var windsAloftColorValue = max(
-                                FlyingPotentialColor.value(for: windSpeedColor(
-                                    windSpeed: Int(data.hourly.windspeed_900hPa[index]), siteType: siteType)),
-                                FlyingPotentialColor.value(for: windSpeedColor(
-                                    windSpeed: Int(data.hourly.windspeed_850hPa[index]), siteType: siteType)),
-                                FlyingPotentialColor.value(for: windSpeedColor(
-                                    windSpeed: Int(data.hourly.windspeed_800hPa[index]), siteType: siteType)))
-                            
-                            var thermalVelocityColorValue = max(
-                                FlyingPotentialColor.value(for: thermalColor(thermalVelocity_900hPa)),
-                                FlyingPotentialColor.value(for: thermalColor(thermalVelocity_850hPa)),
-                                FlyingPotentialColor.value(for: thermalColor(thermalVelocity_800hPa)))
-
+                            var windsAloftMax: Double = max(data.hourly.windspeed_900hPa[index],
+                                                    data.hourly.windspeed_850hPa[index],
+                                                    data.hourly.windspeed_800hPa[index])
+                            var thermalVelocityMax: Double = max(thermalVelocity_900hPa,
+                                                         thermalVelocity_850hPa,
+                                                         thermalVelocity_800hPa)
                             if siteType == "Mountain" {
-                                windsAloftColorValue = max(windsAloftColorValue,
-                                    FlyingPotentialColor.value(for: windSpeedColor(windSpeed: Int(data.hourly.windspeed_750hPa[index]), siteType: siteType)),
-                                    FlyingPotentialColor.value(for: windSpeedColor(windSpeed: Int(data.hourly.windspeed_700hPa[index]), siteType: siteType)),
-                                    FlyingPotentialColor.value(for: windSpeedColor(windSpeed: Int(data.hourly.windspeed_650hPa[index]), siteType: siteType)))
-                                
-                                thermalVelocityColorValue = max(thermalVelocityColorValue,
-                                    FlyingPotentialColor.value(for: thermalColor(thermalVelocity_750hPa)),
-                                    FlyingPotentialColor.value(for: thermalColor(thermalVelocity_700hPa)),
-                                    FlyingPotentialColor.value(for: thermalColor(thermalVelocity_650hPa)))
+                                windsAloftMax = max(windsAloftMax,
+                                                    data.hourly.windspeed_750hPa[index],
+                                                    data.hourly.windspeed_700hPa[index],
+                                                    data.hourly.windspeed_650hPa[index])
+                                thermalVelocityMax = max(thermalVelocityMax,
+                                                         thermalVelocity_750hPa,
+                                                         thermalVelocity_700hPa,
+                                                         thermalVelocity_650hPa)
                             }
+                            var thermalVelocityColorValue = FlyingPotentialColor.value(for: thermalColor(thermalVelocityMax))
+                            var windsAloftColorValue = FlyingPotentialColor.value(for: windSpeedColor(
+                                    windSpeed: Int(windsAloftMax), siteType: siteType))
 
                             // Determine wind direction color for site
                             let windDirectionColorValue = FlyingPotentialColor.value(for: windDirectionColor(
@@ -764,6 +763,8 @@ class SiteForecastViewModel: ObservableObject {
                             processedHourly.gustFactorColorValue?.append(gustFactorColorValue)
                             processedHourly.windsAloftColorValue?.append(windsAloftColorValue)
                             processedHourly.thermalVelocityColorValue?.append(thermalVelocityColorValue)
+                            processedHourly.windsAloftMax?.append(windsAloftMax)
+                            processedHourly.thermalVelocityMax?.append(thermalVelocityMax)
                             
                         }
                     }

@@ -220,7 +220,7 @@ class StationLatestReadingViewModel: ObservableObject {
             : "&country=\(regionCountry)"
         }
         
-        // Fetch Mesonet, CUASA, RMPHA in parallel
+        // Fetch Mesonet, CUASA, RMHPA in parallel
         var combinedReadings: [StationLatestReading] = []
         let group = DispatchGroup()
         
@@ -403,7 +403,7 @@ class StationLatestReadingViewModel: ObservableObject {
         )
         guard !RMHPAStations.isEmpty else {
             if printReadingsURL {
-                print("RMPHA stations are empty")
+                print("RMHPA stations are empty")
             }
             completion([])
             return
@@ -414,7 +414,7 @@ class StationLatestReadingViewModel: ObservableObject {
 
         for station in RMHPAStations {
             group.enter()
-            let readingsLink = AppURLManager.shared.getAppURL(URLName: "RMPHALatestReadingsAPI") ?? "<Unknown RMPHA latest readings API URL>"
+            let readingsLink = AppURLManager.shared.getAppURL(URLName: "RMHPALatestReadingsAPI") ?? "<Unknown RMHPA latest readings API URL>"
             let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: station.readingsStation)
             
             if printReadingsURL {
