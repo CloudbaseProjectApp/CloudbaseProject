@@ -93,12 +93,13 @@ struct MapSettingsView: View {
         VStack(alignment: .leading) {
             HStack {
                 Button(action: {
+// Commented out validation; causing an error if the region doesn't have any pilots available to select
                     // Validate at least one pilot is selected
-                    if selectedPilotIDs.isEmpty {
-                        showSelectionError = true
-                    } else {
+//                    if selectedPilotIDs.isEmpty {
+//                        showSelectionError = true
+//                    } else {
                         presentationMode.wrappedValue.dismiss()
-                    }
+//                    }
                 }) {
                     HStack {
                         Image(systemName: "chevron.left")

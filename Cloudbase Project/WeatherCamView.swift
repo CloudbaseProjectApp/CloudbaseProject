@@ -59,10 +59,12 @@ struct WeatherCamView: View {
 
     private var contentView: some View {
         List {
-            Section(header: Text("Point of the Mountain")
-                .font(.subheadline)
-                .foregroundColor(sectionHeaderColor)
-                .bold()) {
+            if RegionManager.shared.activeAppRegion == "UT" {
+                Section(header: Text("Point of the Mountain")
+                    .font(.subheadline)
+                    .foregroundColor(sectionHeaderColor)
+                    .bold())
+                {
                     Button(action: {
                         if let url = URL(string: ipCamLink) {
                             UIApplication.shared.open(url)
@@ -77,9 +79,9 @@ struct WeatherCamView: View {
                         }
                     }
                 }
+            }
             ForEach(weatherCamViewModel.groupedWeatherCams.keys.sorted(), id: \.self) { category in
-                // Split is used to strip the order sequence number from the front of the category on display
-                Section(header: Text(category.split(separator: " ", maxSplits: 1)[1])
+                Section(header: Text(category)
                     .font(.subheadline)
                     .foregroundColor(sectionHeaderColor)
                     .bold()) {
