@@ -10,6 +10,7 @@ struct SiteDetailView: View {
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
+    @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
     @StateObject var viewModel = StationReadingsHistoryDataModel()
     
     @Environment(\.presentationMode) var presentationMode
@@ -180,16 +181,14 @@ struct SiteDetailView: View {
                     .foregroundColor(sectionHeaderColor)
                     .bold())
                 {
-                    SiteForecastView (
-                        liftParametersViewModel:    liftParametersViewModel,
-                        sunriseSunsetViewModel:     sunriseSunsetViewModel,
-                        weatherCodesViewModel:      weatherCodesViewModel,
-                        siteLat:                    site.siteLat,
-                        siteLon:                    site.siteLon,
-                        forecastNote:               site.forecastNote,
-                        siteName:                   site.siteName,
-                        siteType:                   site.siteType,
-                        siteWindDirection:          site.windDirection)
+                    SiteForecastView(
+                        siteLat: site.siteLat,
+                        siteLon: site.siteLon,
+                        forecastNote: site.forecastNote,
+                        siteName: site.siteName,
+                        siteType: site.siteType,
+                        siteWindDirection: site.windDirection
+                    )
                 }
                 
                 VStack(alignment: .leading) {

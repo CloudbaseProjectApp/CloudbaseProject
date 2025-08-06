@@ -697,6 +697,7 @@ struct MapContainerView: View {
     @EnvironmentObject var pilotViewModel: PilotViewModel
     @EnvironmentObject var pilotTrackViewModel: PilotTrackViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
+    @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
     @Environment(\.scenePhase) private var scenePhase
 
     @StateObject var stationLatestReadingViewModel: StationLatestReadingViewModel

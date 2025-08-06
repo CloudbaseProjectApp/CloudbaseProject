@@ -144,7 +144,6 @@ class SiteForecastViewModel: ObservableObject {
         let config = URLSessionConfiguration.default
         config.httpMaximumConnectionsPerHost = 3   // allow only 3 concurrent requests
         self.urlSession = URLSession(configuration: config)
-
     }
     
     func clearForecastCache() {
@@ -223,7 +222,8 @@ class SiteForecastViewModel: ObservableObject {
             }
             return
         }
-
+let cached = forecastCache[updatedForecastURL]
+print("Passed cache check for site: \(siteName), cache time stamp: \(String(describing: cached?.timestamp))")
         guard let forecastURL = URL(string: updatedForecastURL) else {
             completion(nil)
             return

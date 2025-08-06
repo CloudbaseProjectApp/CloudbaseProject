@@ -9,24 +9,10 @@ struct FlyingPotentialView: View {
     @EnvironmentObject var siteViewModel: SiteViewModel
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
-    @StateObject private var siteForecastViewModel: SiteForecastViewModel
+    @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
     
     @State private var selectedFlyingDetail: SelectedSiteDetail?
 
-    init(
-        liftVM: LiftParametersViewModel,
-        sunriseVM: SunriseSunsetViewModel,
-        weatherVM: WeatherCodeViewModel
-    ) {
-        _siteForecastViewModel = StateObject(wrappedValue:
-            SiteForecastViewModel(
-                liftParametersViewModel: liftVM,
-                sunriseSunsetViewModel: sunriseVM,
-                weatherCodesViewModel: weatherVM
-            )
-        )
-    }
-    
     @Environment(\.scenePhase) private var scenePhase
     
     @State private var forecastMap: [String: ForecastData] = [:] // keyed by siteName
@@ -172,7 +158,7 @@ struct FlyingPotentialView: View {
             ($0.favoriteType == "station" && $0.stationID == site.readingsStation)
         }
 
-        let favoriteName = matchedFavorite?.favoriteName ?? ""
+        let favoriteName = matchedFavorite?.favoriteName ?? site.siteName
         selectedSite = SiteSelection(site: site, favoriteName: favoriteName)
     }
     
@@ -241,7 +227,8 @@ struct FavoritesPotentialSection: View {
                             forecastMap:    forecastMap)
             
         } else {
-            Section(
+            // Currently not displaying Favorites section or any instructions
+/*            Section(
                 header: Text("Favorites")
                     .font(.subheadline)
                     .foregroundColor(sectionHeaderColor)
@@ -258,6 +245,7 @@ struct FavoritesPotentialSection: View {
                         .padding(.vertical, 8)
                 }
             }
+ */
         }
  
     }

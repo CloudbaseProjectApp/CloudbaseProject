@@ -20,6 +20,7 @@ struct MainView: View {
     @EnvironmentObject var pilotViewModel: PilotViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
+    @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
 
     @State var selectedView:NavBarSelectedView = .site
     @State var siteViewActive =         true
@@ -41,18 +42,12 @@ struct MainView: View {
                 // Call content based on selected navigation
                 if selectedView == .site {
                     SiteView()
-                        .environmentObject(siteViewModel)
-                        .environmentObject(stationLatestReadingViewModel)
                 }
                 if selectedView == .weather {
                     WeatherView()
                 }
                 if selectedView == .potential {
-                    FlyingPotentialView(
-                        liftVM: liftParametersViewModel,
-                        sunriseVM: sunriseSunsetViewModel,
-                        weatherVM: weatherCodesViewModel
-                    )
+                    FlyingPotentialView()
                 }
                 if selectedView == .map {
                     MapContainerView(

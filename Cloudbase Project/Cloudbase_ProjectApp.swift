@@ -17,6 +17,7 @@ struct Cloudbase_ProjectApp: App {
     @StateObject private var siteViewModel                  = SiteViewModel()
     @StateObject private var pilotViewModel                 = PilotViewModel()
     @StateObject private var pilotTrackViewModel:             PilotTrackViewModel
+    @StateObject private var siteForecastViewModel:           SiteForecastViewModel
     @StateObject private var stationLatestReadingViewModel:   StationLatestReadingViewModel
     @StateObject private var userSettingsViewModel          = UserSettingsViewModel(
         mapRegion: MKCoordinateRegion(
@@ -45,6 +46,11 @@ struct Cloudbase_ProjectApp: App {
         let weatherVM           = WeatherCodeViewModel()
         let siteVM              = SiteViewModel()
         let pilotVM             = PilotViewModel()
+        let forecastVM          = SiteForecastViewModel(
+            liftParametersViewModel: liftVM,
+            sunriseSunsetViewModel: sunVM,
+            weatherCodesViewModel: weatherVM
+        )
         let userSettingsVM      = UserSettingsViewModel(
             mapRegion: MKCoordinateRegion(
                 center:     CLLocationCoordinate2D(
@@ -63,7 +69,6 @@ struct Cloudbase_ProjectApp: App {
             showStations:       defaultShowStations
         )
         let stationVM           = StationLatestReadingViewModel(siteViewModel: siteVM, userSettingsViewModel: userSettingsVM)
-
         
         // Populate app region view model (for user to select region and other metadata to load)
         appRegionVM.getAppRegions() {}
@@ -86,6 +91,7 @@ struct Cloudbase_ProjectApp: App {
         _siteViewModel                  = StateObject(wrappedValue: siteVM)
         _pilotViewModel                 = StateObject(wrappedValue: pilotVM)
         _stationLatestReadingViewModel  = StateObject(wrappedValue: stationVM)
+        _siteForecastViewModel          = StateObject(wrappedValue: forecastVM)
         _userSettingsViewModel          = StateObject(wrappedValue: userSettingsVM)
         _pilotTrackViewModel            = StateObject(wrappedValue: PilotTrackViewModel(pilotViewModel: pilotVM))
     }
@@ -102,6 +108,7 @@ struct Cloudbase_ProjectApp: App {
                 .environmentObject(siteViewModel)
                 .environmentObject(pilotViewModel)
                 .environmentObject(pilotTrackViewModel)
+                .environmentObject(siteForecastViewModel)
                 .environmentObject(stationLatestReadingViewModel)
                 .environmentObject(userSettingsViewModel)
                 .environment(\.colorScheme, .dark)
@@ -134,6 +141,7 @@ struct BaseAppView: View {
     @EnvironmentObject var pilotViewModel: PilotViewModel
     @EnvironmentObject var pilotTrackViewModel: PilotTrackViewModel
     @EnvironmentObject var siteViewModel: SiteViewModel
+    @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @ObservedObject var regionManager = RegionManager.shared

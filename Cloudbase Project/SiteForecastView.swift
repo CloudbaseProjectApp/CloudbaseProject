@@ -36,41 +36,18 @@ struct ThermalCell: View {
 
 struct SiteForecastView: View {
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
-    @ObservedObject var liftParametersViewModel: LiftParametersViewModel
-    @ObservedObject var sunriseSunsetViewModel: SunriseSunsetViewModel
-    @ObservedObject var weatherCodesViewModel: WeatherCodeViewModel
-    @StateObject private var siteForecastViewModel: SiteForecastViewModel
+    @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
+    @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
+    @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
+    @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
     
-    var siteLat:            String
-    var siteLon:            String
-    var forecastNote:       String
-    var siteName:           String
-    var siteType:           String
-    var siteWindDirection:  SiteWindDirection
-    
-    init(liftParametersViewModel: LiftParametersViewModel,
-         sunriseSunsetViewModel: SunriseSunsetViewModel,
-         weatherCodesViewModel: WeatherCodeViewModel,
-         siteLat: String,
-         siteLon: String,
-         forecastNote: String,
-         siteName: String,
-         siteType: String,
-         siteWindDirection: SiteWindDirection) {
-        self._liftParametersViewModel = ObservedObject(wrappedValue: liftParametersViewModel)
-        self._sunriseSunsetViewModel =  ObservedObject(wrappedValue: sunriseSunsetViewModel)
-        self._weatherCodesViewModel =   ObservedObject(wrappedValue: weatherCodesViewModel)
-        self._siteForecastViewModel =   StateObject(wrappedValue: SiteForecastViewModel(liftParametersViewModel: liftParametersViewModel,
-                                                                          sunriseSunsetViewModel: sunriseSunsetViewModel,
-                                                                          weatherCodesViewModel: weatherCodesViewModel))
-        self.siteLat =              siteLat
-        self.siteLon =              siteLon
-        self.forecastNote =         forecastNote
-        self.siteName =             siteName
-        self.siteType =             siteType
-        self.siteWindDirection =    siteWindDirection
-    }
-    
+    let siteLat:            String
+    let siteLon:            String
+    let forecastNote:       String
+    let siteName:           String
+    let siteType:           String
+    let siteWindDirection:  SiteWindDirection
+
     var body: some View {
         VStack (alignment: .leading) {
             if let forecastData = siteForecastViewModel.forecastData {
