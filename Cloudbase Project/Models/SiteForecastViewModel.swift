@@ -222,8 +222,6 @@ class SiteForecastViewModel: ObservableObject {
             }
             return
         }
-let cached = forecastCache[updatedForecastURL]
-print("Passed cache check for site: \(siteName), cache time stamp: \(String(describing: cached?.timestamp))")
         guard let forecastURL = URL(string: updatedForecastURL) else {
             completion(nil)
             return

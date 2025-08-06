@@ -20,6 +20,7 @@ struct MainView: View {
     @EnvironmentObject var pilotViewModel: PilotViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
+    @EnvironmentObject var stationAnnotationViewModel: StationAnnotationViewModel
     @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
 
     @State var selectedView:NavBarSelectedView = .site
@@ -50,14 +51,7 @@ struct MainView: View {
                     FlyingPotentialView()
                 }
                 if selectedView == .map {
-                    MapContainerView(
-                        pilotViewModel: pilotViewModel,
-                        siteViewModel: siteViewModel,
-                        userSettingsViewModel: userSettingsViewModel
-                    )
-                    .environmentObject(siteViewModel)
-                    .environmentObject(pilotViewModel)
-                    .environmentObject(stationLatestReadingViewModel)
+                    MapContainerView()
                 }
                 if selectedView == .webcam {
                     WeatherCamView()

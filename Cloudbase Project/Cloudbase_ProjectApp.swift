@@ -19,6 +19,7 @@ struct Cloudbase_ProjectApp: App {
     @StateObject private var pilotTrackViewModel:             PilotTrackViewModel
     @StateObject private var siteForecastViewModel:           SiteForecastViewModel
     @StateObject private var stationLatestReadingViewModel:   StationLatestReadingViewModel
+    @StateObject private var stationAnnotationViewModel:      StationAnnotationViewModel
     @StateObject private var userSettingsViewModel          = UserSettingsViewModel(
         mapRegion: MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: mapDefaultLatitude, longitude: mapDefaultLongitude),
@@ -69,6 +70,11 @@ struct Cloudbase_ProjectApp: App {
             showStations:       defaultShowStations
         )
         let stationVM           = StationLatestReadingViewModel(siteViewModel: siteVM, userSettingsViewModel: userSettingsVM)
+        let annotationVM        = StationAnnotationViewModel(
+            userSettingsViewModel: userSettingsVM,
+            siteViewModel: siteVM,
+            stationLatestReadingViewModel: stationVM
+        )
         
         // Populate app region view model (for user to select region and other metadata to load)
         appRegionVM.getAppRegions() {}
@@ -91,6 +97,7 @@ struct Cloudbase_ProjectApp: App {
         _siteViewModel                  = StateObject(wrappedValue: siteVM)
         _pilotViewModel                 = StateObject(wrappedValue: pilotVM)
         _stationLatestReadingViewModel  = StateObject(wrappedValue: stationVM)
+        _stationAnnotationViewModel     = StateObject(wrappedValue: annotationVM)
         _siteForecastViewModel          = StateObject(wrappedValue: forecastVM)
         _userSettingsViewModel          = StateObject(wrappedValue: userSettingsVM)
         _pilotTrackViewModel            = StateObject(wrappedValue: PilotTrackViewModel(pilotViewModel: pilotVM))
@@ -110,6 +117,7 @@ struct Cloudbase_ProjectApp: App {
                 .environmentObject(pilotTrackViewModel)
                 .environmentObject(siteForecastViewModel)
                 .environmentObject(stationLatestReadingViewModel)
+                .environmentObject(stationAnnotationViewModel)
                 .environmentObject(userSettingsViewModel)
                 .environment(\.colorScheme, .dark)
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
@@ -143,6 +151,7 @@ struct BaseAppView: View {
     @EnvironmentObject var siteViewModel: SiteViewModel
     @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
+    @EnvironmentObject var stationAnnotationViewModel: StationAnnotationViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @ObservedObject var regionManager = RegionManager.shared
 

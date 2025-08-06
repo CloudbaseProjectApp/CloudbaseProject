@@ -698,12 +698,12 @@ struct MapContainerView: View {
     @EnvironmentObject var pilotTrackViewModel: PilotTrackViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
-    @Environment(\.scenePhase) private var scenePhase
-
-    @StateObject var stationLatestReadingViewModel: StationLatestReadingViewModel
-    @StateObject private var stationAnnotationViewModel: StationAnnotationViewModel
+    @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
+    @EnvironmentObject var stationAnnotationViewModel: StationAnnotationViewModel
     @StateObject private var rainViewerOverlayViewModel = RainViewerOverlayViewModel()
-
+    @Environment(\.scenePhase) private var scenePhase
+    
+    @State private var annotationVMInitialized = false
     @State private var selectedStation: StationAnnotation?
     @State private var selectedPilotTrack: PilotTrack?
     @State private var selectedSite: Site?
@@ -719,17 +719,7 @@ struct MapContainerView: View {
     @State private var lastRegionSpan: MKCoordinateSpan = MKCoordinateSpan(latitudeDelta: 0, longitudeDelta: 0)
 
     private var cancellables = Set<AnyCancellable>()
-    
-    init(pilotViewModel: PilotViewModel, siteViewModel: SiteViewModel, userSettingsViewModel: UserSettingsViewModel) {
-        let stationVM = StationLatestReadingViewModel(siteViewModel: siteViewModel, userSettingsViewModel: userSettingsViewModel)
-        _stationLatestReadingViewModel = StateObject(wrappedValue: stationVM)
-        _stationAnnotationViewModel = StateObject(wrappedValue:
-            StationAnnotationViewModel(
-                userSettingsViewModel: userSettingsViewModel,
-                siteViewModel: siteViewModel,
-                stationLatestReadingViewModel: stationVM))
-    }
-    
+
     var body: some View {
         VStack {
             ZStack {
