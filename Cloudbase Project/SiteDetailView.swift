@@ -168,12 +168,12 @@ struct SiteDetailView: View {
                     .bold())
                 {
                     SiteDailyForecastView (
-                        weatherCodesViewModel: weatherCodesViewModel,
-                        siteLat: site.siteLat,
-                        siteLon: site.siteLon,
-                        forecastNote: site.forecastNote,
-                        siteName: site.siteName,
-                        siteType: site.siteType )
+                        weatherCodesViewModel:  weatherCodesViewModel,
+                        siteLat:                site.siteLat,
+                        siteLon:                site.siteLon,
+                        forecastNote:           site.forecastNote,
+                        siteName:               site.siteName,
+                        siteType:               site.siteType )
                 }
                 
                 Section(header: Text("Detailed Forecast")
@@ -182,12 +182,13 @@ struct SiteDetailView: View {
                     .bold())
                 {
                     SiteForecastView(
-                        siteLat: site.siteLat,
-                        siteLon: site.siteLon,
-                        forecastNote: site.forecastNote,
-                        siteName: site.siteName,
-                        siteType: site.siteType,
-                        siteWindDirection: site.windDirection
+                        id:                 site.id,
+                        siteName:           site.siteName,
+                        siteType:           site.siteType,
+                        siteLat:            site.siteLat,
+                        siteLon:            site.siteLon,
+                        forecastNote:       site.forecastNote,
+                        siteWindDirection:  site.windDirection
                     )
                 }
                 

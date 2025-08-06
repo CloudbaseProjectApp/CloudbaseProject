@@ -14,7 +14,7 @@ struct SiteWindDirection: Codable, Equatable, Hashable {
 }
 
 struct Site: Codable, Identifiable, Equatable, Hashable {
-    var id = UUID()
+    var id: String
     var area: String
     var siteName: String
     var readingsNote: String
@@ -78,6 +78,7 @@ class SiteViewModel: ObservableObject {
                     )
 
                     return Site(
+                        id:                 "\(row[1])-\(row[2])",
                         area:               row[1],
                         siteName:           row[2],
                         readingsNote:       row[3],

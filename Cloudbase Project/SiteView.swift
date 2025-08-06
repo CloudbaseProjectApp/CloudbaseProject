@@ -236,6 +236,7 @@ struct FavoritesSection: View {
             let windDirection = SiteWindDirection( N:  "", NE: "", E:  "", SE: "", S:  "", SW: "", W:  "", NW: "" )
             
             return (Site(
+                id:                 "favorite-\(fav.stationID)",
                 area:               "Favorites",
                 siteName:           fav.favoriteID,
                 readingsNote:       "",

@@ -11,10 +11,9 @@ struct FlyingPotentialView: View {
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
     
-    @State private var selectedFlyingDetail: SelectedSiteDetail?
-
     @Environment(\.scenePhase) private var scenePhase
     
+    @State private var selectedFlyingDetail: SelectedSiteDetail?
     @State private var forecastMap: [String: ForecastData] = [:] // keyed by siteName
     @State private var selectedSite: SiteSelection?
     @State private var favorites: [UserFavoriteSite] = []
@@ -116,7 +115,8 @@ struct FlyingPotentialView: View {
             }()
 
             for site in allSites {
-                siteForecastViewModel.fetchForecast(siteName:           site.siteName,
+                siteForecastViewModel.fetchForecast(id:                 site.id,
+                                                    siteName:           site.siteName,
                                                     latitude:           site.siteLat,
                                                     longitude:          site.siteLon,
                                                     siteType:           site.siteType,
@@ -176,6 +176,7 @@ struct FlyingPotentialView: View {
             let windDirection = SiteWindDirection( N:  "", NE: "", E:  "", SE: "", S:  "", SW: "", W:  "", NW: "" )
             
             return (Site(
+                id:                 "favorite-\(fav.stationID)",
                 area:               "Favorites",
                 siteName:           fav.favoriteID,
                 readingsNote:       "",
@@ -402,10 +403,16 @@ struct SiteGridSection: View {
                                                                 forecastIndex:  i)
                                                             onDetailTap(detail)
                                                         }
+                                                        .overlay(Divider().frame(width: dateChangeDividerSize, height: headingHeight)
+                                                                    .background(getDividerColor(hourly.newDateFlag?[i] ?? true)), alignment: .leading)
+
                                                 } else {
                                                     Rectangle()
                                                         .fill(Color.gray.opacity(0.2))
                                                         .frame(width: dataWidth, height: rowHeight)
+                                                        .overlay(Divider().frame(width: dateChangeDividerSize, height: headingHeight)
+                                                                    .background(getDividerColor(hourly.newDateFlag?[i] ?? true)), alignment: .leading)
+
                                                 }
                                             }
                                         }

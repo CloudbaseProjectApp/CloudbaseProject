@@ -41,11 +41,12 @@ struct SiteForecastView: View {
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
     
+    let id:                 String  // site/favorite/station id
+    let siteName:           String
+    let siteType:           String
     let siteLat:            String
     let siteLon:            String
     let forecastNote:       String
-    let siteName:           String
-    let siteType:           String
     let siteWindDirection:  SiteWindDirection
 
     var body: some View {
@@ -637,7 +638,8 @@ struct SiteForecastView: View {
                 }
             }
         }
-        .onAppear { siteForecastViewModel.fetchForecast(siteName:           siteName,
+        .onAppear { siteForecastViewModel.fetchForecast(id:                 id,
+                                                        siteName:           siteName,
                                                         latitude:           siteLat,
                                                         longitude:          siteLon,
                                                         siteType:           siteType,

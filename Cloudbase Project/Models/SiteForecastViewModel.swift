@@ -1,10 +1,15 @@
 import SwiftUI
 import Combine
 
-// Forecast data structures
 struct ForecastData: Codable {
+    var id: String = ""              // default value, will be set manually based on site/favorite/station ID
     var elevation: Double
     var hourly: HourlyData
+
+    private enum CodingKeys: String, CodingKey {
+        case elevation, hourly
+        // exclude `id` so it's not decoded from JSON
+    }
 }
 
 struct HourlyData: Codable {
@@ -150,7 +155,8 @@ class SiteForecastViewModel: ObservableObject {
         forecastCache.removeAll()
     }
     
-    func fetchForecast(siteName: String,
+    func fetchForecast(id: String,
+                       siteName: String,
                        latitude: String,
                        longitude: String,
                        siteType: String,
@@ -180,12 +186,18 @@ class SiteForecastViewModel: ObservableObject {
             if let data = data {
                 let decoder = JSONDecoder()
                 let modifiedData = replaceNullsInJSON(data: data)
-                if let forecastData = try? decoder.decode(ForecastData.self, from: modifiedData ?? data) {
+                if var forecastData = try? decoder.decode(ForecastData.self, from: modifiedData ?? data) {
                     DispatchQueue.main.async {
-                        let (maxPressure, processed) = self.processForecastData(siteName: siteName,
-                                                                                siteType: siteType,
-                                                                                siteWindDirection: siteWindDirection,
-                                                                                data: forecastData)
+                        
+                        // Set id based on site/station/favorite id passed in
+                        forecastData.id = id
+                        
+                        // Process forecast data
+                        let (maxPressure, processed) = self.processForecastData(id:                 id,
+                                                                                siteName:           siteName,
+                                                                                siteType:           siteType,
+                                                                                siteWindDirection:  siteWindDirection,
+                                                                                data:               forecastData)
                         self.forecastData = processed
                         self.maxPressureReading = maxPressure
                         self.forecastCache[updatedForecastURL] = ForecastCacheEntry(data: processed, timestamp: Date())
@@ -198,7 +210,8 @@ class SiteForecastViewModel: ObservableObject {
     }
     
     // Overloaded version with completion handler for use in FlyingPotentialView
-    func fetchForecast(siteName: String,
+    func fetchForecast(id: String,
+                       siteName: String,
                        latitude: String,
                        longitude: String,
                        siteType: String,
@@ -233,10 +246,11 @@ class SiteForecastViewModel: ObservableObject {
                 let modifiedData = replaceNullsInJSON(data: data)
                 do {
                     let forecastData = try decoder.decode(ForecastData.self, from: modifiedData ?? data)
-                    let (_, processed) = self.processForecastData(siteName: siteName,
-                                                                  siteType: siteType,
-                                                                  siteWindDirection: siteWindDirection,
-                                                                  data: forecastData)
+                    let (_, processed) = self.processForecastData(id:                   id,
+                                                                  siteName:             siteName,
+                                                                  siteType:             siteType,
+                                                                  siteWindDirection:    siteWindDirection,
+                                                                  data:                 forecastData)
                     DispatchQueue.main.async {
                         self.forecastCache[updatedForecastURL] = ForecastCacheEntry(data: processed, timestamp: Date())
                         completion(processed)
@@ -256,10 +270,11 @@ class SiteForecastViewModel: ObservableObject {
         }.resume()
     }
     
-    func processForecastData(siteName: String,
-                            siteType: String,
-                            siteWindDirection: SiteWindDirection,
-                            data: ForecastData) -> (maxPressureReading: Int, ForecastData) {
+    func processForecastData(id: String,
+                             siteName: String,
+                             siteType: String,
+                             siteWindDirection: SiteWindDirection,
+                             data: ForecastData) -> (maxPressureReading: Int, ForecastData) {
         
         var processedHourly = HourlyData(
             time: [],
@@ -777,7 +792,9 @@ class SiteForecastViewModel: ObservableObject {
                 }
             }
         }
-        return (maxPressureReading, ForecastData(elevation: data.elevation, hourly: processedHourly))
+        return (maxPressureReading, ForecastData(id:        id,
+                                                 elevation: data.elevation,
+                                                 hourly:    processedHourly))
     }
     
     struct ThermalResult {

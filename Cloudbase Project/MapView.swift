@@ -991,7 +991,7 @@ struct MapContainerView: View {
            let windDirection = SiteWindDirection( N:  "", NE: "", E:  "", SE: "", S:  "", SW: "", W:  "", NW: "" )
 
            let site = Site(
-               id:                  UUID(),
+               id:                  "station-\(station.annotationID)",
                area:                "",
                siteName:            station.title ?? "",
                readingsNote:        "",
