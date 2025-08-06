@@ -16,6 +16,7 @@ struct Cloudbase_ProjectApp: App {
     @StateObject private var weatherCodesViewModel          = WeatherCodeViewModel()
     @StateObject private var siteViewModel                  = SiteViewModel()
     @StateObject private var pilotViewModel                 = PilotViewModel()
+    @StateObject private var weatherCamViewModel:             WeatherCamViewModel
     @StateObject private var pilotTrackViewModel:             PilotTrackViewModel
     @StateObject private var siteForecastViewModel:           SiteForecastViewModel
     @StateObject private var stationLatestReadingViewModel:   StationLatestReadingViewModel
@@ -75,6 +76,7 @@ struct Cloudbase_ProjectApp: App {
             siteViewModel: siteVM,
             stationLatestReadingViewModel: stationVM
         )
+        let weatherCamVM        = WeatherCamViewModel()
         
         // Populate app region view model (for user to select region and other metadata to load)
         appRegionVM.getAppRegions() {}
@@ -101,6 +103,7 @@ struct Cloudbase_ProjectApp: App {
         _siteForecastViewModel          = StateObject(wrappedValue: forecastVM)
         _userSettingsViewModel          = StateObject(wrappedValue: userSettingsVM)
         _pilotTrackViewModel            = StateObject(wrappedValue: PilotTrackViewModel(pilotViewModel: pilotVM))
+        _weatherCamViewModel            = StateObject(wrappedValue: weatherCamVM)
     }
     
     var body: some Scene {
@@ -118,6 +121,7 @@ struct Cloudbase_ProjectApp: App {
                 .environmentObject(siteForecastViewModel)
                 .environmentObject(stationLatestReadingViewModel)
                 .environmentObject(stationAnnotationViewModel)
+                .environmentObject(weatherCamViewModel)
                 .environmentObject(userSettingsViewModel)
                 .environment(\.colorScheme, .dark)
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
@@ -153,6 +157,7 @@ struct BaseAppView: View {
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
     @EnvironmentObject var stationAnnotationViewModel: StationAnnotationViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
+    @EnvironmentObject var weatherCamViewModel: WeatherCamViewModel
     @ObservedObject var regionManager = RegionManager.shared
 
     var body: some View {

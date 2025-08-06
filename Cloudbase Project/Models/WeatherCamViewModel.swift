@@ -3,7 +3,7 @@ import Combine
 
 struct WeatherCam: Identifiable {
     let id = UUID()
-    let category: String
+    let area: String
     let name: String
     let linkURL: String
     let imageURL: String
@@ -18,7 +18,18 @@ class WeatherCamViewModel: ObservableObject {
     @Published var groupedWeatherCams: [String: [WeatherCam]] = [:]
     @Published var isLoading: Bool = false
     
+    private(set) var siteViewModel: SiteViewModel?
+
+    func setSiteViewModel(_ siteViewModel: SiteViewModel) {
+        self.siteViewModel = siteViewModel
+    }
+
     func fetchWeatherCams() {
+        guard siteViewModel != nil else {
+            print("Missing SiteViewModel — skipping fetch for weather cams")
+            return
+        }
+
         DispatchQueue.main.async {
             self.isLoading = true
         }
@@ -72,7 +83,7 @@ class WeatherCamViewModel: ObservableObject {
                             return nil
                         }
                         return WeatherCam(
-                            category: row[1],
+                            area: row[1],
                             name:     row[2],
                             linkURL:  row[3],
                             imageURL: row[4]
@@ -81,13 +92,42 @@ class WeatherCamViewModel: ObservableObject {
                 
                 DispatchQueue.main.async {
                     self.weatherCams = cams
-                    self.groupedWeatherCams = Dictionary(grouping: cams, by: \.category)
-                    // isLoading will be set to false by the `defer` block above
+                    self.groupedWeatherCams = Dictionary(grouping: cams, by: \.area)
                 }
+                
             } catch {
                 print("Failed to decode JSON: \(error)")
             }
         }
         .resume()
+    }
+    
+    func sortedGroupedWeatherCams() -> [(String, [WeatherCam])] {
+        let existing = groupedWeatherCams
+        var result: [(String, [WeatherCam])] = []
+
+        if let siteViewModel = siteViewModel {
+            // 1. Add areas in specified order
+            for area in siteViewModel.areaOrder {
+                if let cams = existing[area] {
+                    result.append((area, cams))
+                }
+            }
+
+            // 2. Append remaining areas not in areaOrder
+            let remaining = existing.keys
+                .filter { !siteViewModel.areaOrder.contains($0) }
+                .sorted()
+            for area in remaining {
+                if let cams = existing[area] {
+                    result.append((area, cams))
+                }
+            }
+        } else {
+            // Fallback: return in default dictionary insertion order
+            result = Array(existing)
+        }
+
+        return result
     }
 }

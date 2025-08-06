@@ -8,7 +8,8 @@ var webcamLastUpdate: Date = Date.distantPast
 
 struct WeatherCamView: View {
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
-    @StateObject private var weatherCamViewModel = WeatherCamViewModel()
+    @EnvironmentObject var siteViewModel: SiteViewModel
+    @EnvironmentObject var weatherCamViewModel: WeatherCamViewModel
     
     @Environment(\.openURL) var openURL     // Used to open URL links as an in-app sheet using Safari
     @State private var externalURL: URL?    // Used to open URL links as an in-app sheet using Safari
@@ -25,13 +26,16 @@ struct WeatherCamView: View {
             }
         }
         .onAppear {
-            // Clear all image caches and force reload if images are odler than refresh interval
+            if weatherCamViewModel.siteViewModel == nil {
+                weatherCamViewModel.setSiteViewModel(siteViewModel)
+                weatherCamViewModel.fetchWeatherCams()
+            }
+
             if Date().timeIntervalSince(webcamLastUpdate) > readingsRefreshInterval {
                 SDImageCache.shared.clear(with: .all) {
                     webcamLastUpdate = Date()
                 }
             }
-            weatherCamViewModel.fetchWeatherCams()
         }
         // Used to open URL links as an in-app sheet using Safari
         .sheet(isPresented: $showWebView) { if let url = externalURL { SafariView(url: url) } }
@@ -80,12 +84,12 @@ struct WeatherCamView: View {
                     }
                 }
             }
-            ForEach(weatherCamViewModel.groupedWeatherCams.keys.sorted(), id: \.self) { category in
-                Section(header: Text(category)
+            ForEach(weatherCamViewModel.sortedGroupedWeatherCams(), id: \.0) { area, cams in
+                Section(header: Text(area)
                     .font(.subheadline)
                     .foregroundColor(sectionHeaderColor)
                     .bold()) {
-                        ForEach(weatherCamViewModel.groupedWeatherCams[category] ?? [], id: \.id) { cam in
+                        ForEach(cams, id: \.id) { cam in
                             VStack {
                                 Text(cam.name)
                                     .multilineTextAlignment(.center)

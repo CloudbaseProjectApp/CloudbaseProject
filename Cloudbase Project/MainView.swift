@@ -22,6 +22,7 @@ struct MainView: View {
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
     @EnvironmentObject var stationAnnotationViewModel: StationAnnotationViewModel
     @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
+    @EnvironmentObject var weatherCamViewModel: WeatherCamViewModel
 
     @State var selectedView:NavBarSelectedView = .site
     @State var siteViewActive =         true

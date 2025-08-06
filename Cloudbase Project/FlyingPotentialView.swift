@@ -24,8 +24,7 @@ struct FlyingPotentialView: View {
             .sorted { $0.sortSequence < $1.sortSequence }
     }
     
-    // Currently only including favorites due to "too many concurrent request" errors
-    // would need to revise logic for forecast calls to handle more sites
+    // Allows for limiting forecasts to reduce performance impact (network calls)
     var includeSites: Bool = true
     var includeFavorites: Bool = true
     
