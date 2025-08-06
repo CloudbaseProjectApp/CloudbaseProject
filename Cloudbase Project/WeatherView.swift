@@ -164,7 +164,7 @@ struct WeatherView: View {
                     selectedIndex:            $soaringForecastSelectedIndex,
                     openLink:                 openLink(_:)
                 )
-                
+
                 // Winds aloft forecast
                 Section(header: Text("Winds Aloft Forecast")
                     .font(.headline)

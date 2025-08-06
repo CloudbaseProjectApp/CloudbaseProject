@@ -9,6 +9,7 @@ struct FlyingPotentialView: View {
     @EnvironmentObject var siteViewModel: SiteViewModel
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
+    @EnvironmentObject var siteDailyForecastViewModel: SiteDailyForecastViewModel
     @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
     
     @Environment(\.scenePhase) private var scenePhase

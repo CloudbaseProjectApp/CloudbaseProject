@@ -21,6 +21,7 @@ struct MainView: View {
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
     @EnvironmentObject var stationAnnotationViewModel: StationAnnotationViewModel
+    @EnvironmentObject var siteDailyForecastViewModel: SiteDailyForecastViewModel
     @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
     @EnvironmentObject var weatherCamViewModel: WeatherCamViewModel
 

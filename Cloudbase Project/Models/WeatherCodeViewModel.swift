@@ -17,6 +17,12 @@ class WeatherCodeViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     let sheetName = "WeatherCodes"
     
+    // Instance Tracking code
+    private let vmtype = "WeatherCodeViewModel"
+    private let instanceID = UUID()
+    init() { print("✅ \(vmtype) \(instanceID) initialized") }
+    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
+    
     func getWeatherCodes(completion: @escaping () -> Void) {
         let weatherCodesURLString = "https://sheets.googleapis.com/v4/spreadsheets/\(globalGoogleSheetID)/values/\(sheetName)?alt=json&key=\(googleAPIKey)"
         guard let url = URL(string: weatherCodesURLString) else {

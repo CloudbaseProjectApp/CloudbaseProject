@@ -41,6 +41,12 @@ class SiteViewModel: ObservableObject {
     @Published var sites: [Site] = []
     private var cancellables = Set<AnyCancellable>()
     
+    // Instance Tracking code
+    private let vmtype = "SiteViewModel"
+    private let instanceID = UUID()
+    init() { print("✅ \(vmtype) \(instanceID) initialized") }
+    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
+    
     func getSites(completion: @escaping () -> Void) {
         let rangeName = "Sites"
         

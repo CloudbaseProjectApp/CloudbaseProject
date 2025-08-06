@@ -137,6 +137,12 @@ class SiteForecastViewModel: ObservableObject {
     // Define a specific URL session to number of concurrent API requests (e.g., when called from Flying Potential with many sites)
     private let urlSession: URLSession
     
+    // Instance Tracking code
+    private let vmtype = "SiteForecastViewModel"
+    private let instanceID = UUID()
+    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
+
+    
     // Make thermal lift parameters, weather code images, and sunrise/sunset times available in this view model
     init(liftParametersViewModel: LiftParametersViewModel,
          sunriseSunsetViewModel: SunriseSunsetViewModel,
@@ -149,6 +155,9 @@ class SiteForecastViewModel: ObservableObject {
         let config = URLSessionConfiguration.default
         config.httpMaximumConnectionsPerHost = 3   // allow only 3 concurrent requests
         self.urlSession = URLSession(configuration: config)
+        
+        // Instance Tracking code
+        print("✅ \(vmtype) \(instanceID) initialized")
     }
     
     func clearForecastCache() {

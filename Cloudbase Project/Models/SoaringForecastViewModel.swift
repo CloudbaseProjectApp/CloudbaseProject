@@ -44,6 +44,12 @@ class SoaringForecastViewModel: ObservableObject {
     @Published var soaringForecast: SoaringForecast?
     @Published var isLoading = false
     
+    // Instance Tracking code
+    private let vmtype = "SoaringForecastViewModel (Rich)"
+    private let instanceID = UUID()
+    init() { print("✅ \(vmtype) \(instanceID) initialized") }
+    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
+    
     func fetchSoaringForecast(airportCode: String) {
         isLoading = true
         

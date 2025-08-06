@@ -47,6 +47,12 @@ class WeatherAlertViewModel: ObservableObject {
     @Published var weatherAlerts: [WeatherAlert] = []
     @Published var isLoading = false
     
+    // Instance Tracking code
+    private let vmtype = "WeatherAlertViewModel"
+    private let instanceID = UUID()
+    init() { print("✅ \(vmtype) \(instanceID) initialized") }
+    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
+    
     func getWeatherAlerts() {
         isLoading = true
 

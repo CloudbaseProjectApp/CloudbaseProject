@@ -27,13 +27,23 @@ struct Daily: Codable {
     var precipImage: [String]?
 }
 
-class DailyForecastViewModel: ObservableObject {
+class SiteDailyForecastViewModel: ObservableObject {
     @Published var dailyForecastData: DailyForecastData?
     private var weatherCodesViewModel: WeatherCodeViewModel
     private var cancellable: AnyCancellable?
     
+    // Instance Tracking code
+    private let vmtype = "DailyForecastViewModel"
+    private let instanceID = UUID()
+    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
+    
     // Make weather code images available in this view model
-    init(weatherCodesViewModel: WeatherCodeViewModel) { self.weatherCodesViewModel = weatherCodesViewModel }
+    init(weatherCodesViewModel: WeatherCodeViewModel) {
+        self.weatherCodesViewModel = weatherCodesViewModel
+        
+        // Instance Tracking code
+        print("✅ \(vmtype) \(instanceID) initialized")
+    }
 
     func fetchDailyWeatherData(latitude: String,
                                longitude: String) {

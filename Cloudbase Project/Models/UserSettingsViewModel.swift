@@ -59,6 +59,12 @@ class UserSettingsViewModel: ObservableObject {
     @Published var userFavoriteSites: [UserFavoriteSite]
     @Published var userPickListSelections: [UserPickListSelection]
     
+    // Instance Tracking code
+    private let vmtype = "UserSettingsViewModel"
+    private let instanceID = UUID()
+    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
+
+    
     init(mapRegion:                 MKCoordinateRegion,
          zoomLevel:                 Double = 6,
          selectedMapType:           CustomMapStyle = defaultmapType,
@@ -86,6 +92,10 @@ class UserSettingsViewModel: ObservableObject {
         self.selectedPilots         = selectedPilots
         self.userFavoriteSites      = userFavoriteSites
         self.userPickListSelections = userPickListSelections
+        
+        // Instance Tracking code
+        print("✅ \(vmtype) \(instanceID) initialized")
+
     }
     
     var isMapWeatherMode:           Bool { mapDisplayMode == .weather }

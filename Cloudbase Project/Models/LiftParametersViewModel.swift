@@ -25,6 +25,13 @@ struct LiftParameters: Codable {
 class LiftParametersViewModel: ObservableObject {
     @Published var liftParameters: LiftParameters?
     
+    // Instance Tracking code
+    private let vmtype = "LiftParameters"
+    private let instanceID = UUID()
+    init() { print("✅ \(vmtype) \(instanceID) initialized") }
+    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
+
+    
     func getLiftParameters(completion: @escaping () -> Void) {
         var liftParameters: LiftParameters = .init(thermalLapseRate: 0, thermalVelocityConstant: 0, initialTriggerTempDiff: 0, ongoingTriggerTempDiff: 0, thermalRampDistance: 0, thermalRampStartPct: 0, cloudbaseLapseRatesDiff: 0, thermalGliderSinkRate: 0)
         let rangeName = "LiftParameters"

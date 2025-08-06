@@ -10,6 +10,7 @@ struct SiteDetailView: View {
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
+    @EnvironmentObject var siteDailyForecastViewModel: SiteDailyForecastViewModel
     @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
     @StateObject var viewModel = StationReadingsHistoryDataModel()
     
@@ -168,7 +169,6 @@ struct SiteDetailView: View {
                     .bold())
                 {
                     SiteDailyForecastView (
-                        weatherCodesViewModel:  weatherCodesViewModel,
                         siteLat:                site.siteLat,
                         siteLon:                site.siteLon,
                         forecastNote:           site.forecastNote,

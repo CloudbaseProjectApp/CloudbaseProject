@@ -3,8 +3,8 @@ import Combine
 
 struct SiteDailyForecastView: View {
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
-    @ObservedObject var weatherCodesViewModel: WeatherCodeViewModel
-    @StateObject private var viewModel: DailyForecastViewModel
+    @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
+    @EnvironmentObject var siteDailyForecastViewModel: SiteDailyForecastViewModel
     
     var siteLat: String
     var siteLon: String
@@ -12,9 +12,12 @@ struct SiteDailyForecastView: View {
     var siteName: String
     var siteType: String
     
-    init(weatherCodesViewModel: WeatherCodeViewModel, siteLat: String, siteLon: String, forecastNote: String, siteName: String, siteType: String) {
-        self._weatherCodesViewModel = ObservedObject(wrappedValue: weatherCodesViewModel)
-        self._viewModel = StateObject(wrappedValue: DailyForecastViewModel(weatherCodesViewModel: weatherCodesViewModel))
+    init(siteLat: String,
+         siteLon: String,
+         forecastNote: String,
+         siteName: String,
+         siteType: String)
+    {
         self.siteLat = siteLat
         self.siteLon = siteLon
         self.forecastNote = forecastNote
@@ -27,9 +30,9 @@ struct SiteDailyForecastView: View {
             let dataWidth: CGFloat = 40                                     // Width for each data column
             let dataFrameWidth: CGFloat = ( dataWidth * 1.5 )
             
-            if let daily = viewModel.dailyForecastData?.daily {
+            if let daily = siteDailyForecastViewModel.dailyForecastData?.daily {
 
-                let surfaceAltitude = convertMetersToFeet(viewModel.dailyForecastData?.elevation ?? 0.0)
+                let surfaceAltitude = convertMetersToFeet(siteDailyForecastViewModel.dailyForecastData?.elevation ?? 0.0)
                 HStack {
                     Text(buildReferenceNote(Alt: String(surfaceAltitude), Note: forecastNote))
                         .font(.footnote)
@@ -134,8 +137,8 @@ struct SiteDailyForecastView: View {
             }
         }
         .onAppear {
-            viewModel.fetchDailyWeatherData(latitude: siteLat,
-                                            longitude: siteLon)
+            siteDailyForecastViewModel.fetchDailyWeatherData(latitude: siteLat,
+                                                             longitude: siteLon)
         }
     }
 }

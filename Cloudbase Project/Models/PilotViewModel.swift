@@ -19,6 +19,13 @@ class PilotViewModel: ObservableObject {
     @Published var pilots: [Pilot] = []
     private var cancellables = Set<AnyCancellable>()
     
+    // Instance Tracking code
+    private let vmtype = "PilotViewModel"
+    private let instanceID = UUID()
+    init() { print("✅ \(vmtype) \(instanceID) initialized") }
+    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
+
+    
     func getPilots(completion: @escaping () -> Void) {
         
         let rangeName = "Pilots"

@@ -45,6 +45,11 @@ class StationAnnotationViewModel: ObservableObject {
     var siteViewModel: SiteViewModel
     var stationLatestReadingViewModel: StationLatestReadingViewModel
 
+    // Instance Tracking code
+    private let vmtype = "StationAnnotationViewModel"
+    private let instanceID = UUID()
+    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
+
     init(
         userSettingsViewModel: UserSettingsViewModel,
         siteViewModel: SiteViewModel,
@@ -53,6 +58,9 @@ class StationAnnotationViewModel: ObservableObject {
         self.userSettingsViewModel = userSettingsViewModel
         self.siteViewModel = siteViewModel
         self.stationLatestReadingViewModel = stationLatestReadingViewModel
+        
+        // Instance Tracking code
+        print("✅ \(vmtype) \(instanceID) initialized")
     }
 
     

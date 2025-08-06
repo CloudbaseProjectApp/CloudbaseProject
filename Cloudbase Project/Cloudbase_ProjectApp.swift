@@ -18,6 +18,7 @@ struct Cloudbase_ProjectApp: App {
     @StateObject private var pilotViewModel                 = PilotViewModel()
     @StateObject private var weatherCamViewModel:             WeatherCamViewModel
     @StateObject private var pilotTrackViewModel:             PilotTrackViewModel
+    @StateObject private var siteDailyForecastViewModel:      SiteDailyForecastViewModel
     @StateObject private var siteForecastViewModel:           SiteForecastViewModel
     @StateObject private var stationLatestReadingViewModel:   StationLatestReadingViewModel
     @StateObject private var stationAnnotationViewModel:      StationAnnotationViewModel
@@ -48,6 +49,9 @@ struct Cloudbase_ProjectApp: App {
         let weatherVM           = WeatherCodeViewModel()
         let siteVM              = SiteViewModel()
         let pilotVM             = PilotViewModel()
+        let dailyForecastVM     = SiteDailyForecastViewModel(
+            weatherCodesViewModel: weatherVM
+        )
         let forecastVM          = SiteForecastViewModel(
             liftParametersViewModel: liftVM,
             sunriseSunsetViewModel: sunVM,
@@ -100,6 +104,7 @@ struct Cloudbase_ProjectApp: App {
         _pilotViewModel                 = StateObject(wrappedValue: pilotVM)
         _stationLatestReadingViewModel  = StateObject(wrappedValue: stationVM)
         _stationAnnotationViewModel     = StateObject(wrappedValue: annotationVM)
+        _siteDailyForecastViewModel     = StateObject(wrappedValue: dailyForecastVM)
         _siteForecastViewModel          = StateObject(wrappedValue: forecastVM)
         _userSettingsViewModel          = StateObject(wrappedValue: userSettingsVM)
         _pilotTrackViewModel            = StateObject(wrappedValue: PilotTrackViewModel(pilotViewModel: pilotVM))
@@ -118,6 +123,7 @@ struct Cloudbase_ProjectApp: App {
                 .environmentObject(siteViewModel)
                 .environmentObject(pilotViewModel)
                 .environmentObject(pilotTrackViewModel)
+                .environmentObject(siteDailyForecastViewModel)
                 .environmentObject(siteForecastViewModel)
                 .environmentObject(stationLatestReadingViewModel)
                 .environmentObject(stationAnnotationViewModel)
@@ -153,6 +159,7 @@ struct BaseAppView: View {
     @EnvironmentObject var pilotViewModel: PilotViewModel
     @EnvironmentObject var pilotTrackViewModel: PilotTrackViewModel
     @EnvironmentObject var siteViewModel: SiteViewModel
+    @EnvironmentObject var siteDailyForecastViewModel: SiteDailyForecastViewModel
     @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
     @EnvironmentObject var stationAnnotationViewModel: StationAnnotationViewModel

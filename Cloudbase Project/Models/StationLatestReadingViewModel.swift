@@ -132,10 +132,18 @@ class StationLatestReadingViewModel: ObservableObject {
     let siteViewModel: SiteViewModel
     let userSettingsViewModel: UserSettingsViewModel
 
+    // Instance Tracking code
+    private let vmtype = "StationLatestReadingViewModel"
+    private let instanceID = UUID()
+    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
+
     init(siteViewModel: SiteViewModel,
          userSettingsViewModel: UserSettingsViewModel) {
         self.siteViewModel = siteViewModel
         self.userSettingsViewModel = userSettingsViewModel
+        
+        // Instance Tracking code
+        print("✅ \(vmtype) \(instanceID) initialized")
     }
     
     // Allows forced reset when user changes regions, resets metadata, etc.
