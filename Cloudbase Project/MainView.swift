@@ -92,7 +92,7 @@ struct MainView: View {
                         }
                         .sheet(isPresented: $openAboutView) {
                             AboutView(refreshMetadata: $refreshMetadata)
-                                .interactiveDismissDisabled(true) // Disables swipe-to-dismiss (force use of back button)\
+                                .setSheetConfig()
                                 .environmentObject(userSettingsViewModel)
                         }
 

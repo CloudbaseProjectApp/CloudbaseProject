@@ -624,3 +624,22 @@ func windDirectionRanges(from siteWindDirection: SiteWindDirection)
     }
     return (goodRanges, marginalRanges)
 }
+
+// To set sheet background color, call this whenever a sheet is presented:
+//    .sheet(isPresented: $showingSheet) {
+//        MySheetContent()
+//        .setSheetConfig()
+//    }
+struct sheetPresentationModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .environment(\.colorScheme, .dark)
+            .background(Color.black.ignoresSafeArea())
+            .interactiveDismissDisabled(true)
+    }
+}
+extension View {
+    func setSheetConfig() -> some View {
+        self.modifier(sheetPresentationModifier())
+    }
+}

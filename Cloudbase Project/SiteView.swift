@@ -105,6 +105,7 @@ struct SiteView: View {
             }
         ) { selection in
             SiteDetailView(site: selection.site, favoriteName: selection.favoriteName)
+                .setSheetConfig()
         }
         
         .onChange(of: scenePhase) { oldValue, newValue in

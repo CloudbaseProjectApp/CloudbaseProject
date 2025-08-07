@@ -182,7 +182,10 @@ struct FlySkyHyDataView: View {
             }
         }
         .sheet(isPresented: $showWebView) {
-            if let url = externalURL { SafariView(url: url) }
+            if let url = externalURL {
+                SafariView(url: url)
+                    .setSheetConfig()
+            }
         }
     }
 

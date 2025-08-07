@@ -96,6 +96,7 @@ struct DevPilotTracksView: View {
             
             .sheet(item: $selectedPilotTrack) { track in
                 PilotTrackNodeView(originalPilotTrack: track)
+                    .setSheetConfig()
             }
         }
     }

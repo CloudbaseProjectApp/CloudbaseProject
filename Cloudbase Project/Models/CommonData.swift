@@ -40,7 +40,7 @@ let defaultTopOfLiftAltitude                    = 18000.0   // Use in lift area 
 let defaultMaxPressureReading: Int              = 1000      // Pressure to start displaying winds aloft (1000 hpa is sea level)
 let readingsRefreshInterval: TimeInterval       = 120       // Time in seconds to refresh wind readings (300 for 5 min)
 let pilotTrackRefreshInterval: TimeInterval     = 600       // Setting refresh to 10 min to prevent timeout errors on frequent refreshes
-let forecastCacheInterval: TimeInterval         = 600       // 10 minute refresh interval for each site hourly forecast
+let forecastCacheInterval: TimeInterval         = 1800      // 30 minute refresh interval for each forecast calls
 
 // Map parameters
 let mapDefaultLatitude: Double                  = 39.72     // Should not be displayed; will update based on region selected

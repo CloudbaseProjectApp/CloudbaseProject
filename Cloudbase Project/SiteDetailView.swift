@@ -249,7 +249,12 @@ struct SiteDetailView: View {
         .onChange(of: userSettingsViewModel.userFavoriteSites) {
             updateIsFavorite()
         }
-        .sheet(isPresented: $showWebView) { if let url = externalURL { SafariView(url: url) } }
+        .sheet(isPresented: $showWebView) {
+            if let url = externalURL {
+                SafariView(url: url)
+                    .setSheetConfig()
+            }
+        }
     }
 
     // Used to open URL links as an in-app sheet using Safari

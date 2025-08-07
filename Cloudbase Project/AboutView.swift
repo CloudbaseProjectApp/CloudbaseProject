@@ -245,13 +245,13 @@ struct AboutView: View {
         .sheet(isPresented: $showFlySkyHyLink, onDismiss: {})
         {
             FlySkyHyDataView()
-                .interactiveDismissDisabled(true)
+                .setSheetConfig()
         }
         
         .sheet(isPresented: $showLinks, onDismiss: {})
         {
             LinkView()
-                .interactiveDismissDisabled(true)
+                .setSheetConfig()
         }
 
     }

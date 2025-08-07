@@ -38,7 +38,12 @@ struct WeatherCamView: View {
             }
         }
         // Used to open URL links as an in-app sheet using Safari
-        .sheet(isPresented: $showWebView) { if let url = externalURL { SafariView(url: url) } }
+        .sheet(isPresented: $showWebView) {
+            if let url = externalURL {
+                SafariView(url: url)
+                    .setSheetConfig()
+            }
+        }
     }
 
     private var loadingView: some View {

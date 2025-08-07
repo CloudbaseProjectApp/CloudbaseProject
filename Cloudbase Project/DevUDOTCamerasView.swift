@@ -47,6 +47,7 @@ struct UDOTCameraListView: View {
             }
             .sheet(item: $selectedCamera) { camera in
                 CameraDetailView(camera: camera)
+                    .setSheetConfig()
             }
         }
     }

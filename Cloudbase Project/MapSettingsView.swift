@@ -339,7 +339,7 @@ struct MapSettingsView: View {
             }
         }) {
             PilotAppendView()
-                .interactiveDismissDisabled(true)
+                .setSheetConfig()
         }
         
         .sheet(isPresented: $activatePilot, onDismiss: {
@@ -348,7 +348,7 @@ struct MapSettingsView: View {
             }
         }) {
             PilotActivateView(pilot: pilotToActivate!)
-                .interactiveDismissDisabled(true)
+                .setSheetConfig()
         }
     }
     

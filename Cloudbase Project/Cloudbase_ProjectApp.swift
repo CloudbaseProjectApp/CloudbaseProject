@@ -227,7 +227,7 @@ struct BaseAppView: View {
     
         .sheet(isPresented: $showAppRegionSelector) {
             AppRegionView()
-                .interactiveDismissDisabled(true)
+                .setSheetConfig()
                 .environmentObject(userSettingsViewModel)
         }
     

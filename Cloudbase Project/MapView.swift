@@ -850,7 +850,7 @@ struct MapContainerView: View {
                                     radarColorScheme:   $userSettingsViewModel.radarColorScheme,
                                     selectedPilots:     $userSettingsViewModel.selectedPilots
                                 )
-                                .interactiveDismissDisabled(true) // Disables swipe-to-dismiss (force use of back button)\
+                                .setSheetConfig()
                                 .environmentObject(pilotViewModel)
                                 .environmentObject(pilotTrackViewModel)
                                 
@@ -1008,14 +1008,17 @@ struct MapContainerView: View {
                windDirection:       windDirection
            )
            SiteDetailView(site: site, favoriteName: nil)
+               .setSheetConfig()
        }
         
        .sheet(item: $selectedPilotTrack) { track in
            PilotTrackNodeView(originalPilotTrack: track)
+               .setSheetConfig()
        }
         
        .sheet(item: $selectedSite) { site in
            SiteDetailView(site: site, favoriteName: nil)
+               .setSheetConfig()
        }
         
         // Make sure pilot live track view model is published

@@ -370,7 +370,12 @@ struct WeatherView: View {
         }
         
         // Used to open URL links as an in-app sheet using Safari
-        .sheet(isPresented: $showWebView) { if let url = externalURL { SafariView(url: url) } }
+        .sheet(isPresented: $showWebView) {
+            if let url = externalURL {
+                SafariView(url: url)
+                    .setSheetConfig()
+            }
+        }
     }
     // Used to open URL links as an in-app sheet using Safari
     func openLink(_ url: URL) { externalURL = url; showWebView = true }
