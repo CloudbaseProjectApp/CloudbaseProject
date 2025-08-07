@@ -34,6 +34,7 @@ This app provides a quick look at all of this for each site.  XCSkies is still r
       - Wind speed and direction (surface and each 2k feet up to 18k)
       - Lift strength (each 2k feet up to 18k)
       - Top of lift
+- Flying Potential that evaluates all sites and favorites to determine best dates/times to fly based on surface and aloft wind direction and speed, surface gust factor, lift, clouds, overdevelopment, etc.
 - Interactive map with layers for:
     - Paragliding sites
     - Weather stations
