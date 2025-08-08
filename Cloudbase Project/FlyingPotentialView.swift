@@ -2,7 +2,7 @@ import SwiftUI
 import Combine
 import Charts
 
-enum FlyingPotentialRow: Identifiable {
+enum FlyingPotentialRow: Identifiable, Equatable {
     case header
     case sectionTitle(String)
     case site(SiteWithDisplayName)
@@ -14,6 +14,13 @@ enum FlyingPotentialRow: Identifiable {
         case .site(let site): return "site-\(site.id)"
         }
     }
+}
+
+enum SiteFilter: String, CaseIterable, Identifiable {
+    case favorites = "Favorites"
+    case sites = "Sites"
+
+    var id: String { self.rawValue }
 }
 
 struct FlyingPotentialView: View {
@@ -28,10 +35,12 @@ struct FlyingPotentialView: View {
     
     @Environment(\.scenePhase) private var scenePhase
     
+    @State private var selectedFilter: SiteFilter = .favorites
     @State private var selectedFlyingDetail: SelectedSiteDetail?
     @State private var forecastMap: [String: ForecastData] = [:] // keyed by siteName
     @State private var selectedSite: SiteSelection?
     @State private var favorites: [UserFavoriteSite] = []
+    @State private var isLoading: Bool = true
     
     private var favoriteSites: [UserFavoriteSite] {
         userSettingsViewModel.userFavoriteSites
@@ -40,8 +49,12 @@ struct FlyingPotentialView: View {
     }
     
     // Allows for limiting forecasts to reduce performance impact (network calls)
-    var includeSites: Bool = true
-    var includeFavorites: Bool = true
+    var includeSites: Bool {
+        selectedFilter == .sites
+    }
+    var includeFavorites: Bool {
+        selectedFilter == .favorites
+    }
     
     private var combinedRows: [FlyingPotentialRow] {
         var result: [FlyingPotentialRow] = [.header]
@@ -94,70 +107,57 @@ struct FlyingPotentialView: View {
             Text("Tap on a circle for details on the paragliding potential")
                 .font(.caption)
                 .foregroundColor(infoFontColor)
-                .padding(.top, 8)
-
-            List {
-                SiteGridSectionUnified(
-                    rows: combinedRows,
-                    forecastMap: forecastMap,
-                    onSelect: openSiteDetail,
-                    onDetailTap: { selectedFlyingDetail = $0 }
-                )
-
-                // Attribution
-                VStack(alignment: .leading) {
-                    Text("Forecast data provided by Open-meteo")
-                        .font(.caption)
-                        .foregroundColor(infoFontColor)
-                    Text("https://open-meteo.com")
-                        .font(.caption)
-                        .foregroundColor(infoFontColor)
+                .padding(.top, 4)
+            
+            Picker("Show", selection: $selectedFilter) {
+                ForEach(SiteFilter.allCases) { filter in
+                    Text(filter.rawValue).tag(filter)
                 }
-                .listRowBackground(attributionBackgroundColor)
-                .padding(.top, 8)
+            }
+            .pickerStyle(SegmentedPickerStyle())
+            .padding()
+            
+            if isLoading {
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text("Loading forecast data...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    SiteGridSectionUnified(
+                        rows: combinedRows,
+                        forecastMap: forecastMap,
+                        onSelect: openSiteDetail,
+                        onDetailTap: { selectedFlyingDetail = $0 }
+                    )
+                    .id(selectedFilter)
+                    
+                    // Attribution
+                    VStack(alignment: .leading) {
+                        Text("Forecast data provided by Open-meteo")
+                            .font(.caption)
+                            .foregroundColor(infoFontColor)
+                        Text("https://open-meteo.com")
+                            .font(.caption)
+                            .foregroundColor(infoFontColor)
+                    }
+                    .listRowBackground(attributionBackgroundColor)
+                    .padding(.top, 8)
+                }
             }
         }
         
         .onAppear {
             favorites = favoriteSites
-            
-            let allSites: [Site] = {
-                var result: [Site] = []
+            loadForecasts()
+        }
 
-                if includeFavorites {
-                    let favoriteList = favoriteSites.compactMap {
-                        if let (site, _) = siteFromFavorite($0) { return site }
-                        return nil
-                    }
-                    result += favoriteList
-                }
-
-                if includeSites {
-                    let siteList = siteViewModel.sites.filter {
-                        $0.siteType == "Soaring" || $0.siteType == "Mountain"
-                    }
-                    result += siteList
-                }
-
-                return result
-            }()
-
-            for site in allSites {
-                siteForecastViewModel.fetchForecast(id:                 site.id,
-                                                    siteName:           site.siteName,
-                                                    latitude:           site.siteLat,
-                                                    longitude:          site.siteLon,
-                                                    siteType:           site.siteType,
-                                                    siteWindDirection:  site.windDirection) { forecast in
-
-                    DispatchQueue.main.async {
-                        if let forecast = forecast {
-                            forecastMap[site.siteName] = forecast
-                        }
-                    }
- 
-                }
-            }
+        .onChange(of: selectedFilter) { _, _ in
+            favorites = favoriteSites
+            loadForecasts()
         }
         
         .sheet(item: $selectedSite) { selection in
@@ -224,6 +224,69 @@ struct FlyingPotentialView: View {
             return nil
         }
     }
+    
+    private func loadForecasts() {
+        // Always refresh favorites before loading
+        favorites = favoriteSites
+        
+        // Reset forecast data and show the loading indicator
+        forecastMap = [:]
+        isLoading = true
+
+        // Gather all the relevant sites to fetch forecasts for
+        let allSites: [Site] = {
+            var result: [Site] = []
+
+            if includeFavorites {
+                let favoriteList = favoriteSites.compactMap {
+                    if let (site, _) = siteFromFavorite($0) { return site }
+                    return nil
+                }
+                result += favoriteList
+            }
+
+            if includeSites {
+                let siteList = siteViewModel.sites.filter {
+                    $0.siteType == "Soaring" || $0.siteType == "Mountain"
+                }
+                result += siteList
+            }
+
+            return result
+        }()
+
+        // Handle empty site list early
+        guard !allSites.isEmpty else {
+            isLoading = false
+            return
+        }
+
+        // Begin fetching forecasts
+        var completedCount = 0
+        let totalCount = allSites.count
+
+        for site in allSites {
+            siteForecastViewModel.fetchForecast(
+                id: site.id,
+                siteName: site.siteName,
+                latitude: site.siteLat,
+                longitude: site.siteLon,
+                siteType: site.siteType,
+                siteWindDirection: site.windDirection
+            ) { forecast in
+                DispatchQueue.main.async {
+                    if let forecast = forecast {
+                        forecastMap[site.siteName] = forecast
+                    }
+                    completedCount += 1
+                    if completedCount == totalCount {
+                        isLoading = false
+                    }
+                }
+            }
+        }
+    }
+    
 }
 
 struct SiteWithDisplayName: Identifiable, Equatable {
@@ -247,11 +310,11 @@ struct SiteGridSectionUnified: View {
     let onDetailTap: (SelectedSiteDetail) -> Void
     
     @State private var sectionTitleOffsets: [(title: String, yOffset: CGFloat)] = []
-
+    
     private let dataWidth: CGFloat = 44
     private let rowHeight: CGFloat = 32
     private let headerRowHeight: CGFloat = 48
-
+    
     var body: some View {
         let anyForecast = rows.compactMap {
             if case let .site(siteRow) = $0 {
@@ -259,196 +322,203 @@ struct SiteGridSectionUnified: View {
             }
             return nil
         }.first
-
-        if let anyForecast {
-            let hourly = anyForecast.hourly
-            let dateTimeCount = hourly.dateTime?.count ?? 0
-
-            ZStack(alignment: .topLeading) {
-                HStack(alignment: .top, spacing: 0) {
-                    // Left column
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(rows) { row in
-                            switch row {
-                            case .header:
-                                Text(" ")
-                                    .font(.caption)
-                                    .frame(width: 100, height: headerRowHeight)
-
-                            case .sectionTitle(let title):
-                                potentialChartBackgroundColor
-                                    .frame(width: 100, height: rowHeight)
-                                    .overlay(
-                                        GeometryReader { geo in
-                                            Color.clear
-                                                .onAppear {
-                                                    let offset = geo.frame(in: .named("grid")).origin.y
-                                                    sectionTitleOffsets.append((title, offset))
-                                                }
-                                        }
-                                    )
-
-                            case .site(let siteRow):
-                                Text(siteRow.displayName)
-                                    .font(.caption)
-                                    .foregroundColor(rowHeaderColor)
-                                    .frame(width: 100, height: rowHeight, alignment: .leading)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture {
-                                        onSelect(siteRow.site)
-                                    }
-                            }
-                        }
-                    }
-
-                    // Right column
-                    ScrollView(.horizontal, showsIndicators: true) {
+        
+        VStack { // wrap entire view in a VStack to apply onChange
+            if let anyForecast {
+                let hourly = anyForecast.hourly
+                let dateTimeCount = hourly.dateTime?.count ?? 0
+                
+                ZStack(alignment: .topLeading) {
+                    HStack(alignment: .top, spacing: 0) {
+                        // Left column
                         VStack(alignment: .leading, spacing: 0) {
                             ForEach(rows) { row in
                                 switch row {
                                 case .header:
-                                    HStack(spacing: 0) {
-                                        ForEach(0..<dateTimeCount, id: \.self) { i in
-                                            let isNew = hourly.newDateFlag?[i] ?? true
-                                            let day = hourly.formattedDay?[i] ?? ""
-                                            let date = hourly.formattedDate?[i] ?? ""
-                                            let time = hourly.formattedTime?[i] ?? ""
-                                            
-                                            ZStack(alignment: .leading) {
-                                                if i > 0 {
-                                                    dateDivider(isNew: hourly.newDateFlag?[i] == true)
-                                                        .frame(height: headerRowHeight)
-                                                        .alignmentGuide(.leading) { _ in 0 }
-                                                }
-
-                                                VStack(spacing: 0) {
-                                                    Text(day)
-                                                        .font(.caption)
-                                                        .foregroundColor(isNew ? .primary : repeatDateTimeColor)
-                                                    Text(date)
-                                                        .font(.caption)
-                                                        .foregroundColor(isNew ? .primary : repeatDateTimeColor)
-                                                    Text(time)
-                                                        .font(.caption)
-                                                        .foregroundColor(.primary)
+                                    Text(" ")
+                                        .font(.caption)
+                                        .frame(width: 100, height: headerRowHeight)
+                                    
+                                case .sectionTitle(let title):
+                                    potentialChartBackgroundColor
+                                        .frame(width: 100, height: rowHeight)
+                                        .overlay(
+                                            GeometryReader { geo in
+                                                Color.clear
+                                                    .onAppear {
+                                                        let offset = geo.frame(in: .named("grid")).origin.y
+                                                        if !sectionTitleOffsets.contains(where: { $0.title == title }) {
+                                                            sectionTitleOffsets.append((title, offset))
+                                                        }
+                                                    }
+                                            }
+                                        )
+                                    
+                                case .site(let siteRow):
+                                    Text(siteRow.displayName)
+                                        .font(.caption)
+                                        .foregroundColor(rowHeaderColor)
+                                        .frame(width: 100, height: rowHeight, alignment: .leading)
+                                        .contentShape(Rectangle())
+                                        .onTapGesture {
+                                            onSelect(siteRow.site)
+                                        }
+                                }
+                            }
+                        }
+                        
+                        // Right column
+                        ScrollView(.horizontal, showsIndicators: true) {
+                            VStack(alignment: .leading, spacing: 0) {
+                                ForEach(rows) { row in
+                                    switch row {
+                                    case .header:
+                                        HStack(spacing: 0) {
+                                            ForEach(0..<dateTimeCount, id: \.self) { i in
+                                                let isNew = hourly.newDateFlag?[i] ?? true
+                                                let day = hourly.formattedDay?[i] ?? ""
+                                                let date = hourly.formattedDate?[i] ?? ""
+                                                let time = hourly.formattedTime?[i] ?? ""
+                                                
+                                                ZStack(alignment: .leading) {
+                                                    if i > 0 {
+                                                        dateDivider(isNew: hourly.newDateFlag?[i] == true)
+                                                            .frame(height: headerRowHeight)
+                                                            .alignmentGuide(.leading) { _ in 0 }
+                                                    }
+                                                    
+                                                    VStack(spacing: 0) {
+                                                        Text(day)
+                                                            .font(.caption)
+                                                            .foregroundColor(isNew ? .primary : repeatDateTimeColor)
+                                                        Text(date)
+                                                            .font(.caption)
+                                                            .foregroundColor(isNew ? .primary : repeatDateTimeColor)
+                                                        Text(time)
+                                                            .font(.caption)
+                                                            .foregroundColor(.primary)
+                                                    }
+                                                    .frame(width: dataWidth, height: headerRowHeight)
                                                 }
                                                 .frame(width: dataWidth, height: headerRowHeight)
                                             }
-                                            .frame(width: dataWidth, height: headerRowHeight)
                                         }
-                                    }
-                                    .background(potentialChartBackgroundColor)
-                                    .cornerRadius(10)
-                                    .frame(height: headerRowHeight)
-
-                                case .sectionTitle:
-                                    HStack(spacing: 0) {
-                                        ForEach(0..<dateTimeCount, id: \.self) { i in
-                                            ZStack(alignment: .leading) {
-                                                if i > 0 {
-                                                    dateDivider(isNew: hourly.newDateFlag?[i] == true)
-                                                        .frame(height: rowHeight)
-                                                        .alignmentGuide(.leading) { _ in 0 }
-                                                }
-
-                                                // Empty cell, just taking up space
-                                                Rectangle()
-                                                    .fill(Color.clear)
-                                                    .frame(width: dataWidth, height: rowHeight)
-                                            }
-                                            .frame(width: dataWidth, height: rowHeight)
-                                        }
-                                    }
-                                    .background(potentialChartBackgroundColor)
-                                    
-                                case .site(let siteRow):
-                                    if let forecast = forecastMap[siteRow.site.siteName],
-                                       let values = forecast.hourly.combinedColorValue {
+                                        .background(potentialChartBackgroundColor)
+                                        .cornerRadius(10)
+                                        .frame(height: headerRowHeight)
+                                        
+                                    case .sectionTitle:
                                         HStack(spacing: 0) {
                                             ForEach(0..<dateTimeCount, id: \.self) { i in
-                                                if i < values.count {
-                                                    let color = FlyingPotentialColor.color(for: values[i])
-                                                    let size = FlyingPotentialImageSize(color)
-                                                    
-                                                    ZStack(alignment: .leading) {
-                                                        if i > 0 {
-                                                            dateDivider(isNew: hourly.newDateFlag?[i] == true)
-                                                                .frame(height: rowHeight)
-                                                                .alignmentGuide(.leading) { _ in 0 }
-                                                        }
-
-                                                        Image(systemName: flyingPotentialImage)
-                                                            .resizable()
-                                                            .scaledToFit()
-                                                            .frame(width: size, height: size)
-                                                            .foregroundColor(Color(color))
-                                                            .frame(width: dataWidth, height: rowHeight, alignment: .center)
-                                                            .contentShape(Rectangle())
-                                                            .onTapGesture {
-                                                                let detail = SelectedSiteDetail(
-                                                                    site: siteRow.site,
-                                                                    displayName: siteRow.displayName,
-                                                                    forecastIndex: i
-                                                                )
-                                                                onDetailTap(detail)
-                                                            }
+                                                ZStack(alignment: .leading) {
+                                                    if i > 0 {
+                                                        dateDivider(isNew: hourly.newDateFlag?[i] == true)
+                                                            .frame(height: rowHeight)
+                                                            .alignmentGuide(.leading) { _ in 0 }
                                                     }
-                                                    .frame(width: dataWidth, height: rowHeight)
                                                     
-                                                } else {
+                                                    // Empty cell, just taking up space
                                                     Rectangle()
-                                                        .fill(Color.gray.opacity(0.2))
+                                                        .fill(Color.clear)
                                                         .frame(width: dataWidth, height: rowHeight)
                                                 }
+                                                .frame(width: dataWidth, height: rowHeight)
                                             }
                                         }
                                         .background(potentialChartBackgroundColor)
-                                        .cornerRadius(10)
-                                        .frame(height: rowHeight)
-                                    } else {
-                                        HStack(spacing: 2) {
-                                            ForEach(0..<dateTimeCount, id: \.self) { _ in
-                                                Text("-")
-                                                    .frame(width: dataWidth, height: rowHeight)
-                                                    .font(.caption)
-                                                    .overlay(
-                                                        Divider()
-                                                            .frame(width: dateChangeDividerSize)
-                                                            .padding(.vertical, 6),
-                                                        alignment: .trailing
-                                                    )
+                                        
+                                    case .site(let siteRow):
+                                        if let forecast = forecastMap[siteRow.site.siteName],
+                                           let values = forecast.hourly.combinedColorValue {
+                                            HStack(spacing: 0) {
+                                                ForEach(0..<dateTimeCount, id: \.self) { i in
+                                                    if i < values.count {
+                                                        let color = FlyingPotentialColor.color(for: values[i])
+                                                        let size = FlyingPotentialImageSize(color)
+                                                        
+                                                        ZStack(alignment: .leading) {
+                                                            if i > 0 {
+                                                                dateDivider(isNew: hourly.newDateFlag?[i] == true)
+                                                                    .frame(height: rowHeight)
+                                                                    .alignmentGuide(.leading) { _ in 0 }
+                                                            }
+                                                            
+                                                            Image(systemName: flyingPotentialImage)
+                                                                .resizable()
+                                                                .scaledToFit()
+                                                                .frame(width: size, height: size)
+                                                                .foregroundColor(Color(color))
+                                                                .frame(width: dataWidth, height: rowHeight, alignment: .center)
+                                                                .contentShape(Rectangle())
+                                                                .onTapGesture {
+                                                                    let detail = SelectedSiteDetail(
+                                                                        site: siteRow.site,
+                                                                        displayName: siteRow.displayName,
+                                                                        forecastIndex: i
+                                                                    )
+                                                                    onDetailTap(detail)
+                                                                }
+                                                        }
+                                                        .frame(width: dataWidth, height: rowHeight)
+                                                        
+                                                    } else {
+                                                        Rectangle()
+                                                            .fill(Color.gray.opacity(0.2))
+                                                            .frame(width: dataWidth, height: rowHeight)
+                                                    }
+                                                }
                                             }
+                                            .background(potentialChartBackgroundColor)
+                                            .cornerRadius(10)
+                                            .frame(height: rowHeight)
+                                        } else {
+                                            HStack(spacing: 2) {
+                                                ForEach(0..<dateTimeCount, id: \.self) { _ in
+                                                    Text("-")
+                                                        .frame(width: dataWidth, height: rowHeight)
+                                                        .font(.caption)
+                                                        .overlay(
+                                                            Divider()
+                                                                .frame(width: dateChangeDividerSize)
+                                                                .padding(.vertical, 6),
+                                                            alignment: .trailing
+                                                        )
+                                                }
+                                            }
+                                            .background(potentialChartBackgroundColor)
+                                            .cornerRadius(10)
+                                            .frame(height: rowHeight)
                                         }
-                                        .background(potentialChartBackgroundColor)
-                                        .cornerRadius(10)
-                                        .frame(height: rowHeight)
                                     }
                                 }
                             }
                         }
                     }
+                    
+                    // Overlay floating section titles on the left
+                    ForEach(sectionTitleOffsets, id: \.title) { item in
+                        Text(item.title.uppercased())
+                            .font(.subheadline)
+                            .bold()
+                            .foregroundColor(sectionHeaderColor)
+                            .padding(.leading, 4)
+                            .background(potentialChartBackgroundColor)
+                            .fixedSize() // <-- This ensures the text takes only as much space as needed
+                            .frame(height: rowHeight - 4, alignment: .leading)
+                            .offset(x: 0, y: item.yOffset)
+                    }
                 }
-
-                // Overlay floating section titles on the left
-                ForEach(sectionTitleOffsets, id: \.title) { item in
-                    Text(item.title.uppercased())
-                        .font(.subheadline)
-                        .bold()
-                        .foregroundColor(sectionHeaderColor)
-                        .padding(.leading, 4)
-                        .background(potentialChartBackgroundColor)
-                        .fixedSize() // <-- This ensures the text takes only as much space as needed
-                        .frame(height: rowHeight - 4, alignment: .leading)
-                        .offset(x: 0, y: item.yOffset)
-                }
+                .coordinateSpace(name: "grid") // allows GeometryReader to report y-offsets
+                .padding(.vertical, 4)
+                
+            } else {
+                Text("No forecast data available.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
-            .coordinateSpace(name: "grid") // allows GeometryReader to report y-offsets
-            .padding(.vertical, 4)
-
-        } else {
-            Text("No forecast data available.")
-                .font(.caption)
-                .foregroundColor(.secondary)
+        }
+        .onChange(of: rows) {
+            sectionTitleOffsets = []
         }
     }
 }

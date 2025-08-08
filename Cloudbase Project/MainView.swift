@@ -217,7 +217,6 @@ struct MainView: View {
                                         .padding(.top, 4)
                                 }
                             }
-                            Spacer()
                         }
                     }
                 }

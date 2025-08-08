@@ -45,12 +45,12 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>RMHPAAPIKey</key>
+	<string>$(RMHPA_API_KEY)</string>
 	<key>SynopticsAPIToken</key>
 	<string>$(SYNOPTICS_API_TOKEN)</string>
 	<key>UDOTCamerasAPIKey</key>
 	<string>$(UDOT_CAMERAS_API_KEY)</string>
-    <key>RMHPAAPIKey</key>
-    <string>$(RMHPA_API_KEY)</string>
 	<key>UIBackgroundModes</key>
 	<array/>
 </dict>
