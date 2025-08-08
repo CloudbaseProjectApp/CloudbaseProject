@@ -84,8 +84,11 @@ let defaultAnnotationColor          : Color = .black
 let defaultAnnotationTextColor      : Color = .white
 
 // Pilot listing colors
-let pilotActiveFontColor: Color = .white
-let pilotInactiveFontColor: Color = .titanium
+let pilotActiveFontColor            : Color = .white
+let pilotInactiveFontColor          : Color = .titanium
+
+// Flying potential colors
+let flyingPotentialUnknownColor     : Color = .white
 
 // Images
 let windArrow                       : String = "arrow.up"
@@ -95,7 +98,7 @@ let layersImage                     : String = "square.3.layers.3d"
 let playImage                       : String = "play.fill"
 let pauseImage                      : String = "pause.fill"
 let cameraAnnotationImage           : String = "camera.circle"
-let defaultAnnotationImage          :  String = "questionmark"
+let defaultAnnotationImage          : String = "questionmark"
 let siteAnnotationImage             : UIImage = UIImage(imageLiteralResourceName: "roundPGicon")
 let pilotLaunchAnnotationImage      : UIImage = UIImage(systemName: "play.fill")!   // Could use "dot.circle", "paperplane.fill",
                                                                                     // "arrow.up.right.circle.fill"
@@ -103,6 +106,7 @@ let pilotLatestAnnotationImage      : UIImage = UIImage(imageLiteralResourceName
 let pilotMessageAnnotationImage     : UIImage = UIImage(systemName: "envelope.fill")! // Could use "bubble.fill"
 let pilotInEmergencyAnnotationImage : UIImage = UIImage(systemName: "exclamationmark.triangle.fill")!
 let flyingPotentialImage            : String = "circle.fill"
+let flyingPotentialUnknownImage     : String = "questionmark"
 
 // Pilot track log colors
 // (assigned dynamically to differentiate pilot tracks on map)

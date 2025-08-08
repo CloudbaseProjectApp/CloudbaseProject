@@ -203,18 +203,22 @@ struct FlyingPotentialDetailRow: View {
     var body: some View {
         let displayColor = FlyingPotentialColor.color(for: colorValue)
         let imageSize = FlyingPotentialImageSize(displayColor)
+        
+        // Display a ? if there isn't a valid display color
+        let resolvedImage = (displayColor == .clear) ? flyingPotentialUnknownImage : flyingPotentialImage
+        let resolvedColor = (displayColor == .clear) ? flyingPotentialUnknownColor: displayColor
+
         HStack(alignment: .center, spacing: 8) {
-            
             Text(label)
                 .font(.subheadline)
                 .foregroundColor(infoFontColor)
                 .frame(width: labelWidth, alignment: .trailing)
 
-            Image(systemName: flyingPotentialImage)
+            Image(systemName: resolvedImage)
                 .resizable()
                 .scaledToFit()
                 .frame(width: imageSize, height: imageSize)
-                .foregroundColor(displayColor)
+                .foregroundColor(resolvedColor)
                 .padding(8)
                 .frame(width: dataWidth, height: rowHeight)
 

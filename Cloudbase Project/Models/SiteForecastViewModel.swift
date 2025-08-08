@@ -137,12 +137,6 @@ class SiteForecastViewModel: ObservableObject {
     // Define a specific URL session to number of concurrent API requests (e.g., when called from Flying Potential with many sites)
     private let urlSession: URLSession
     
-    // Instance Tracking code
-    private let vmtype = "SiteForecastViewModel"
-    private let instanceID = UUID()
-    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
-
-    
     // Make thermal lift parameters, weather code images, and sunrise/sunset times available in this view model
     init(liftParametersViewModel: LiftParametersViewModel,
          sunriseSunsetViewModel: SunriseSunsetViewModel,
@@ -155,9 +149,6 @@ class SiteForecastViewModel: ObservableObject {
         let config = URLSessionConfiguration.default
         config.httpMaximumConnectionsPerHost = 3   // allow only 3 concurrent requests
         self.urlSession = URLSession(configuration: config)
-        
-        // Instance Tracking code
-        print("✅ \(vmtype) \(instanceID) initialized")
     }
     
     func clearForecastCache() {
@@ -636,8 +627,9 @@ class SiteForecastViewModel: ObservableObject {
                         // Convert top of Lift Temp to F
                         let topOfLiftTempF = convertCelsiusToFahrenheit(Int(topOfLiftTemp))
                         
-                        // Calculate surface gust factor
-                        let gustFactor =  Int(data.hourly.windgusts_10m[index]) - Int(data.hourly.windspeed_10m[index])
+                        // Calculate surface gust factor; use 0 if the gusts are lower than wind
+                        // (which seems like a bug in the data returned from the source)
+                        let gustFactor =  max(Int(data.hourly.windgusts_10m[index]) - Int(data.hourly.windspeed_10m[index]), 0)
 
                         // Only append display structure for times that are no more than an hour ago
                         // (earlier times only processed to determine if thermal trigger temp has already been reached today)
@@ -781,6 +773,18 @@ class SiteForecastViewModel: ObservableObject {
                                 }
                             }
                             // Note:  Not currently checking top of lift to limit winds aloft readings
+                            
+                            // If there are unknown color values, override the combined value with an unknown status
+                            if cloudCoverColorValue == -1 ||
+                               precipColorValue == -1 ||
+                               CAPEColorValue == -1 ||
+                               windsAloftColorValue == -1 ||
+                               surfaceWindColorValue == -1 ||
+                               surfaceGustColorValue == -1 ||
+                               gustFactorColorValue == -1 ||
+                               windDirectionColorValue == -1 {
+                                combinedColorValue = -1
+                            }
                             
                             // Store potential results
                             processedHourly.combinedColorValue?.append(combinedColorValue)

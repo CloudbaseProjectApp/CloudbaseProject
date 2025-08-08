@@ -15,12 +15,6 @@ class TFRViewModel: ObservableObject {
     @Published var tfrs: [TFR] = []
     @Published var isLoading: Bool = false
     
-    // Instance Tracking code
-    private let vmtype = "TRFViewModel"
-    private let instanceID = UUID()
-    init() { print("✅ \(vmtype) \(instanceID) initialized") }
-    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
-    
     func fetchTFRs() {
         isLoading = true
         

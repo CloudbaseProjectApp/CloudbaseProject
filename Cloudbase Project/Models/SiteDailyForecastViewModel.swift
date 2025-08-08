@@ -33,14 +33,8 @@ class SiteDailyForecastViewModel: ObservableObject {
     private static var forecastCache: [String: (timestamp: Date, data: DailyForecastData)] = [:]
     private let cacheTTL: TimeInterval = forecastCacheInterval
 
-    // Instance Tracking
-    private let vmtype = "DailyForecastViewModel"
-    private let instanceID = UUID()
-    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
-
     init(weatherCodesViewModel: WeatherCodeViewModel) {
         self.weatherCodesViewModel = weatherCodesViewModel
-        print("✅ \(vmtype) \(instanceID) initialized")
     }
 
     func fetchDailyWeatherData(latitude: String, longitude: String) {

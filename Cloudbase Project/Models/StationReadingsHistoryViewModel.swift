@@ -36,13 +36,6 @@ class StationReadingsHistoryDataModel: ObservableObject {
     private var cancellable: AnyCancellable?
     private var cancellables = Set<AnyCancellable>()
     
-    // Instance Tracking code
-    private let vmtype = "StationReadingsHistoryViewModel"
-    private let instanceID = UUID()
-    init() { print("✅ \(vmtype) \(instanceID) initialized") }
-    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
-
-    
     func GetReadingsHistoryData(stationID: String, readingsSource: String) {
         switch readingsSource {
         case "Mesonet":

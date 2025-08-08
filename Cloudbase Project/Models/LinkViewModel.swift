@@ -20,12 +20,6 @@ class LinkViewModel: ObservableObject {
     @Published var orderedGroupNames: [String] = []
     @Published var isLoading = false
     
-    // Instance Tracking code
-    private let vmtype = "LinkViewModel"
-    private let instanceID = UUID()
-    init() { print("✅ \(vmtype) \(instanceID) initialized") }
-    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
-
     private var cancellable: AnyCancellable?
 
     func fetchLinks() {

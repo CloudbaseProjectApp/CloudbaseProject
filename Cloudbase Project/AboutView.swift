@@ -9,6 +9,7 @@ struct AboutView: View {
     @EnvironmentObject var pilotViewModel: PilotViewModel
     @EnvironmentObject var pilotTrackViewModel: PilotTrackViewModel
     @EnvironmentObject var stationLatestReadingViewModel: StationLatestReadingViewModel
+    @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
     @Environment(\.presentationMode) var presentationMode
     
     @State private var showLinks = false
@@ -159,6 +160,9 @@ struct AboutView: View {
                     {
                         
                         Button(action: {
+                            
+                            // Clear forecast cache (or potential calcs won't reflect new metadata)
+                            siteForecastViewModel.clearForecastCache()
                             
                             // Force reload app (e.g., metadata changes)
                             refreshMetadata = true

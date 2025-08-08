@@ -20,12 +20,6 @@ struct SunriseSunset: Codable {
 class SunriseSunsetViewModel: ObservableObject {
     @Published var sunriseSunset: SunriseSunset?
     
-    // Instance Tracking code
-    private let vmtype = "SunriseSunsetViewModel"
-    private let instanceID = UUID()
-    init() { print("✅ \(vmtype) \(instanceID) initialized") }
-    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
-    
     // Get sunrise / sunset for region
     func getSunriseSunset(completion: @escaping () -> Void) {
         var sunriseSunset: SunriseSunset = .init(sunrise: "", sunset: "")

@@ -19,13 +19,6 @@ class WeatherCamViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     
     private(set) var siteViewModel: SiteViewModel?
-    
-    // Instance Tracking code
-    private let vmtype = "WeatherCamViewModel"
-    private let instanceID = UUID()
-    init() { print("✅ \(vmtype) \(instanceID) initialized") }
-    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
-
 
     func setSiteViewModel(_ siteViewModel: SiteViewModel) {
         self.siteViewModel = siteViewModel

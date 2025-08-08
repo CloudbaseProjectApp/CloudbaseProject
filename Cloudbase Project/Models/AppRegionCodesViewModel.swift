@@ -25,12 +25,6 @@ class AppRegionCodesViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     let sheetName = "RegionCodes"
     
-    // Instance Tracking code
-    private let vmtype = "AppRegionCodesViewModel"
-    private let instanceID = UUID()
-    init() { print("✅ \(vmtype) \(instanceID) initialized") }
-    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
-
     func getAppRegionCodes(completion: @escaping () -> Void) {
         let appRegionCodesURLString = "https://sheets.googleapis.com/v4/spreadsheets/\(globalGoogleSheetID)/values/\(sheetName)?alt=json&key=\(googleAPIKey)"
         guard let url = URL(string: appRegionCodesURLString) else {

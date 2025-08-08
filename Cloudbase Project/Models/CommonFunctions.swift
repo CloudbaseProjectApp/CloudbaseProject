@@ -132,11 +132,27 @@ func windDirectionColor(siteWindDirection: SiteWindDirection,
                         windDirection: Int?,
                         windSpeed: Int?,
                         windGust: Int?) -> Color {
+    
+    // Return .clear if the site doesn't have any "Good" or "Ok" wind directions defined
+    let allDirections = [
+        siteWindDirection.N,
+        siteWindDirection.NE,
+        siteWindDirection.E,
+        siteWindDirection.SE,
+        siteWindDirection.S,
+        siteWindDirection.SW,
+        siteWindDirection.W,
+        siteWindDirection.NW
+    ]
+    let hasAcceptableDirection = allDirections.contains { $0 == "Good" || $0 == "Ok" }
+    guard hasAcceptableDirection else {
+        return .clear
+    }
+
     guard let windDirection = windDirection else {
         return .clear
     }
     
-    // Check the wind direction
     var windDirectionQuality: String
     switch headingForWindDirection(windDirection: windDirection) {
         case "N":   windDirectionQuality = siteWindDirection.N
@@ -149,16 +165,16 @@ func windDirectionColor(siteWindDirection: SiteWindDirection,
         case "NW":  windDirectionQuality = siteWindDirection.NW
         default:    windDirectionQuality = ""
     }
-    
-    // If the wind direction is not "Good", check the wind and gust speed
-    // If light and variable (5 mph or less) for a mountain (non-soaring) site, then consider "Ok" rather than "Marginal" or "Bad"
-    if windDirectionQuality != "Good" && windSpeed ?? 0 <= 5 && windGust ?? 0 <= 5 && siteType == "Mountain" {
+
+    if windDirectionQuality != "Good",
+       (windSpeed ?? 0) <= 5,
+       (windGust ?? 0) <= 5,
+       siteType == "Mountain" {
         windDirectionQuality = "Ok"
     }
     
     switch windDirectionQuality {
         case "Good":        return displayValueGreen
-        // "Ok" used for light and variable but not an ideal direction
         case "Ok":          return displayValueLime
         case "Marginal":    return displayValueYellow
         default:            return displayValueRed
@@ -167,6 +183,7 @@ func windDirectionColor(siteWindDirection: SiteWindDirection,
 
 // Color values for potential forecast ratings
 enum FlyingPotentialColor: Int {
+    case clear  = -1
     case white  = 0
     case lime   = 1
     case green  = 2
@@ -175,6 +192,7 @@ enum FlyingPotentialColor: Int {
     case red    = 5
     var color: Color {
         switch self {
+        case .clear : return .clear
         case .white : return displayValueWhite
         case .lime  : return displayValueLime
         case .green : return displayValueGreen
@@ -207,7 +225,7 @@ func FlyingPotentialImageSize (_ color: Color) -> CGFloat {
         case displayValueYellow:    return 16
         case displayValueOrange:    return 12
         case displayValueRed:       return 8
-        default:                    return 20
+        default:                    return 14
     }
 
 }

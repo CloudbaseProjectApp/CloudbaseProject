@@ -28,12 +28,6 @@ class AppRegionViewModel: ObservableObject {
     @Published var appRegions: [AppRegion] = []
     private var cancellables = Set<AnyCancellable>()
     
-    // Instance Tracking code
-    private let vmtype = "AppRegionViewModel"
-    private let instanceID = UUID()
-    init() { print("✅ \(vmtype) \(instanceID) initialized") }
-    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
-
     let sheetName = "Regions"
     
     func getAppRegions(completion: @escaping () -> Void) {

@@ -17,13 +17,6 @@ class AFDViewModel: ObservableObject {
     @Published var isLoading = false
     private var cancellable: AnyCancellable?
     
-    // Instance Tracking code
-    private let vmtype = "AFDViewModel"
-    private let instanceID = UUID()
-    init() { print("✅ \(vmtype) \(instanceID) initialized") }
-    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
-
-
     func fetchAFD(airportCode: String) {
         isLoading = true
 

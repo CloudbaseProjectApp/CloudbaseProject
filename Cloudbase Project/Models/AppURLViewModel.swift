@@ -17,12 +17,6 @@ class AppURLViewModel: ObservableObject {
     @Published var appURLs: [AppURL] = []
     private var cancellables = Set<AnyCancellable>()
     
-    // Instance Tracking code
-    private let vmtype = "AppURLViewModel"
-    private let instanceID = UUID()
-    init() { print("✅ \(vmtype) \(instanceID) initialized") }
-    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
-
     let sheetName = "URLs"
     
     func getAppURLs(completion: @escaping () -> Void) {

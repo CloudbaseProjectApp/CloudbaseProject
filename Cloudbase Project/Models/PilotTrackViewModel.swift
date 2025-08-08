@@ -37,12 +37,6 @@ class PilotTrackAnnotation: NSObject, MKAnnotation {
     let isEmergency: Bool
     let hasMessage: Bool
     
-    // Instance Tracking code
-    private let vmtype = "AFDViewModel"
-    private let instanceID = UUID()
-    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
-
-
     init(coordinate: CLLocationCoordinate2D,
          title: String?,
          subtitle: String?,
@@ -63,10 +57,7 @@ class PilotTrackAnnotation: NSObject, MKAnnotation {
         self.isFirst = isFirst
         self.isLast = isLast
         self.isEmergency = isEmergency
-        self.hasMessage = hasMessage
-        
-        // Instance Tracking code
-        print("✅ \(vmtype) \(instanceID) initialized")
+        self.hasMessage = hasMessage        
     }
     
 }

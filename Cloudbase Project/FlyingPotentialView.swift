@@ -48,13 +48,9 @@ struct FlyingPotentialView: View {
             .sorted { $0.sortSequence < $1.sortSequence }
     }
     
-    // Allows for limiting forecasts to reduce performance impact (network calls)
-    var includeSites: Bool {
-        selectedFilter == .sites
-    }
-    var includeFavorites: Bool {
-        selectedFilter == .favorites
-    }
+    // Based on picker selection
+    var includeSites: Bool { selectedFilter == .sites }
+    var includeFavorites: Bool { selectedFilter == .favorites }
     
     private var combinedRows: [FlyingPotentialRow] {
         var result: [FlyingPotentialRow] = [.header]
@@ -111,7 +107,8 @@ struct FlyingPotentialView: View {
             
             Picker("Show", selection: $selectedFilter) {
                 ForEach(SiteFilter.allCases) { filter in
-                    Text(filter.rawValue).tag(filter)
+                    Text(filter.rawValue)
+                        .tag(filter)
                 }
             }
             .pickerStyle(SegmentedPickerStyle())
@@ -436,6 +433,10 @@ struct SiteGridSectionUnified: View {
                                                         let color = FlyingPotentialColor.color(for: values[i])
                                                         let size = FlyingPotentialImageSize(color)
                                                         
+                                                        // Display a ? if there isn't a valid display color
+                                                        let resolvedImage = (color == .clear) ? flyingPotentialUnknownImage : flyingPotentialImage
+                                                        let resolvedColor = (color == .clear) ? flyingPotentialUnknownColor: color
+                                                        
                                                         ZStack(alignment: .leading) {
                                                             if i > 0 {
                                                                 dateDivider(isNew: hourly.newDateFlag?[i] == true)
@@ -443,11 +444,11 @@ struct SiteGridSectionUnified: View {
                                                                     .alignmentGuide(.leading) { _ in 0 }
                                                             }
                                                             
-                                                            Image(systemName: flyingPotentialImage)
+                                                            Image(systemName: resolvedImage)
                                                                 .resizable()
                                                                 .scaledToFit()
                                                                 .frame(width: size, height: size)
-                                                                .foregroundColor(Color(color))
+                                                                .foregroundColor(Color(resolvedColor))
                                                                 .frame(width: dataWidth, height: rowHeight, alignment: .center)
                                                                 .contentShape(Rectangle())
                                                                 .onTapGesture {

@@ -14,12 +14,6 @@ class WindsAloftViewModel: ObservableObject {
     @Published var cycle: String = ""
     @Published var isLoading = false
     
-    // Instance Tracking code
-    private let vmtype = "WindsAloftViewModel"
-    private let instanceID = UUID()
-    init() { print("✅ \(vmtype) \(instanceID) initialized") }
-    deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
-        
     func getWindsAloftData(airportCode: String) {
         isLoading = true
 
