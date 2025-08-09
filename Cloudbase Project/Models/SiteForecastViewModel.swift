@@ -2,13 +2,14 @@ import SwiftUI
 import Combine
 
 struct ForecastData: Codable {
-    var id: String = ""              // default value, will be set manually based on site/favorite/station ID
-    var elevation: Double
-    var hourly: HourlyData
+    var id                  : String = ""              // default value, will be set manually based on site/favorite/station ID
+    var elevation           : Double
+    var maxPressureReading  : Int = defaultMaxPressureReading
+    var hourly              : HourlyData
 
     private enum CodingKeys: String, CodingKey {
         case elevation, hourly
-        // exclude `id` so it's not decoded from JSON
+        // exclude id and maxPressureReading so they are not decoded from JSON
     }
 }
 
@@ -125,7 +126,6 @@ private struct ForecastCacheEntry {
 
 class SiteForecastViewModel: ObservableObject {
     @Published var forecastData: ForecastData?
-    @Published var maxPressureReading: Int = defaultMaxPressureReading
     
     private var liftParametersViewModel: LiftParametersViewModel
     private var sunriseSunsetViewModel: SunriseSunsetViewModel
@@ -175,7 +175,6 @@ class SiteForecastViewModel: ObservableObject {
            Date().timeIntervalSince(cached.timestamp) < forecastCacheInterval {
             DispatchQueue.main.async {
                 self.forecastData = cached.data
-                self.maxPressureReading = self.maxPressureReading  // Optional: re-process if needed
             }
             return
         }
@@ -193,13 +192,12 @@ class SiteForecastViewModel: ObservableObject {
                         forecastData.id = id
                         
                         // Process forecast data
-                        let (maxPressure, processed) = self.processForecastData(id:                 id,
-                                                                                siteName:           siteName,
-                                                                                siteType:           siteType,
-                                                                                siteWindDirection:  siteWindDirection,
-                                                                                data:               forecastData)
+                        let processed = self.processForecastData(id:                 id,
+                                                                 siteName:           siteName,
+                                                                 siteType:           siteType,
+                                                                 siteWindDirection:  siteWindDirection,
+                                                                 data:               forecastData)
                         self.forecastData = processed
-                        self.maxPressureReading = maxPressure
                         self.forecastCache[updatedForecastURL] = ForecastCacheEntry(data: processed, timestamp: Date())
                     }
                 } else {
@@ -246,11 +244,11 @@ class SiteForecastViewModel: ObservableObject {
                 let modifiedData = replaceNullsInJSON(data: data)
                 do {
                     let forecastData = try decoder.decode(ForecastData.self, from: modifiedData ?? data)
-                    let (_, processed) = self.processForecastData(id:                   id,
-                                                                  siteName:             siteName,
-                                                                  siteType:             siteType,
-                                                                  siteWindDirection:    siteWindDirection,
-                                                                  data:                 forecastData)
+                    let processed = self.processForecastData(id:                   id,
+                                                             siteName:             siteName,
+                                                             siteType:             siteType,
+                                                             siteWindDirection:    siteWindDirection,
+                                                             data:                 forecastData)
                     DispatchQueue.main.async {
                         self.forecastCache[updatedForecastURL] = ForecastCacheEntry(data: processed, timestamp: Date())
                         completion(processed)
@@ -274,7 +272,7 @@ class SiteForecastViewModel: ObservableObject {
                              siteName: String,
                              siteType: String,
                              siteWindDirection: SiteWindDirection,
-                             data: ForecastData) -> (maxPressureReading: Int, ForecastData) {
+                             data: ForecastData) -> ForecastData {
         
         var processedHourly = HourlyData(
             time: [],
@@ -394,7 +392,7 @@ class SiteForecastViewModel: ObservableObject {
         // by reducing the number of rows to display and specifying the max pressure reading to display
         let surfaceAltitude = Double(convertMetersToFeet(data.elevation) + 10).rounded()
         let surfaceBuffer = 200.0           // Don't display winds aloft within surface buffer distance above surface
-        var maxPressureReading: Int = maxPressureReading
+        var maxPressureReading: Int = defaultMaxPressureReading
         if (data.hourly.geopotential_height_900hPa.first ?? 0).rounded() < (surfaceAltitude + surfaceBuffer) { maxPressureReading = 850 }
         if (data.hourly.geopotential_height_850hPa.first ?? 0).rounded() < (surfaceAltitude + surfaceBuffer) { maxPressureReading = 800 }
         if (data.hourly.geopotential_height_800hPa.first ?? 0).rounded() < (surfaceAltitude + surfaceBuffer) { maxPressureReading = 750 }
@@ -805,9 +803,10 @@ class SiteForecastViewModel: ObservableObject {
                 }
             }
         }
-        return (maxPressureReading, ForecastData(id:        id,
-                                                 elevation: data.elevation,
-                                                 hourly:    processedHourly))
+        return ForecastData(id:                 id,
+                            elevation:          data.elevation,
+                            maxPressureReading: maxPressureReading,
+                            hourly:             processedHourly)
     }
     
     struct ThermalResult {

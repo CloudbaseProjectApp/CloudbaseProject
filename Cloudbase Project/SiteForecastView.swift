@@ -60,7 +60,7 @@ struct SiteForecastView: View {
                         .foregroundColor(infoFontColor)
                         .padding(.bottom, 5)
                     
-                    let maxPressureReading = siteForecastViewModel.maxPressureReading
+                    let maxPressureReading = forecastData.maxPressureReading
                     let dataWidth: CGFloat = 44                                     // Width for each data column
                     let dataRows: Int = forecastData.hourly.dateTime?.count ?? 0    // Total count of data rows returned
                     let dataFrameWidth: CGFloat = CGFloat(dataRows) * (dataWidth)   // Width for all data tables and charts
