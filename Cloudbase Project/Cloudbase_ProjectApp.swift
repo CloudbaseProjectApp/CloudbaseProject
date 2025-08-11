@@ -236,52 +236,41 @@ struct BaseAppView: View {
     private func loadInitialMetadata() {
         let group = DispatchGroup()
 
-        // Load app regions before loading all other metadata
-        appRegionViewModel.getAppRegions() {
-
+        // Helper to avoid repeating enter/leave boilerplate
+        func loadWithGroup(_ task: (@escaping () -> Void) -> Void) {
             group.enter()
-            appURLViewModel.getAppURLs() {
+            task {
+                group.leave()
+            }
+        }
 
-                group.enter()
-                appRegionCodesViewModel.getAppRegionCodes() {
-                    group.leave()
-                }
+        // Step 1 – Load app regions, then kick off all the rest in parallel
+        loadWithGroup { done in
+            appRegionViewModel.getAppRegions {
+                // Now load everything else in parallel
 
-                group.enter()
-                liftParametersViewModel.getLiftParameters {
-                    group.leave()
-                }
-
-                group.enter()
-                weatherCodesViewModel.getWeatherCodes {
-                    group.leave()
-                }
-
-                group.enter()
-                sunriseSunsetViewModel.getSunriseSunset() {
-                    group.leave()
-                }
-
-                group.enter()
-                pilotViewModel.getPilots() {
-                    group.leave()
-                }
-
-                group.enter()
-                siteViewModel.getSites() {
-                    stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {
-                        group.leave()
+                loadWithGroup { done in appURLViewModel.getAppURLs(completion: done) }
+                loadWithGroup { done in appRegionCodesViewModel.getAppRegionCodes(completion: done) }
+                loadWithGroup { done in liftParametersViewModel.getLiftParameters(completion: done) }
+                loadWithGroup { done in weatherCodesViewModel.getWeatherCodes(completion: done) }
+                loadWithGroup { done in sunriseSunsetViewModel.getSunriseSunset(completion: done) }
+                loadWithGroup { done in pilotViewModel.getPilots(completion: done) }
+                loadWithGroup { done in
+                    siteViewModel.getSites {
+                        stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {
+                            // nothing here - not waiting for latest readings to complete
+                        }
+                        done() // Wait for getSites to complete
                     }
                 }
-
-                group.leave() // Done initiating all the above
+                done() // finishes the "app regions" task
             }
+        }
 
-            // Place notify after all enter calls
-            group.notify(queue: .main) {
-                metadataLoaded = true
-                checkIfReadyToTransition()
-            }
+        // Step 2 – Notify when all tasks are done
+        group.notify(queue: .main) {
+            metadataLoaded = true
+            checkIfReadyToTransition()
         }
 
         initializeLoggingFile()
