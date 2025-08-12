@@ -8,7 +8,6 @@ struct SiteSelection: Identifiable, Equatable {
 }
 
 struct SiteView: View {
-    @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
     @EnvironmentObject var siteViewModel: SiteViewModel

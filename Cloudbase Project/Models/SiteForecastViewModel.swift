@@ -127,7 +127,6 @@ private struct ForecastCacheEntry {
 class SiteForecastViewModel: ObservableObject {
     @Published var forecastData: ForecastData?
     
-    private var liftParametersViewModel: LiftParametersViewModel
     private var sunriseSunsetViewModel: SunriseSunsetViewModel
     private var weatherCodesViewModel: WeatherCodeViewModel
 
@@ -138,10 +137,8 @@ class SiteForecastViewModel: ObservableObject {
     private let urlSession: URLSession
     
     // Make thermal lift parameters, weather code images, and sunrise/sunset times available in this view model
-    init(liftParametersViewModel: LiftParametersViewModel,
-         sunriseSunsetViewModel: SunriseSunsetViewModel,
+    init(sunriseSunsetViewModel: SunriseSunsetViewModel,
          weatherCodesViewModel: WeatherCodeViewModel) {
-        self.liftParametersViewModel = liftParametersViewModel
         self.sunriseSunsetViewModel = sunriseSunsetViewModel
         self.weatherCodesViewModel = weatherCodesViewModel
         
@@ -864,7 +861,7 @@ class SiteForecastViewModel: ObservableObject {
         var priorThermalDPTempToAmbientDPTempDiff: Double = 0.0
 
         // Get thermal lift parameters from environment object
-        guard let liftParameters = liftParametersViewModel.liftParameters else {
+        guard let liftParameters = LiftParametersViewModel.shared.liftParameters else {
             // End processing if lift parameters are not available
             print("Error - thermal lift parameters not available")
             if logThermalCalcs {logToFile("Error - thermal lift parameters not available") }

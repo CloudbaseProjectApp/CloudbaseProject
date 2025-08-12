@@ -41,6 +41,7 @@ class SunriseSunsetViewModel: ObservableObject {
         URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
             if let error = error {
                 print("Error for sunrise and sunset times: \(error.localizedDescription)")
+                print("sunrise URL: \(url)")
                 DispatchQueue.main.async { completion() }
                 return
             }

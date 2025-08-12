@@ -8,10 +8,10 @@ let timeChangeNotification = UIApplication.significantTimeChangeNotification
 struct Cloudbase_ProjectApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var refreshMetadata: Bool = false
+    private var liftParametersViewModel                     = LiftParametersViewModel.shared
     @StateObject private var appRegionViewModel             = AppRegionViewModel()
     @StateObject private var appRegionCodesViewModel        = AppRegionCodesViewModel()
     @StateObject private var appURLViewModel                = AppURLViewModel()
-    @StateObject private var liftParametersViewModel        = LiftParametersViewModel()
     @StateObject private var sunriseSunsetViewModel         = SunriseSunsetViewModel()
     @StateObject private var weatherCodesViewModel          = WeatherCodeViewModel()
     @StateObject private var siteViewModel                  = SiteViewModel()
@@ -33,7 +33,7 @@ struct Cloudbase_ProjectApp: App {
         showSites: defaultShowSites,
         showStations: defaultShowStations
     )
-    
+        
     init() {
         
         // Configure picker to use different widths based on content text
@@ -44,7 +44,7 @@ struct Cloudbase_ProjectApp: App {
         let appRegionVM         = AppRegionViewModel()
         let appRegionCodesVM    = AppRegionCodesViewModel()
         let appURLVM            = AppURLViewModel()
-        let liftVM              = LiftParametersViewModel()
+        let liftVM              = LiftParametersViewModel.shared
         let sunVM               = SunriseSunsetViewModel()
         let weatherVM           = WeatherCodeViewModel()
         let siteVM              = SiteViewModel()
@@ -53,7 +53,6 @@ struct Cloudbase_ProjectApp: App {
             weatherCodesViewModel: weatherVM
         )
         let forecastVM          = SiteForecastViewModel(
-            liftParametersViewModel: liftVM,
             sunriseSunsetViewModel: sunVM,
             weatherCodesViewModel: weatherVM
         )
@@ -97,7 +96,6 @@ struct Cloudbase_ProjectApp: App {
         _appRegionViewModel             = StateObject(wrappedValue: appRegionVM)
         _appRegionCodesViewModel        = StateObject(wrappedValue: appRegionCodesVM)
         _appURLViewModel                = StateObject(wrappedValue: appURLVM)
-        _liftParametersViewModel        = StateObject(wrappedValue: liftVM)
         _sunriseSunsetViewModel         = StateObject(wrappedValue: sunVM)
         _weatherCodesViewModel          = StateObject(wrappedValue: weatherVM)
         _siteViewModel                  = StateObject(wrappedValue: siteVM)
@@ -150,10 +148,10 @@ struct BaseAppView: View {
     @State private var isActive = false
     @State private var metadataLoaded = false
     @State private var showAppRegionSelector: Bool = false
+    
     @EnvironmentObject var appRegionViewModel: AppRegionViewModel
     @EnvironmentObject var appURLViewModel: AppURLViewModel
     @EnvironmentObject var appRegionCodesViewModel: AppRegionCodesViewModel
-    @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
     @EnvironmentObject var pilotViewModel: PilotViewModel
@@ -165,17 +163,15 @@ struct BaseAppView: View {
     @EnvironmentObject var stationAnnotationViewModel: StationAnnotationViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @EnvironmentObject var weatherCamViewModel: WeatherCamViewModel
+    
     @ObservedObject var regionManager = RegionManager.shared
 
     var body: some View {
-        
         ZStack {
             backgroundColor.edgesIgnoringSafeArea(.all)
             VStack {
                 if isActive && metadataLoaded {
-                    
                     if RegionManager.shared.activeAppRegion.isEmpty {
-                        // Empty view or placeholder while waiting for selection
                         Color.clear
                             .onAppear {
                                 showAppRegionSelector = true
@@ -183,7 +179,6 @@ struct BaseAppView: View {
                     } else {
                         MainView(refreshMetadata: $refreshMetadata)
                     }
-                    
                 } else {
                     SplashScreenView()
                         .onAppear {
@@ -194,28 +189,21 @@ struct BaseAppView: View {
                 }
             }
         }
-
         .onAppear {
-            
             if !RegionManager.shared.activeAppRegion.isEmpty && !metadataLoaded {
                 loadInitialMetadata()
             } else {
                 showAppRegionSelector = true
             }
         }
-
         .onChange(of: regionManager.activeAppRegion) { _, newRegion in
             if !newRegion.isEmpty && !metadataLoaded {
                 loadInitialMetadata()
             }
         }
-
         .onChange(of: refreshMetadata) { _, newValue in
             if newValue {
-
-                // Force station latest readings refresh when region changes
                 stationLatestReadingViewModel.resetLastFetchTimes()
-                
                 isActive = false
                 metadataLoaded = false
                 if !RegionManager.shared.activeAppRegion.isEmpty {
@@ -224,58 +212,53 @@ struct BaseAppView: View {
                 refreshMetadata = false
             }
         }
-    
         .sheet(isPresented: $showAppRegionSelector) {
             AppRegionView()
                 .setSheetConfig()
                 .environmentObject(userSettingsViewModel)
         }
-    
     }
     
     private func loadInitialMetadata() {
         let group = DispatchGroup()
-
-        // Helper to avoid repeating enter/leave boilerplate
+        
         func loadWithGroup(_ task: (@escaping () -> Void) -> Void) {
             group.enter()
             task {
                 group.leave()
             }
         }
-
+        
         // Step 1 – Load app regions, then kick off all the rest in parallel
         loadWithGroup { done in
             appRegionViewModel.getAppRegions {
-                // Now load everything else in parallel
-
+                // Load others in parallel
                 loadWithGroup { done in appURLViewModel.getAppURLs(completion: done) }
                 loadWithGroup { done in appRegionCodesViewModel.getAppRegionCodes(completion: done) }
-                loadWithGroup { done in liftParametersViewModel.getLiftParameters(completion: done) }
+                loadWithGroup { done in LiftParametersViewModel.shared.getLiftParameters(completion: done) }
                 loadWithGroup { done in weatherCodesViewModel.getWeatherCodes(completion: done) }
                 loadWithGroup { done in sunriseSunsetViewModel.getSunriseSunset(completion: done) }
                 loadWithGroup { done in pilotViewModel.getPilots(completion: done) }
                 loadWithGroup { done in
                     siteViewModel.getSites {
                         stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {
-                            // nothing here - not waiting for latest readings to complete
+                            // not waiting for readings
                         }
-                        done() // Wait for getSites to complete
+                        done()
                     }
                 }
-                done() // finishes the "app regions" task
+                done()
             }
         }
-
-        // Step 2 – Notify when all tasks are done
+        
         group.notify(queue: .main) {
             metadataLoaded = true
             checkIfReadyToTransition()
         }
-
+        
         initializeLoggingFile()
     }
-
+    
     private func checkIfReadyToTransition() {
         if metadataLoaded {
             withAnimation {

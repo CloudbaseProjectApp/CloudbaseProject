@@ -690,7 +690,6 @@ func getPilotLabelHeightFromMapSpan(span: MKCoordinateSpan) -> CGFloat {
 }
 
 struct MapContainerView: View {
-    @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
     @EnvironmentObject var siteViewModel: SiteViewModel

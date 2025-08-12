@@ -24,7 +24,6 @@ enum SiteFilter: String, CaseIterable, Identifiable {
 }
 
 struct FlyingPotentialView: View {
-    @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
     @EnvironmentObject var siteViewModel: SiteViewModel
@@ -57,7 +56,8 @@ struct FlyingPotentialView: View {
         
         if includeFavorites {
             let favoriteSites: [SiteWithDisplayName] = favorites.compactMap { favorite in
-                if let site = siteViewModel.sites.first(where: { $0.siteName == favorite.favoriteID }) {
+                if let site = siteViewModel.sites.first(where: { $0.siteName == favorite.favoriteID }),
+                   site.siteType == "Soaring" || site.siteType == "Mountain" {
                     return SiteWithDisplayName(site: site,
                                                displayName: favorite.favoriteName,
                                                customID: "favorite-\(site.id)")
@@ -236,12 +236,15 @@ struct FlyingPotentialView: View {
 
             if includeFavorites {
                 let favoriteList = favoriteSites.compactMap {
-                    if let (site, _) = siteFromFavorite($0) { return site }
+                    if let (site, _) = siteFromFavorite($0),
+                       site.siteType == "Soaring" || site.siteType == "Mountain" {
+                        return site
+                    }
                     return nil
                 }
                 result += favoriteList
             }
-
+            
             if includeSites {
                 let siteList = siteViewModel.sites.filter {
                     $0.siteType == "Soaring" || $0.siteType == "Mountain"
@@ -305,13 +308,28 @@ struct SiteGridSectionUnified: View {
     let forecastMap: [String: ForecastData]
     let onSelect: (Site) -> Void
     let onDetailTap: (SelectedSiteDetail) -> Void
-    
-    @State private var sectionTitleOffsets: [(title: String, yOffset: CGFloat)] = []
-    
+
+    // Custom struct to hold section title and its vertical offset
+    struct SectionTitleOffset: Identifiable, Equatable {
+        let id = UUID()
+        let title: String
+        var yOffset: CGFloat
+    }
+
+    @State private var sectionTitleOffsets: [SectionTitleOffset] = []
+
     private let dataWidth: CGFloat = 44
     private let rowHeight: CGFloat = 32
     private let headerRowHeight: CGFloat = 48
-    
+
+    // PreferenceKey to collect array of SectionTitleOffset from child views
+    private struct SectionTitleOffsetPreferenceKey: PreferenceKey {
+        static var defaultValue: [SectionTitleOffset] = []
+        static func reduce(value: inout [SectionTitleOffset], nextValue: () -> [SectionTitleOffset]) {
+            value.append(contentsOf: nextValue())
+        }
+    }
+
     var body: some View {
         let anyForecast = rows.compactMap {
             if case let .site(siteRow) = $0 {
@@ -319,15 +337,15 @@ struct SiteGridSectionUnified: View {
             }
             return nil
         }.first
-        
-        VStack { // wrap entire view in a VStack to apply onChange
+
+        VStack {
             if let anyForecast {
                 let hourly = anyForecast.hourly
                 let dateTimeCount = hourly.dateTime?.count ?? 0
-                
+
                 ZStack(alignment: .topLeading) {
                     HStack(alignment: .top, spacing: 0) {
-                        // Left column
+                        // Left column with section titles and site names
                         VStack(alignment: .leading, spacing: 0) {
                             ForEach(rows) { row in
                                 switch row {
@@ -335,22 +353,20 @@ struct SiteGridSectionUnified: View {
                                     Text(" ")
                                         .font(.caption)
                                         .frame(width: 100, height: headerRowHeight)
-                                    
+
                                 case .sectionTitle(let title):
                                     potentialChartBackgroundColor
                                         .frame(width: 100, height: rowHeight)
-                                        .overlay(
+                                        .background(
                                             GeometryReader { geo in
                                                 Color.clear
-                                                    .onAppear {
-                                                        let offset = geo.frame(in: .named("grid")).origin.y
-                                                        if !sectionTitleOffsets.contains(where: { $0.title == title }) {
-                                                            sectionTitleOffsets.append((title, offset))
-                                                        }
-                                                    }
+                                                    .preference(
+                                                        key: SectionTitleOffsetPreferenceKey.self,
+                                                        value: [SectionTitleOffset(title: title, yOffset: geo.frame(in: .named("grid")).minY)]
+                                                    )
                                             }
                                         )
-                                    
+
                                 case .site(let siteRow):
                                     Text(siteRow.displayName)
                                         .font(.caption)
@@ -363,8 +379,8 @@ struct SiteGridSectionUnified: View {
                                 }
                             }
                         }
-                        
-                        // Right column
+
+                        // Right column - forecast data (unchanged from your original)
                         ScrollView(.horizontal, showsIndicators: true) {
                             VStack(alignment: .leading, spacing: 0) {
                                 ForEach(rows) { row in
@@ -376,14 +392,14 @@ struct SiteGridSectionUnified: View {
                                                 let day = hourly.formattedDay?[i] ?? ""
                                                 let date = hourly.formattedDate?[i] ?? ""
                                                 let time = hourly.formattedTime?[i] ?? ""
-                                                
+
                                                 ZStack(alignment: .leading) {
                                                     if i > 0 {
                                                         dateDivider(isNew: hourly.newDateFlag?[i] == true)
                                                             .frame(height: headerRowHeight)
                                                             .alignmentGuide(.leading) { _ in 0 }
                                                     }
-                                                    
+
                                                     VStack(spacing: 0) {
                                                         Text(day)
                                                             .font(.caption)
@@ -403,7 +419,7 @@ struct SiteGridSectionUnified: View {
                                         .background(potentialChartBackgroundColor)
                                         .cornerRadius(10)
                                         .frame(height: headerRowHeight)
-                                        
+
                                     case .sectionTitle:
                                         HStack(spacing: 0) {
                                             ForEach(0..<dateTimeCount, id: \.self) { i in
@@ -413,8 +429,7 @@ struct SiteGridSectionUnified: View {
                                                             .frame(height: rowHeight)
                                                             .alignmentGuide(.leading) { _ in 0 }
                                                     }
-                                                    
-                                                    // Empty cell, just taking up space
+
                                                     Rectangle()
                                                         .fill(Color.clear)
                                                         .frame(width: dataWidth, height: rowHeight)
@@ -423,7 +438,7 @@ struct SiteGridSectionUnified: View {
                                             }
                                         }
                                         .background(potentialChartBackgroundColor)
-                                        
+
                                     case .site(let siteRow):
                                         if let forecast = forecastMap[siteRow.site.siteName],
                                            let values = forecast.hourly.combinedColorValue {
@@ -432,18 +447,17 @@ struct SiteGridSectionUnified: View {
                                                     if i < values.count {
                                                         let color = FlyingPotentialColor.color(for: values[i])
                                                         let size = FlyingPotentialImageSize(color)
-                                                        
-                                                        // Display a ? if there isn't a valid display color
+
                                                         let resolvedImage = (color == .clear) ? flyingPotentialUnknownImage : flyingPotentialImage
-                                                        let resolvedColor = (color == .clear) ? flyingPotentialUnknownColor: color
-                                                        
+                                                        let resolvedColor = (color == .clear) ? flyingPotentialUnknownColor : color
+
                                                         ZStack(alignment: .leading) {
                                                             if i > 0 {
                                                                 dateDivider(isNew: hourly.newDateFlag?[i] == true)
                                                                     .frame(height: rowHeight)
                                                                     .alignmentGuide(.leading) { _ in 0 }
                                                             }
-                                                            
+
                                                             Image(systemName: resolvedImage)
                                                                 .resizable()
                                                                 .scaledToFit()
@@ -461,7 +475,7 @@ struct SiteGridSectionUnified: View {
                                                                 }
                                                         }
                                                         .frame(width: dataWidth, height: rowHeight)
-                                                        
+
                                                     } else {
                                                         Rectangle()
                                                             .fill(Color.gray.opacity(0.2))
@@ -495,31 +509,43 @@ struct SiteGridSectionUnified: View {
                             }
                         }
                     }
-                    
-                    // Overlay floating section titles on the left
-                    ForEach(sectionTitleOffsets, id: \.title) { item in
+
+                    // Overlay floating section titles
+                    ForEach(sectionTitleOffsets) { item in
                         Text(item.title.uppercased())
                             .font(.subheadline)
                             .bold()
                             .foregroundColor(sectionHeaderColor)
                             .padding(.leading, 4)
                             .background(potentialChartBackgroundColor)
-                            .fixedSize() // <-- This ensures the text takes only as much space as needed
+                            .fixedSize()
                             .frame(height: rowHeight - 4, alignment: .leading)
-                            .offset(x: 0, y: item.yOffset)
+                            // Tweak vertical offset to align nicely (adjust +2 if needed)
+                            .offset(x: 0, y: item.yOffset + 2)
                     }
                 }
-                .coordinateSpace(name: "grid") // allows GeometryReader to report y-offsets
+                .coordinateSpace(name: "grid")
                 .padding(.vertical, 4)
-                
+                .onPreferenceChange(SectionTitleOffsetPreferenceKey.self) { prefs in
+                    // Keep section titles in order consistent with rows
+                    let titleOrder = rows.compactMap { row -> String? in
+                        if case .sectionTitle(let t) = row { return t } else { return nil }
+                    }
+                    var newOffsets: [SectionTitleOffset] = []
+                    for title in titleOrder {
+                        if let found = prefs.first(where: { $0.title == title }) {
+                            newOffsets.append(found)
+                        } else {
+                            newOffsets.append(SectionTitleOffset(title: title, yOffset: 0))
+                        }
+                    }
+                    sectionTitleOffsets = newOffsets
+                }
             } else {
                 Text("No forecast data available.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-        }
-        .onChange(of: rows) {
-            sectionTitleOffsets = []
         }
     }
 }

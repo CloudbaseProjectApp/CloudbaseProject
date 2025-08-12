@@ -224,6 +224,12 @@ struct FlyingPotentialDetailRow: View {
 
             if let windDirection {
                 HStack {
+                    
+// Temp display wind dir
+Text(valueText)
+    .font(.subheadline)
+    .foregroundColor(warningFontColor)
+
                     Spacer()
                     WindDirectionIndicator(
                         currentDirection: windDirection,
@@ -232,6 +238,7 @@ struct FlyingPotentialDetailRow: View {
                     Spacer()
                 }
                 .frame(maxWidth: .infinity)
+                
             } else {
                 Text(valueText)
                     .font(.subheadline)

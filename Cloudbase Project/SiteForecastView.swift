@@ -37,7 +37,6 @@ struct ThermalCell: View {
 struct SiteForecastView: View {
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
     @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
-    @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
     

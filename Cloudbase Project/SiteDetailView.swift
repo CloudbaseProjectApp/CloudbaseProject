@@ -6,7 +6,6 @@ struct SiteDetailView: View {
     var site: Site              // Received from parent view
     var favoriteName: String?   // Override display name if site detail is for a user favorite
     
-    @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel

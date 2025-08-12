@@ -4,127 +4,38 @@ import SafariServices
 import UIKit
 import MapKit
 
-// Common utility functions
 func tempColor(_ tempF: Int?) -> Color {
-    guard let tempF = tempF else {
-        return .clear
-    }
-
-    switch tempF {
-        case ...32:     return displayValueBlue
-        case 33...59:   return displayValueTeal
-        case 60...79:   return displayValueGreen
-        case 80...89:   return displayValueYellow
-        case 90...99:   return displayValueOrange
-        case 100...:    return displayValueRed
-        default:        return .clear
-    }
+    LiftParametersViewModel.shared.colorFor(parameter: "temp", value: Double(tempF ?? 0))
 }
 
 func cloudCoverColor(_ cloudCoverPct: Int?) -> Color {
-    guard let cloudCoverPct = cloudCoverPct else {
-        return .clear
-    }
-
-    switch cloudCoverPct {
-        case ...39:     return displayValueGreen
-        case 40...59:   return displayValueYellow
-        case 60...79:   return displayValueOrange
-        case 80...:     return displayValueRed
-        default:        return .clear
-    }
+    LiftParametersViewModel.shared.colorFor(parameter: "cloudCover", value: Double(cloudCoverPct ?? 0))
 }
 
 func precipColor(_ precipPct: Int?) -> Color {
-    guard let precipPct = precipPct else {
-        return .clear
-    }
-
-    switch precipPct {
-        case ...19:     return displayValueGreen
-        case 20...39:   return displayValueYellow
-        case 40...59:   return displayValueOrange
-        case 60...:     return displayValueRed
-        default:        return .clear
-    }
+    LiftParametersViewModel.shared.colorFor(parameter: "precip", value: Double(precipPct ?? 0))
 }
 
-func CAPEColor(_ CAPEvalue: Int?) -> Color {
-    guard let CAPEvalue = CAPEvalue else {
-        return .clear
-    }
-
-    switch CAPEvalue {
-        case 0...299:   return displayValueGreen
-        case 300...599: return displayValueYellow
-        case 600...799: return displayValueOrange
-        case 800...:    return displayValueRed
-        default:        return .clear
-    }
+func CAPEColor(_ capeValue: Int?) -> Color {
+    LiftParametersViewModel.shared.colorFor(parameter: "CAPE", value: Double(capeValue ?? 0))
 }
 
 func windSpeedColor(windSpeed: Int?, siteType: String) -> Color {
-    guard let windSpeed = windSpeed else {
-        return .clear
-    }
-
+    let key: String
     switch siteType {
-    case "Aloft", "Mountain":
-        switch windSpeed {
-            case 0...11:    return displayValueGreen
-            case 12...17:   return displayValueYellow
-            case 18...23:   return displayValueOrange
-            case 24...:     return displayValueRed
-            default:        return .clear
-        }
-    case "Soaring":
-        switch windSpeed {
-            case 0...8:     return displayValueLime
-            case 9...19:    return displayValueGreen
-            case 20...24:   return displayValueYellow
-            case 25...29:   return displayValueOrange
-            case 30...:     return displayValueRed
-            default:        return .clear
-        }
-    default:
-        switch windSpeed {
-            case 0...11:    return displayValueGreen
-            case 12...17:   return displayValueYellow
-            case 18...23:   return displayValueOrange
-            case 24...:     return displayValueRed
-            default:        return .clear
-        }
+    case "Aloft", "Mountain": key = "windSpeedAloft"
+    case "Soaring": key = "windSpeedSoaring"
+    default: key = "windSpeed"
     }
+    return LiftParametersViewModel.shared.colorFor(parameter: key, value: Double(windSpeed ?? 0))
 }
 
 func thermalColor(_ thermalVelocity: Double?) -> Color {
-    guard let thermalVelocity = thermalVelocity else {
-        return .clear
-    }
-    
-    // Assumes thermalVelocity already rounded to nearest tenth
-    switch thermalVelocity {
-        case ...0.9:    return displayValueWhite
-        case 1.0...1.9: return displayValueLime
-        case 2.0...3.9: return displayValueGreen
-        case 4.0...4.9: return displayValueYellow
-        case 5.0...5.9: return displayValueOrange
-        case 6.0...:    return displayValueRed
-        default:        return .clear
-    }
+    LiftParametersViewModel.shared.colorFor(parameter: "thermal", value: thermalVelocity)
 }
 
 func gustFactorColor(_ gustFactor: Int?) -> Color {
-    guard let gustFactor = gustFactor else {
-        return .clear
-    }
-    switch gustFactor {
-        case 0...5:     return displayValueGreen
-        case 6...7:     return displayValueYellow
-        case 8...9:     return displayValueOrange
-        case 10...:     return displayValueRed
-        default:        return .clear
-    }
+    LiftParametersViewModel.shared.colorFor(parameter: "gustFactor", value: Double(gustFactor ?? 0))
 }
 
 func windDirectionColor(siteWindDirection: SiteWindDirection,
@@ -149,12 +60,15 @@ func windDirectionColor(siteWindDirection: SiteWindDirection,
         return .clear
     }
 
-    guard let windDirection = windDirection else {
+    guard let originalWindDirection = windDirection else {
         return .clear
     }
     
+    // Normalize to 0–359
+    let normalizedDirection = ((originalWindDirection % 360) + 360) % 360
+    
     var windDirectionQuality: String
-    switch headingForWindDirection(windDirection: windDirection) {
+    switch headingForWindDirection(windDirection: normalizedDirection) {
         case "N":   windDirectionQuality = siteWindDirection.N
         case "NE":  windDirectionQuality = siteWindDirection.NE
         case "E":   windDirectionQuality = siteWindDirection.E

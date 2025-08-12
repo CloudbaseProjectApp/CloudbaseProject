@@ -13,7 +13,6 @@ enum NavBarSelectedView: Int {
 
 struct MainView: View {
     @Binding var refreshMetadata: Bool
-    @EnvironmentObject var liftParametersViewModel: LiftParametersViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var siteViewModel: SiteViewModel
