@@ -23,10 +23,10 @@ struct ElevationResponse: Codable {
 
 struct PilotTrackNodeView: View {
     @EnvironmentObject var pilotViewModel: PilotViewModel
-    @EnvironmentObject var pilotTrackViewModel: PilotTrackViewModel
     @Environment(\.presentationMode) var presentationMode
 
-    let originalPilotTrack: PilotTrack
+    let selectedSegment: PilotTrackSegment
+    let initialTrack: PilotTrack
     
     @State private var currentNodeGroundElevation: Int? = 0
     @State private var groundElevations: [Int] = []
@@ -42,15 +42,12 @@ struct PilotTrackNodeView: View {
     var body: some View {
         let colWidth: CGFloat = 140
         let rowVerticalPadding: CGFloat = 4
+        
+        let segmentTracks = selectedSegment.tracks
+        let pilotTrack = segmentTracks[safe: currentTrackIndex] ?? initialTrack
 
-        let calendar = Calendar.current
-        let sameDayTracks = pilotTrackViewModel.pilotTracks
-            .filter { $0.pilotName == originalPilotTrack.pilotName && calendar.isDate($0.dateTime, inSameDayAs: originalPilotTrack.dateTime) }
-            .sorted { $0.dateTime < $1.dateTime }
-
-        let pilotTrack = sameDayTracks[safe: currentTrackIndex] ?? originalPilotTrack
-
-        let (flightStartDateTime, flightLatestDateTime, formattedFlightDuration, startToEndDistance, maxAltitude, totalDistance) = getPilotTrackInfo(pilotTrack: pilotTrack)
+        let (flightStartDateTime, flightLatestDateTime, formattedFlightDuration, startToEndDistance, maxAltitude, totalDistance) = getPilotTrackInfo(segmentTracks: segmentTracks)
+        
         var trackingShareURL: String { pilotViewModel.trackingShareURL(for: pilotTrack.pilotName) ?? "" }
 
         var formattedNodeDate: String {
@@ -86,47 +83,43 @@ struct PilotTrackNodeView: View {
             }
             .background(toolbarBackgroundColor)
 
-            HStack { //Arrows for navigating track nodes
-                Button(action: {
-                    currentTrackIndex -= 1
-                }) {
-                    HStack {
-                        Image(systemName: "chevron.left")
-                            .foregroundColor(toolbarActiveImageColor)
-                        Text("Back")
-                            .foregroundColor(toolbarActiveFontColor)
-                    }
-                    .padding(.horizontal, 8)
-                }
-                .id("backButton")
-                // Hide and disable the button when it's not applicable
-                .opacity(currentTrackIndex > 0 ? 1.0 : 0.0)
-                .disabled(currentTrackIndex == 0)
+            HStack {
+                  Button(action: {
+                      currentTrackIndex -= 1
+                  }) {
+                      HStack {
+                          Image(systemName: "chevron.left")
+                              .foregroundColor(toolbarActiveImageColor)
+                          Text("Back")
+                              .foregroundColor(toolbarActiveFontColor)
+                      }
+                      .padding(.horizontal, 8)
+                  }
+                  .id("backButton")
+                  .opacity(currentTrackIndex > 0 ? 1.0 : 0.0)
+                  .disabled(currentTrackIndex == 0)
 
-                Spacer()
-                
-                Text("Track Points")
-                
-                Spacer()
+                  Spacer()
+                  Text("Track Points")
+                  Spacer()
 
-                Button(action: {
-                    currentTrackIndex += 1
-                }) {
-                    HStack {
-                        Text("Next")
-                            .foregroundColor(toolbarActiveFontColor)
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(toolbarActiveImageColor)
-                    }
-                    .padding(.horizontal, 8)
-                }
-                .id("nextButton")
-                // Hide and disable the button when it's not applicable
-                .opacity(currentTrackIndex < sameDayTracks.count - 1 ? 1.0 : 0.0)
-                .disabled(currentTrackIndex >= sameDayTracks.count - 1)
-            }
-            .padding()
-            .background(navigationBackgroundColor)
+                  Button(action: {
+                      currentTrackIndex += 1
+                  }) {
+                      HStack {
+                          Text("Next")
+                              .foregroundColor(toolbarActiveFontColor)
+                          Image(systemName: "chevron.right")
+                              .foregroundColor(toolbarActiveImageColor)
+                      }
+                      .padding(.horizontal, 8)
+                  }
+                  .id("nextButton")
+                  .opacity(currentTrackIndex < segmentTracks.count - 1 ? 1.0 : 0.0)
+                  .disabled(currentTrackIndex >= segmentTracks.count - 1)
+              }
+              .padding()
+              .background(navigationBackgroundColor)
             
             List {
                 if pilotTrack.inEmergency {
@@ -265,18 +258,18 @@ struct PilotTrackNodeView: View {
                 
                 // Elevation chart
                 Section(header: Text("Track Elevation Chart")
-                    .font(.headline)
-                    .foregroundColor(sectionHeaderColor)
-                    .bold())
-                {
-                    if sameDayTracks.count == groundElevations.count {
-                        ElevationChartView(
-                            tracks: sameDayTracks,
-                            groundElevations: groundElevations,
-                            selectedTime: pilotTrack.dateTime
-                        )
-                    }
-                }
+                     .font(.headline)
+                     .foregroundColor(sectionHeaderColor)
+                     .bold())
+                 {
+                     if segmentTracks.count == groundElevations.count {
+                         ElevationChartView(
+                             tracks: segmentTracks,
+                             groundElevations: groundElevations,
+                             selectedTime: pilotTrack.dateTime
+                         )
+                     }
+                 }
                 
                 Section(header: Text("Track point")
                     .font(.headline)
@@ -432,38 +425,20 @@ struct PilotTrackNodeView: View {
             .padding(0)
             
             .onAppear {
-                if let index = sameDayTracks.firstIndex(where: { $0.id == originalPilotTrack.id }) {
-                    currentTrackIndex = index
-                }
-            }
-            // Update ground elevation when the user taps “Next”/“Back”
-            // (change is also triggered when sheet is opened and currentTrackIndex is populated)
+                  if let index = segmentTracks.firstIndex(where: { $0.id == initialTrack.id }) {
+                      currentTrackIndex = index
+                  }
+                  Task {
+                      // Fetch elevations for the entire segment on appear.
+                      await fetchAllGroundElevations(for: segmentTracks)
+                  }
+              }
             .onChange(of: currentTrackIndex) { oldIndex, newIndex in
-                // Determine the newly‐visible track node
-                let newTrack = sameDayTracks[safe: newIndex] ?? originalPilotTrack
+                let newTrack = segmentTracks[safe: newIndex] ?? initialTrack
                 Task {
+                    // Fetch elevation for the single selected node.
                     await fetchGroundElevation(latitude: newTrack.latitude,
                                                longitude: newTrack.longitude)
-                }
-
-            }
-            // Update all ground elevations when the view model publishes a new track array
-            // (also executes when sheet is opened)
-            .onReceive(pilotTrackViewModel.$pilotTracks) { fullArray in
-                // re‐build the same‐day subset and re‐call the batch fetch
-                let updatedSameDay = fullArray
-                    .filter { $0.pilotName == originalPilotTrack.pilotName
-                           && Calendar.current.isDate($0.dateTime,
-                                                       inSameDayAs: originalPilotTrack.dateTime) }
-                    .sorted { $0.dateTime < $1.dateTime }
-
-                // reset the current index if out‐of‐bounds
-                if currentTrackIndex >= updatedSameDay.count {
-                    currentTrackIndex = max(0, updatedSameDay.count - 1)
-                }
-
-                Task {
-                    await fetchAllGroundElevations(for: updatedSameDay)
                 }
             }
         }
@@ -527,48 +502,34 @@ struct PilotTrackNodeView: View {
         self.groundElevations = allElevations
     }
     
-    private func getPilotTrackInfo(pilotTrack: PilotTrack) -> (flightStartDateTime: Date, flightLatestDateTime: Date, formattedFlightDuration: String, startToEndDistance: CLLocationDistance, maxAltitude: Double, totalDistance: CLLocationDistance) {
-        // Get the oldest and newest tracks for the same pilot and the same date
-        let calendar = Calendar.current
-        let targetDate = pilotTrack.dateTime
-        let sameDayTracks = pilotTrackViewModel.pilotTracks
-            .filter { $0.pilotName == pilotTrack.pilotName && calendar.isDate($0.dateTime, inSameDayAs: targetDate) }
+    private func getPilotTrackInfo(segmentTracks: [PilotTrack]) -> (flightStartDateTime: Date, flightLatestDateTime: Date, formattedFlightDuration: String, startToEndDistance: CLLocationDistance, maxAltitude: Double, totalDistance: CLLocationDistance) {
 
-        guard let oldestTrack = sameDayTracks.min(by: { $0.dateTime < $1.dateTime }) else {
-            return (Date(), Date(), "", 0, 0, 0)
-        }
-        guard let latestTrack = sameDayTracks.max(by: { $0.dateTime < $1.dateTime }) else {
-            return (Date(), Date(), "", 0, 0, 0)
-        }
+         guard let oldestTrack = segmentTracks.first, let latestTrack = segmentTracks.last else {
+             return (Date(), Date(), "", 0, 0, 0)
+         }
 
-        let flightStartDateTime = oldestTrack.dateTime
-        let flightLatestDateTime = latestTrack.dateTime
-        let flightDuration = Int(flightLatestDateTime.timeIntervalSince(flightStartDateTime))
-        let flightHours = flightDuration / 3600
-        let flightMinutes = (flightDuration % 3600) / 60
-        let formattedFlightDuration = String(format: "%d:%02d", flightHours, flightMinutes)
-        
-        // Calculate start to end distance
-        let startCoordinates = CLLocation(latitude: oldestTrack.latitude, longitude: oldestTrack.longitude)
-        let latestCoordinates = CLLocation(latitude: latestTrack.latitude, longitude: latestTrack.longitude)
-        let startToEndDistance = startCoordinates.distance(from: latestCoordinates) / 1000  // convert m to km
+         let flightStartDateTime = oldestTrack.dateTime
+         let flightLatestDateTime = latestTrack.dateTime
+         let flightDuration = Int(flightLatestDateTime.timeIntervalSince(flightStartDateTime))
+         let flightHours = flightDuration / 3600
+         let flightMinutes = (flightDuration % 3600) / 60
+         let formattedFlightDuration = String(format: "%d:%02d", flightHours, flightMinutes)
+         
+         let startCoordinates = CLLocation(latitude: oldestTrack.latitude, longitude: oldestTrack.longitude)
+         let latestCoordinates = CLLocation(latitude: latestTrack.latitude, longitude: latestTrack.longitude)
+         let startToEndDistance = startCoordinates.distance(from: latestCoordinates) / 1000
 
-        // Calculate maximum altitude
-        let maxAltitude = sameDayTracks.map { $0.altitude }.max() ?? 0.0
+         let maxAltitude = segmentTracks.map { $0.altitude }.max() ?? 0.0
 
-        // Calculate total distance flown
-        var totalDistance: CLLocationDistance = 0
-        for (index, track) in sameDayTracks.enumerated() {
-            if index > 0 {
-                let previousTrack = sameDayTracks[index - 1]
-                let previousCoordinates = CLLocation(latitude: previousTrack.latitude, longitude: previousTrack.longitude)
-                let currentCoordinates = CLLocation(latitude: track.latitude, longitude: track.longitude)
-                totalDistance += previousCoordinates.distance(from: currentCoordinates)
-            }
-        }
-        totalDistance = totalDistance / 1000 // Convert meters to kilometers
+         var totalDistance: CLLocationDistance = 0
+         for i in 1..<segmentTracks.count {
+             let previousCoordinates = CLLocation(latitude: segmentTracks[i-1].latitude, longitude: segmentTracks[i-1].longitude)
+             let currentCoordinates = CLLocation(latitude: segmentTracks[i].latitude, longitude: segmentTracks[i].longitude)
+             totalDistance += previousCoordinates.distance(from: currentCoordinates)
+         }
+         totalDistance /= 1000
 
-        return (flightStartDateTime, flightLatestDateTime, formattedFlightDuration, startToEndDistance, maxAltitude, totalDistance)
+         return (flightStartDateTime, flightLatestDateTime, formattedFlightDuration, startToEndDistance, maxAltitude, totalDistance)
     }
     
     private func openGoogleMaps(latitude: Double, longitude: Double) {

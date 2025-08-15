@@ -78,6 +78,7 @@ struct MapView: UIViewRepresentable {
     var radarOverlay: MKTileOverlay?
     var infraredOverlay: MKTileOverlay?
     let pilotTracks: [PilotTrack]
+    let pilotTrackSegments: [PilotTrackSegment]
     let sites: [Site]
     let stationAnnotations: [StationAnnotation]
     let onPilotSelected: (PilotTrack) -> Void
@@ -168,36 +169,36 @@ struct MapView: UIViewRepresentable {
         let showAllMarkers = zoomLevel > mapShowAllMarkersZoomLevel
         
         // For each pilot, in sorted order:
-        for pilotName in uniquePilots {
-            // â grab & time-sort their tracks
-            let tracksForPilot = pilotTracks
-                .filter { $0.pilotName == pilotName }
-                .sorted { $0.dateTime < $1.dateTime }
+        // For each track segment, draw a distinct line and annotations
+        for segment in pilotTrackSegments {
+            let tracksForSegment = segment.tracks
+            guard !tracksForSegment.isEmpty else { continue }
+            let pilotName = segment.pilotName
             
-            // â extract coords for polyline
-            let coords = tracksForPilot.map {
+            // — extract coords for polyline
+            let coords = tracksForSegment.map {
                 CLLocationCoordinate2D(latitude: $0.latitude,
                                        longitude: $0.longitude)
             }
             
-            // â add line if we have at least two points
+            // — add line if we have at least two points
             if coords.count > 1 {
                 let polyline = MKPolyline(coordinates: coords, count: coords.count)
                 polyline.title = pilotName
                 mapView.addOverlay(polyline)
-                
             }
             
-            // â partition into emergency / message / finish / first / normal
+            // — partition into emergency / message / finish / first / normal
             var emergencyTracks: [PilotTrack] = []
             var messageTracks:   [PilotTrack] = []
             var finishTracks:    [PilotTrack] = []
             var firstTracks:     [PilotTrack] = []
             var normalTracks:    [PilotTrack] = []
             
-            for (i, track) in tracksForPilot.enumerated() {
+            for (i, track) in tracksForSegment.enumerated() {
+                // Determine node type based on its position within the segment
                 let isFirst   = (i == 0)
-                let isLast    = (i == tracksForPilot.count - 1)
+                let isLast    = (i == tracksForSegment.count - 1)
                 let isEmerg   = track.inEmergency == true
                 let hasMsg    = !(track.message?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
                 let isNormal  = !isFirst && !isLast && !isEmerg && !hasMsg
@@ -219,12 +220,13 @@ struct MapView: UIViewRepresentable {
                 }
             }
             
-            // â add track annotations in that priority order
+            // — add track annotations in that priority order
             for group in [emergencyTracks, messageTracks, finishTracks, firstTracks, normalTracks] {
                 for track in group {
-                    let idx = tracksForPilot.firstIndex { $0.id == track.id } ?? 0
+                    // Re-calculate isFirst/isLast relative to the segment
+                    let idx = tracksForSegment.firstIndex { $0.id == track.id } ?? 0
                     let isFirst = idx == 0
-                    let isLast  = idx == tracksForPilot.count - 1
+                    let isLast  = idx == tracksForSegment.count - 1
                     let isEmerg = track.inEmergency == true
                     let hasMsg  = !(track.message?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
                     
@@ -250,7 +252,7 @@ struct MapView: UIViewRepresentable {
                 }
             }
             
-            // â if zoomed in, draw arrows between each consecutive pair
+            // — if zoomed in, draw arrows between each consecutive pair
             if showAllMarkers {
                 for i in 0..<coords.count - 1 {
                     let start = coords[i]
@@ -776,6 +778,7 @@ struct MapContainerView: View {
                     radarOverlay:       rainViewerOverlayViewModel.radarOverlay,
                     infraredOverlay:    rainViewerOverlayViewModel.infraredOverlay,
                     pilotTracks:        filteredTracks,
+                    pilotTrackSegments: pilotTrackViewModel.pilotTrackSegments,
                     sites:              siteViewModel.sites,
                     stationAnnotations: stations,
                     onPilotSelected:    { track in selectedPilotTrack = track },
@@ -1020,10 +1023,16 @@ struct MapContainerView: View {
        }
         
        .sheet(item: $selectedPilotTrack) { track in
-           PilotTrackNodeView(originalPilotTrack: track)
-               .setSheetConfig()
+           // Find the segment that contains the selected track
+           if let segment = pilotTrackViewModel.pilotTrackSegments.first(where: { $0.tracks.contains(where: { $0.id == track.id }) }) {
+               PilotTrackNodeView(selectedSegment: segment, initialTrack: track)
+                   .setSheetConfig()
+                   .environmentObject(pilotViewModel) // Ensure environment objects are passed
+           } else {
+               Text("Error: Could not find the track segment.")
+           }
        }
-        
+
        .sheet(item: $selectedSite) { site in
            SiteDetailView(site: site, favoriteName: nil)
                .setSheetConfig()

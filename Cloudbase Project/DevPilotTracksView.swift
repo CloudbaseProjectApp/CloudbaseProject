@@ -95,8 +95,15 @@ struct DevPilotTracksView: View {
             }
             
             .sheet(item: $selectedPilotTrack) { track in
-                PilotTrackNodeView(originalPilotTrack: track)
-                    .setSheetConfig()
+                // Find the segment that contains the selected track
+                if let segment = pilotTrackViewModel.pilotTrackSegments.first(where: { $0.tracks.contains(where: { $0.id == track.id }) }) {
+                    PilotTrackNodeView(selectedSegment: segment, initialTrack: track)
+                        .setSheetConfig()
+                        .environmentObject(pilotViewModel) // Ensure environment objects are passed
+                } else {
+                    // Optional: A fallback view if the segment isn't found
+                    Text("Error: Could not find the track segment.")
+                }
             }
         }
     }

@@ -23,6 +23,14 @@ struct PilotTrackKey: Hashable {
     let date: Date
 }
 
+// Tracks by pilot name and date that separates segments where there is a gap of 2 hours between track nodes
+struct PilotTrackSegment: Identifiable {
+    let id: UUID = UUID()
+    let pilotName: String
+    let date: Date                // Start-of-day for the segment
+    let tracks: [PilotTrack]      // Consecutive track points in this segment
+}
+
 // Annotation for pilot tracks to allow polylines as an overlay on map
 class PilotTrackAnnotation: NSObject, MKAnnotation {
     let coordinate: CLLocationCoordinate2D
@@ -65,6 +73,8 @@ class PilotTrackAnnotation: NSObject, MKAnnotation {
 @MainActor
 class PilotTrackViewModel: ObservableObject {
     @Published private(set) var pilotTracks: [PilotTrack] = []
+    @Published private(set) var pilotTrackSegments: [PilotTrackSegment] = []
+    
     @Published var isLoading = false
 
     private let pilotViewModel: PilotViewModel
@@ -88,6 +98,10 @@ class PilotTrackViewModel: ObservableObject {
             .sink { _ in /* no-op */ }
             .store(in: &cancellables)
     }
+    
+    private func processSegments() {
+        pilotTrackSegments = pilotTracks.splitIntoSegments()
+    }
 
     func getPilotTracks(days: Double, selectedPilots: [Pilot], completion: @escaping () -> Void) {
         let today = Calendar.current.startOfDay(for: Date())
@@ -98,56 +112,96 @@ class PilotTrackViewModel: ObservableObject {
 
         let pilotsToConsider = selectedPilots.isEmpty ? pilotViewModel.pilots : selectedPilots
         isLoading = true
+
+        // Cancel any previous in-flight tasks
         inflightTasks.forEach { $0.cancel() }
         inflightTasks.removeAll()
 
         let task = Task { [weak self] in
             guard let self = self else { return }
+            defer {
+                self.isLoading = false
+                completion()
+            }
+
             let freshTracks = await self.fetchAllTracks(pilots: pilotsToConsider, days: days)
             self.pilotTracks = freshTracks.sorted { $0.dateTime < $1.dateTime }
-            self.isLoading = false
-            completion()
+            self.processSegments()
         }
         inflightTasks.append(task)
     }
 
     private func fetchAllTracks(pilots: [Pilot], days: Double) async -> [PilotTrack] {
         let semaphore = AsyncSemaphore(value: maxConcurrentRequests)
+
         return await withTaskGroup(of: [PilotTrack].self) { group in
             for pilot in pilots {
-                group.addTask {
+                group.addTask { [weak self] in
+                    guard let self = self else { return [] }
                     await semaphore.wait()
                     defer { Task { await semaphore.signal() } }
-                    return await self.fetchTracks(for: pilot, days: days)
+
+                    // Each pilot fetch gets its own timeout
+                    return await self.fetchWithTimeout(seconds: 12) {
+                        await self.fetchTracks(for: pilot, days: days)
+                    }
                 }
             }
 
             var combined: [PilotTrack] = []
-            for await chunk in group { combined.append(contentsOf: chunk) }
+            for await chunk in group {
+                combined.append(contentsOf: chunk)
+            }
             return combined
         }
     }
-
+    
     private func fetchTracks(for pilot: Pilot, days: Double) async -> [PilotTrack] {
+        guard !Task.isCancelled else { return [] }
         guard !pilot.inactive,
               let url = constructURL(trackingURL: pilot.trackingFeedURL, days: days) else { return [] }
-        let urlStr = url.absoluteString
 
+        let urlStr = url.absoluteString
         if let entry = cache[pilot.pilotName],
            entry.urlString == urlStr,
            entry.lastDays == days,
-           Date().timeIntervalSince(entry.lastFetch) < pilotTrackRefreshInterval
-        {
+           Date().timeIntervalSince(entry.lastFetch) < pilotTrackRefreshInterval {
             return entry.tracks
         }
 
         do {
             let kmlText = try await AppNetwork.shared.fetchTextAsync(url: url)
+            guard !Task.isCancelled else { return [] }
             let parsed = parseKML(pilotName: pilot.pilotName, text: kmlText)
             cache[pilot.pilotName] = CacheEntry(urlString: urlStr, lastFetch: Date(), lastDays: days, tracks: parsed)
             return parsed
         } catch {
             print("Error fetching tracks for \(pilot.pilotName): \(error)")
+            return []
+        }
+    }
+    
+    private func fetchWithTimeout(seconds: TimeInterval, operation: @escaping () async -> [PilotTrack]) async -> [PilotTrack] {
+        await withTaskGroup(of: [PilotTrack]?.self) { group in
+            // Actual operation
+            group.addTask {
+                await operation()
+            }
+
+            // Timeout
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                return nil
+            }
+
+            for await result in group {
+                if let value = result {
+                    group.cancelAll()
+                    return value
+                }
+            }
+
+            // If we reach here, timeout hit
             return []
         }
     }
@@ -242,3 +296,46 @@ class PilotTrackViewModel: ObservableObject {
         }
     }
 }
+
+extension Array where Element == PilotTrack {
+    // Splits each pilot's tracks into segments with no gaps > threshold
+    func splitIntoSegments(gapThreshold: TimeInterval = pilotTrackSegmentThreshold) -> [PilotTrackSegment] {
+        guard !self.isEmpty else { return [] }
+        
+        // Group tracks by pilot and day
+        let grouped = Dictionary(grouping: self) { track in
+            PilotTrackKey(pilotName: track.pilotName, date: Calendar.current.startOfDay(for: track.dateTime))
+        }
+        
+        var segments: [PilotTrackSegment] = []
+        
+        for (key, tracksForDay) in grouped {
+            let pilotName = key.pilotName
+            let day = key.date
+            
+            // Sort tracks chronologically
+            let sortedTracks = tracksForDay.sorted { $0.dateTime < $1.dateTime }
+            var currentSegment: [PilotTrack] = [sortedTracks[0]]
+
+            for track in sortedTracks.dropFirst() {
+                let previous = currentSegment.last!
+                let delta = track.dateTime.timeIntervalSince(previous.dateTime)
+                
+                // Gap detected → create a new segment
+                if delta > gapThreshold {
+                    segments.append(PilotTrackSegment(pilotName: pilotName, date: day, tracks: currentSegment))
+                    currentSegment = [track]
+                } else {
+                    currentSegment.append(track)
+                }
+            }
+
+            // Append the last segment
+            segments.append(PilotTrackSegment(pilotName: pilotName, date: day, tracks: currentSegment))
+        }
+        
+        // Sort segments by start time
+        return segments.sorted { $0.tracks.first!.dateTime < $1.tracks.first!.dateTime }
+    }
+}
+
