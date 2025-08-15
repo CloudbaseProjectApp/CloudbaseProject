@@ -47,7 +47,6 @@ class StationReadingsHistoryDataModel: ObservableObject {
                 self.readingsHistoryData.errorMessage = "Invalid Mesonet readings URL"
                 return
             }
-            if printReadingsURL { print(url) }
 
             AppNetwork.shared.fetchJSON(url: url, type: ReadingsData.self) { [weak self] result in
                 DispatchQueue.main.async {
@@ -98,7 +97,6 @@ class StationReadingsHistoryDataModel: ObservableObject {
                 self.readingsHistoryData.errorMessage = "Invalid CUASA readings URL"
                 return
             }
-            if printReadingsURL { print(url) }
             
             AppNetwork.shared.fetchJSON(url: url, type: [CUASAReadingsData].self) { [weak self] result in
                 DispatchQueue.main.async {
@@ -125,9 +123,7 @@ class StationReadingsHistoryDataModel: ObservableObject {
             request.httpMethod = "GET"
             request.setValue(RMHPAAPIKey, forHTTPHeaderField: "x-api-key")
             request.setValue("application/json", forHTTPHeaderField: "Accept")
-            
-            if printReadingsURL { print(url) }
-            
+                        
             AppNetwork.shared.fetchJSON(url: url, type: RMHPAAPIResponse.self) { [weak self] result in
                 DispatchQueue.main.async {
                     switch result {

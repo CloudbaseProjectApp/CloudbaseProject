@@ -44,7 +44,6 @@ class SiteDailyForecastViewModel: ObservableObject {
         updatedDailyForecastURL = updateURL(url: updatedDailyForecastURL, parameter: "longitude", value: longitude)
         updatedDailyForecastURL = updateURL(url: updatedDailyForecastURL, parameter: "encodedTimezone", value: encodedTimezone)
 
-        if printForecastURL { print(updatedDailyForecastURL) }
         guard let dailyForecastURL = URL(string: updatedDailyForecastURL) else { return }
 
         let cacheKey = dailyForecastURL.absoluteString

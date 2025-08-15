@@ -42,7 +42,9 @@ struct AreaForecastDiscussionView: View {
                         .padding(.vertical, 4)
                         .onChange(of: selectedIndex) { oldIndex, newIndex in
                             let code = codeOptions[newIndex].code
-                            viewModel.fetchAFD(airportCode: code)
+                            Task {
+                                await viewModel.fetchAFD(airportCode: code)
+                            }
                             userSettingsViewModel.updatePickListSelection(pickListName: "afd", selectedIndex: newIndex)
                         }
                     }

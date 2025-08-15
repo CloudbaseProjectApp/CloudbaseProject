@@ -13,6 +13,11 @@ struct PilotsResponse: Codable {
     let values: [[String]]
 }
 
+// Encodable bodies for Sheets API
+struct ValuesBody: Encodable {
+    let values: [[String]]
+}
+
 class PilotViewModel: ObservableObject {
     @Published var pilots: [Pilot] = []
 
@@ -27,7 +32,10 @@ class PilotViewModel: ObservableObject {
         }
         
         do {
-            let response: PilotsResponse = try await AppNetwork.shared.fetchJSONAsync(url: regionURL, type: PilotsResponse.self)
+            let response: PilotsResponse = try await AppNetwork.shared.fetchJSONAsync(
+                url: regionURL,
+                type: PilotsResponse.self
+            )
             
             let pilots = response.values.dropFirst().compactMap { row -> Pilot? in
                 guard row.count >= 2 else {
@@ -60,7 +68,6 @@ class PilotViewModel: ObservableObject {
     
     @MainActor
     func addPilot(pilotName: String, trackingShareURL: String) async throws {
-        // Get OAuth token
         let token = try await fetchAccessTokenAsync()
         
         guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(),
@@ -70,18 +77,14 @@ class PilotViewModel: ObservableObject {
             return
         }
 
-        let body: [String: Any] = ["values": [[pilotName, trackingShareURL]]]
+        let body = ValuesBody(values: [[pilotName, trackingShareURL]])
 
-        // Post pilot data
         try await AppNetwork.shared.postJSON(url: url, token: token, body: body)
-        
-        // Refresh pilots list
         await getPilots()
     }
 
     @MainActor
     func setPilotActiveStatus(pilot: Pilot, isInactive: Bool) async throws {
-        // Get OAuth token
         let token = try await fetchAccessTokenAsync()
         
         guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(),
@@ -91,7 +94,6 @@ class PilotViewModel: ObservableObject {
             return
         }
 
-        // Fetch sheet values
         struct ValuesResponse: Decodable { let values: [[String]] }
         let sheet: ValuesResponse = try await AppNetwork.shared.fetchJSONAsync(url: readURL, type: ValuesResponse.self)
 
@@ -100,22 +102,20 @@ class PilotViewModel: ObservableObject {
             return
         }
 
-        let sheetRow = rowIndex + 1  // Sheets rows are 1-based
-        let updateRange = "Pilots!C\(sheetRow)"  // Column C = Inactive
+        let sheetRow = rowIndex + 1
+        let updateRange = "Pilots!C\(sheetRow)"
 
         guard let updateURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(updateRange)?valueInputOption=RAW")
         else { return }
 
-        let body: [String: Any] = ["values": [[isInactive ? "Yes" : ""]]]
+        let body = ValuesBody(values: [[isInactive ? "Yes" : ""]])
 
         try await AppNetwork.shared.putJSON(url: updateURL, token: token, body: body)
-
-        // Refresh pilots list
         await getPilots()
     }
     
     func trackingShareURL(for pilotName: String) -> String? {
-        return pilots.first(where: { $0.pilotName == pilotName })?.trackingShareURL
+        pilots.first(where: { $0.pilotName == pilotName })?.trackingShareURL
     }
     
     // OAuth2 via service account using SwiftJWT

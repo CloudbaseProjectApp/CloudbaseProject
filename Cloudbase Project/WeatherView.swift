@@ -344,7 +344,9 @@ struct WeatherView: View {
             afdCodeOptions = AppRegionCodesManager.shared.getAFDCodes()
             if !afdCodeOptions.isEmpty {
                 afdSelectedIndex = userSettingsViewModel.getPickListSelection(pickListName: "afd")
-                afdViewModel.fetchAFD(airportCode: afdCodeOptions[0].code)
+                Task {
+                    await afdViewModel.fetchAFD(airportCode: afdCodeOptions[0].code)
+                }
             }
             
             // Soaring forecast (rich/simple and basic)

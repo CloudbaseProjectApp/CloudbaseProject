@@ -170,7 +170,6 @@ class SiteForecastViewModel: ObservableObject {
         updatedForecastURL = updateURL(url: updatedForecastURL, parameter: "encodedTimezone", value: encodedTimezone)
         
         let safeURLKey = updatedForecastURL
-        if printForecastURL { print(safeURLKey) }
         
         // Cache check
         if let cached = forecastCache[safeURLKey],
@@ -219,9 +218,7 @@ class SiteForecastViewModel: ObservableObject {
         var updatedForecastURL = updateURL(url: baseForecastURL, parameter: "latitude", value: latitude)
         updatedForecastURL = updateURL(url: updatedForecastURL, parameter: "longitude", value: longitude)
         updatedForecastURL = updateURL(url: updatedForecastURL, parameter: "encodedTimezone", value: encodedTimezone)
-        
         let safeURLKey = updatedForecastURL
-        if printForecastURL { print(safeURLKey) }
         
         // Cache check
         if let cached = forecastCache[safeURLKey],

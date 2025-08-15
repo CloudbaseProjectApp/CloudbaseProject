@@ -25,7 +25,6 @@ final class AppSession {
     }
 }
 
-// App Network helper to standardize JSON and text calls with error handling, etc.
 enum AppNetworkError: Error {
     case noData
     case serverError(statusCode: Int)
@@ -35,9 +34,7 @@ enum AppNetworkError: Error {
 
 final class AppNetwork {
     static let shared = AppNetwork(session: AppSession.shared.session)
-    
     private let session: URLSession
-    
     private init(session: URLSession) {
         self.session = session
     }
@@ -46,197 +43,221 @@ final class AppNetwork {
     static func withSession(_ session: URLSession) -> AppNetwork {
         return AppNetwork(session: session)
     }
-    
-    // Internal generic dataTask helper
-    private func dataTask(
-        url: URL,
-        completion: @escaping (Result<Data, AppNetworkError>) -> Void
-    ) {
-        let task = session.dataTask(with: url) { data, response, error in
-            if let error = error {
-                completion(.failure(.other(error)))
-                return
+        
+    // Centralized Logging based on global debug settings
+    func logURL(_ url: URL?) {
+        if printURLRequest {
+            if let url = url {
+                print("[AppNetwork] Request URL: \(url.absoluteString)")
+            } else {
+                print("[AppNetwork] Request URL: <missing URL>")
             }
-            
-            if let httpResponse = response as? HTTPURLResponse,
-               !(200...299).contains(httpResponse.statusCode) {
-                completion(.failure(.serverError(statusCode: httpResponse.statusCode)))
-                return
-            }
-            
-            guard let data = data else {
-                completion(.failure(.noData))
-                return
-            }
-            
-            completion(.success(data))
         }
-        task.resume()
+    }
+    func logRawResponse(_ data: Data) {
+        if printURLRawResponse {
+            if let rawString = String(data: data, encoding: .utf8) {
+                print("[AppNetwork] Raw Response:\n\(rawString)")
+            } else {
+                print("[AppNetwork] Raw Response (non-UTF8, \(data.count) bytes)")
+            }
+        }
     }
     
-    // Public JSON fetch
+    // Error Handling
+    func handleNetworkError(_ error: Error) {
+        print("[AppNetwork] Network Error: \(error.localizedDescription)")
+    }
+    func handleDecodingError(_ error: Error) {
+        print("[AppNetwork] Decoding Error: \(error.localizedDescription)")
+    }
+    
+    // Generic GET
     func fetchJSON<T: Decodable>(
         url: URL,
         type: T.Type,
-        completion: @escaping (Result<T, AppNetworkError>) -> Void
+        completion: @escaping (Result<T, Error>) -> Void
     ) {
-        dataTask(url: url) { result in
-            switch result {
-            case .success(let data):
-
-                // Debug print statements
-                if printURLRawResponse {
-                    if let rawString = String(data: data, encoding: .utf8) {
-                        print("🔍 Raw JSON from \(url):\n\(rawString)")
-                    } else {
-                        print("⚠️ Unable to decode raw data as UTF-8 from \(url)")
-                    }
-                }
-
-                do {
-                    let decoded = try JSONDecoder().decode(T.self, from: data)
-                    completion(.success(decoded))
-                } catch {
-                    completion(.failure(.decodingFailed(error)))
-                }
-
-            case .failure(let error):
+        logURL(url)
+        URLSession.shared.dataTask(with: url) { data, _, error in
+            if let error = error {
+                self.handleNetworkError(error)
+                completion(.failure(error))
+                return
+            }
+            guard let data = data else {
+                completion(.failure(URLError(.badServerResponse)))
+                return
+            }
+            self.logRawResponse(data)
+            do {
+                let decoded = try JSONDecoder().decode(T.self, from: data)
+                completion(.success(decoded))
+            } catch {
+                self.handleDecodingError(error)
                 completion(.failure(error))
             }
-        }
-    }
-
-    func fetchJSONAsync<T: Decodable>(url: URL, type: T.Type) async throws -> T {
-        try await withCheckedThrowingContinuation { cont in
-            self.fetchJSON(url: url, type: type) { result in
-                switch result {
-                case .success(let decoded):
-                    cont.resume(returning: decoded)
-                case .failure(let error):
-                    cont.resume(throwing: error)
-                }
-            }
-        }
+        }.resume()
     }
     
-    
-    func postJSON(url: URL, token: String, body: [String: Any]) async throws {
-        let data = try JSONSerialization.data(withJSONObject: body)
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.httpBody = data
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        _ = try await fetchTextAsync(request: req)
-    }
-
-    func putJSON(url: URL, token: String, body: [String: Any]) async throws {
-        let data = try JSONSerialization.data(withJSONObject: body)
-        var req = URLRequest(url: url)
-        req.httpMethod = "PUT"
-        req.httpBody = data
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        _ = try await fetchTextAsync(request: req)
-    }
-    
-    // Public Text fetch
-    func fetchText(
+    // Async GET JSON
+    func fetchJSONAsync<T: Decodable>(
         url: URL,
-        completion: @escaping (Result<String, AppNetworkError>) -> Void
-    ) {
-        dataTask(url: url) { result in
-            switch result {
-            case .success(let data):
-                
-                // Debug print statements
-                if printURLRawResponse {
-                    if let rawString = String(data: data, encoding: .utf8) {
-                        print("🔍 Raw JSON from \(url):\n\(rawString)")
-                    } else {
-                        print("⚠️ Unable to decode raw data as UTF-8 from \(url)")
-                    }
-                }
-
-                if let text = String(data: data, encoding: .utf8) {
-                    completion(.success(text))
-                } else {
-                    completion(.failure(.noData))
-                }
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
+        type: T.Type
+    ) async throws -> T {
+        logURL(url)
+        let (data, _) = try await URLSession.shared.data(from: url)
+        logRawResponse(data)
+        return try JSONDecoder().decode(T.self, from: data)
     }
     
-    // Fetches a URL as a String asynchronously.
-    func fetchTextAsync(url: URL) async throws -> String {
-        return try await withCheckedThrowingContinuation { continuation in
-            fetchText(url: url) { result in
-                switch result {
-                case .success(let text):
-                    continuation.resume(returning: text)
-                case .failure(let error):
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
-    }
-    
-    // Executes a URLRequest asynchronously, honoring method, headers, and body
-    func fetchTextAsync(request: URLRequest, printURLRawResponse: Bool = false) async throws -> String {
-        return try await withCheckedThrowingContinuation { continuation in
-            let task = session.dataTask(with: request) { data, response, error in
-                if let error = error {
-                    continuation.resume(throwing: AppNetworkError.other(error))
-                    return
-                }
-                
-                guard let httpResponse = response as? HTTPURLResponse,
-                      (200...299).contains(httpResponse.statusCode) else {
-                    continuation.resume(throwing: AppNetworkError.serverError(
-                        statusCode: (response as? HTTPURLResponse)?.statusCode ?? -1
-                    ))
-                    return
-                }
-                
-                guard let data = data else {
-                    continuation.resume(throwing: AppNetworkError.noData)
-                    return
-                }
-                
-                // Debug print statements
-                if printURLRawResponse {
-                    if let rawString = String(data: data, encoding: .utf8) {
-                        print("🔍 Raw response from \(request.url?.absoluteString ?? "<unknown URL>"):\n\(rawString)")
-                    } else {
-                        print("⚠️ Unable to decode raw data as UTF-8 from \(request.url?.absoluteString ?? "<unknown URL>")")
-                    }
-                }
-                
-                guard let text = String(data: data, encoding: .utf8) else {
-                    continuation.resume(throwing: AppNetworkError.noData)
-                    return
-                }
-                
-                continuation.resume(returning: text)
-            }
-            task.resume()
-        }
-    }
-    
-    // Fetches a URL as Data asynchronously.
+    // Async GET Data
     func fetchDataAsync(url: URL) async throws -> Data {
-        let text = try await fetchTextAsync(url: url)
-        return Data(text.utf8)
+        logURL(url)
+        let (data, _) = try await URLSession.shared.data(from: url)
+        logRawResponse(data)
+        return data
+    }
+    func fetchDataAsync(request: URLRequest) async throws -> Data {
+        logURL(request.url)
+        let (data, _) = try await URLSession.shared.data(for: request)
+        logRawResponse(data)
+        return data
     }
     
-    // Fetches a URLRequest as Data asynchronously.
-    func fetchDataAsync(request: URLRequest) async throws -> Data {
-        let text = try await fetchTextAsync(request: request)
-        return Data(text.utf8)
+    // Async GET Text
+    func fetchTextAsync(url: URL) async throws -> String {
+        logURL(url)
+        let (data, _) = try await URLSession.shared.data(from: url)
+        logRawResponse(data)
+        guard let text = String(data: data, encoding: .utf8) else {
+            throw URLError(.cannotDecodeRawData)
+        }
+        return text
     }
-
+    func fetchTextAsync(request: URLRequest) async throws -> String {
+        logURL(request.url)
+        let (data, _) = try await URLSession.shared.data(for: request)
+        logRawResponse(data)
+        guard let text = String(data: data, encoding: .utf8) else {
+            throw URLError(.cannotDecodeRawData)
+        }
+        return text
+    }
+    
+    // POST JSON (no token)
+    func postJSON<T: Encodable>(
+        url: URL,
+        body: T
+    ) async throws {
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(body)
+        logURL(url)
+        _ = try await URLSession.shared.data(for: request)
+    }
+    func postJSON<T: Encodable, U: Decodable>(
+        url: URL,
+        body: T,
+        responseType: U.Type
+    ) async throws -> U {
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(body)
+        logURL(url)
+        let (data, _) = try await URLSession.shared.data(for: request)
+        logRawResponse(data)
+        return try JSONDecoder().decode(U.self, from: data)
+    }
+    
+    // POST JSON (with token)
+    func postJSON<T: Encodable>(
+        url: URL,
+        token: String,
+        body: T
+    ) async throws {
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(body)
+        logURL(url)
+        _ = try await URLSession.shared.data(for: request)
+    }
+    func postJSON<T: Encodable, U: Decodable>(
+        url: URL,
+        token: String,
+        body: T,
+        responseType: U.Type
+    ) async throws -> U {
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(body)
+        logURL(url)
+        let (data, _) = try await URLSession.shared.data(for: request)
+        logRawResponse(data)
+        return try JSONDecoder().decode(U.self, from: data)
+    }
+    
+    // PUT JSON (no token)
+    func putJSON<T: Encodable>(
+        url: URL,
+        body: T
+    ) async throws {
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(body)
+        logURL(url)
+        _ = try await URLSession.shared.data(for: request)
+    }
+    func putJSON<T: Encodable, U: Decodable>(
+        url: URL,
+        body: T,
+        responseType: U.Type
+    ) async throws -> U {
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(body)
+        logURL(url)
+        let (data, _) = try await URLSession.shared.data(for: request)
+        logRawResponse(data)
+        return try JSONDecoder().decode(U.self, from: data)
+    }
+    
+    // PUT JSON (with token)
+    func putJSON<T: Encodable>(
+        url: URL,
+        token: String,
+        body: T
+    ) async throws {
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(body)
+        logURL(url)
+        _ = try await URLSession.shared.data(for: request)
+    }
+    func putJSON<T: Encodable, U: Decodable>(
+        url: URL,
+        token: String,
+        body: T,
+        responseType: U.Type
+    ) async throws -> U {
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(body)
+        logURL(url)
+        let (data, _) = try await URLSession.shared.data(for: request)
+        logRawResponse(data)
+        return try JSONDecoder().decode(U.self, from: data)
+    }
 }
