@@ -24,13 +24,24 @@ struct AppRegionResponse: Codable {
     let values: [[String]]
 }
 
+struct AppRegionError: Error {
+    let message: String
+}
+
+@MainActor
 class AppRegionViewModel: ObservableObject {
     @Published var appRegions: [AppRegion] = []
+    @Published var showNetworkErrorSheet: Bool = false
+    
     private var cancellables = Set<AnyCancellable>()
     
     let sheetName = "Regions"
     
-    @MainActor
+    func retryFetchRegions() async {
+        showNetworkErrorSheet = false
+        await getAppRegions()
+    }
+    
     func getAppRegions() async {
         let urlString = "https://sheets.googleapis.com/v4/spreadsheets/\(globalGoogleSheetID)/values/\(sheetName)?alt=json&key=\(googleAPIKey)"
         guard let url = URL(string: urlString) else {
@@ -42,6 +53,12 @@ class AppRegionViewModel: ObservableObject {
         do {
             let response: AppRegionResponse = try await AppNetwork.shared.fetchJSONAsync(url: url, type: AppRegionResponse.self)
             
+            // Throw an error if the returned data (excluding header) is empty
+            if response.values.dropFirst().isEmpty {
+                throw AppRegionError(message: "No app regions returned from network")
+            }
+
+            // Map and load regions
             let regions: [AppRegion] = response.values.dropFirst().compactMap { row in
                 guard row.count >= 5 else {
                     print("Skipping malformed app region row: \(row)")
@@ -92,6 +109,7 @@ class AppRegionViewModel: ObservableObject {
             
         } catch {
             print("Failed to fetch app regions: \(error)")
+            self.showNetworkErrorSheet = true
             self.appRegions = []
         }
     }

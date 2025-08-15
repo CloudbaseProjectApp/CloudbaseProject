@@ -33,7 +33,6 @@ struct WeatherView: View {
     // Latest sounding model
     @State private var soundingModelSelectedIndex: Int = 0
     @State private var soundingModelCodeOptions: [(name: String, code: String)] = []
-
     
     var body: some View {
         VStack {

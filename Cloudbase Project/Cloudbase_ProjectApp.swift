@@ -150,8 +150,8 @@ struct Cloudbase_ProjectApp: App {
 
 struct BaseAppView: View {
     @Binding var refreshMetadata: Bool
-    @State private var isActive = false
-    @State private var metadataLoaded = false
+    @State private var isActive: Bool = false
+    @State private var metadataLoaded: Bool = false
     @State private var showAppRegionSelector: Bool = false
     
     @EnvironmentObject var appRegionViewModel: AppRegionViewModel
@@ -217,11 +217,45 @@ struct BaseAppView: View {
                 refreshMetadata = false
             }
         }
+        
+        // Note that network error is currently only being checked in appRegionViewModel.
+        // This assumes that if the Google sheet can be loaded for app regions, then the rest of metadata will also load.
+        .sheet(isPresented: $appRegionViewModel.showNetworkErrorSheet) {
+            VStack(spacing: 20) {
+                Text("Network Error")
+                    .font(.title)
+                Text("Could not load app configuration data")
+                    .font(.subheadline)
+                Text("Please check your connection and try again")
+                    .font(.subheadline)
+
+                Button(action: {
+                    Task {
+                        await appRegionViewModel.retryFetchRegions()
+                    }
+                    
+                    // Trigger metadata reload
+                    refreshMetadata = true
+                }) {
+                    Text("Retry")
+                        .foregroundColor(skewTButtonTextColor)
+                        .padding(8)
+                }
+                .frame(width: skewTButtonWidth)
+                .background(skewTButtonBackgroundColor)
+                .cornerRadius(8)
+                .buttonStyle(BorderlessButtonStyle())
+                .padding()
+            }
+            .padding()
+        }
+        
         .sheet(isPresented: $showAppRegionSelector) {
             AppRegionView()
                 .setSheetConfig()
                 .environmentObject(userSettingsViewModel)
         }
+        
     }
     
     private func loadInitialMetadata() {
