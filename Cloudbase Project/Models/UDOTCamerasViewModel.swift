@@ -46,28 +46,23 @@ class UDOTCamerasViewModel: ObservableObject {
     @Published var cameras: [UDOTCameraData] = []
     @Published var clusteredCameras: [UDOTCameraData] = []
 
-    func fetchCameras() {
+    @MainActor
+    func fetchCameras() async {
         guard let url = URL(string: uDOTCamerasAPI) else {
             print("Invalid URL")
             return
         }
 
-        URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
-            guard let data = data, error == nil else {
-                print("Error fetching data: \(error?.localizedDescription ?? "Unknown error")")
-                return
-            }
+        do {
+            // Fetch and decode JSON using AppNetwork
+            let decodedData = try await AppNetwork.shared.fetchJSONAsync(url: url, type: [UDOTCameraData].self)
 
-            do {
-                let decodedData = try JSONDecoder().decode([UDOTCameraData].self, from: data)
-                DispatchQueue.main.async {
-                    self?.cameras = decodedData
-                    self?.updateClusters(mapRegionSpan: MKCoordinateSpan(latitudeDelta: mapDefaultLatitudeSpan, longitudeDelta: mapDefaultLongitudeSpan))
-                }
-            } catch {
-                print("Error decoding JSON: \(error)")
-            }
-        }.resume()
+            self.cameras = decodedData
+            self.updateClusters(mapRegionSpan: MKCoordinateSpan(latitudeDelta: mapDefaultLatitudeSpan,
+                                                                longitudeDelta: mapDefaultLongitudeSpan))
+        } catch {
+            print("Error fetching or decoding UDOT cameras: \(error)")
+        }
     }
 
     func updateClusters(mapRegionSpan: MKCoordinateSpan) {
@@ -76,7 +71,8 @@ class UDOTCamerasViewModel: ObservableObject {
 
         for camera in cameras {
             if clusteredCameras.allSatisfy({ existingCamera in
-                let distance = sqrt(pow(camera.latitude - existingCamera.latitude, 2) + pow(camera.longitude - existingCamera.longitude, 2))
+                let distance = sqrt(pow(camera.latitude - existingCamera.latitude, 2) +
+                                    pow(camera.longitude - existingCamera.longitude, 2))
                 return distance > thresholdDistance
             }) {
                 clusteredCameras.append(camera)

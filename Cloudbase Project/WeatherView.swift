@@ -190,7 +190,9 @@ struct WeatherView: View {
                             
                             .onChange(of: windsAloftSelectedIndex) { oldIndex, newIndex in
                                 let selectedCode = windsAloftCodeOptions[newIndex].code
-                                windsAloftViewModel.getWindsAloftData(airportCode: selectedCode)
+                                Task {
+                                    await windsAloftViewModel.getWindsAloftData(airportCode: selectedCode)
+                                }
                                 userSettingsViewModel.updatePickListSelection(pickListName: "windsAloft", selectedIndex: newIndex)
                             }
                         }
@@ -334,7 +336,9 @@ struct WeatherView: View {
             TFRviewModel.fetchTFRs()
             
             // Weather Alerts
-            weatherAlertViewModel.getWeatherAlerts()
+            Task {
+                await weatherAlertViewModel.getWeatherAlerts()
+            }
             
             // AFD
             afdCodeOptions = AppRegionCodesManager.shared.getAFDCodes()
@@ -358,7 +362,9 @@ struct WeatherView: View {
             windsAloftCodeOptions = AppRegionCodesManager.shared.getWindsAloftCodes()
             if !windsAloftCodeOptions.isEmpty {
                 windsAloftSelectedIndex = userSettingsViewModel.getPickListSelection(pickListName: "windsAloft")
-                windsAloftViewModel.getWindsAloftData(airportCode: windsAloftCodeOptions[0].code)
+                Task {
+                    await windsAloftViewModel.getWindsAloftData(airportCode: windsAloftCodeOptions[0].code)
+                }
             }
             
             // Latest sounding model

@@ -75,8 +75,8 @@ struct MapView: UIViewRepresentable {
     @Binding var showRadar: Bool
     @Binding var showInfrared: Bool
     @Binding var showSites: Bool
-    let radarOverlays: [MKTileOverlay]
-    let infraredOverlays: [MKTileOverlay]
+    var radarOverlay: MKTileOverlay?
+    var infraredOverlay: MKTileOverlay?
     let pilotTracks: [PilotTrack]
     let sites: [Site]
     let stationAnnotations: [StationAnnotation]
@@ -110,22 +110,26 @@ struct MapView: UIViewRepresentable {
         // Update map type
         mapView.mapType = mapStyle.toMapType()
         
-        // Clear out old overlays and annotations
+        // Clear out old overlays
         mapView.removeAnnotations(mapView.annotations)
         mapView.removeOverlays(mapView.overlays)
-
-        // Display infrared satellite tiles
-        if mapDisplayMode == .weather && showInfrared {
-            for tile in infraredOverlays {
-                mapView.addOverlay(tile, level: .aboveRoads)
-            }
-        }
         
-        // Display radar tiles
-        if mapDisplayMode == .weather && showRadar {
-            for tile in radarOverlays {
-                mapView.addOverlay(tile, level: .aboveRoads)
+        // Infrared overlay
+        if showInfrared && mapDisplayMode == .weather {
+            if let ir = infraredOverlay, !mapView.overlays.contains(where: { $0 === ir }) {
+                mapView.addOverlay(ir, level: .aboveRoads)
             }
+        } else if let ir = infraredOverlay, mapView.overlays.contains(where: { $0 === ir }) {
+            mapView.removeOverlay(ir)
+        }
+
+        // Radar overlay
+        if showRadar && mapDisplayMode == .weather {
+            if let radar = radarOverlay, !mapView.overlays.contains(where: { $0 === radar }) {
+                mapView.addOverlay(radar, level: .aboveRoads)
+            }
+        } else if let radar = radarOverlay, mapView.overlays.contains(where: { $0 === radar }) {
+            mapView.removeOverlay(radar)
         }
         
         // Add sites if enabled
@@ -146,7 +150,7 @@ struct MapView: UIViewRepresentable {
             mapView.addAnnotations(siteAnnotations)
         }
         
-        // Build a stable, ordered list of pilots → color map
+        // Build a stable, ordered list of pilots â color map
         let uniquePilots = Array(Set(pilotTracks.map { $0.pilotName }))
             .sorted()
         let pilotColorMap = Dictionary(
@@ -165,18 +169,18 @@ struct MapView: UIViewRepresentable {
         
         // For each pilot, in sorted order:
         for pilotName in uniquePilots {
-            // — grab & time-sort their tracks
+            // â grab & time-sort their tracks
             let tracksForPilot = pilotTracks
                 .filter { $0.pilotName == pilotName }
                 .sorted { $0.dateTime < $1.dateTime }
             
-            // — extract coords for polyline
+            // â extract coords for polyline
             let coords = tracksForPilot.map {
                 CLLocationCoordinate2D(latitude: $0.latitude,
                                        longitude: $0.longitude)
             }
             
-            // — add line if we have at least two points
+            // â add line if we have at least two points
             if coords.count > 1 {
                 let polyline = MKPolyline(coordinates: coords, count: coords.count)
                 polyline.title = pilotName
@@ -184,7 +188,7 @@ struct MapView: UIViewRepresentable {
                 
             }
             
-            // — partition into emergency / message / finish / first / normal
+            // â partition into emergency / message / finish / first / normal
             var emergencyTracks: [PilotTrack] = []
             var messageTracks:   [PilotTrack] = []
             var finishTracks:    [PilotTrack] = []
@@ -215,7 +219,7 @@ struct MapView: UIViewRepresentable {
                 }
             }
             
-            // — add track annotations in that priority order
+            // â add track annotations in that priority order
             for group in [emergencyTracks, messageTracks, finishTracks, firstTracks, normalTracks] {
                 for track in group {
                     let idx = tracksForPilot.firstIndex { $0.id == track.id } ?? 0
@@ -246,7 +250,7 @@ struct MapView: UIViewRepresentable {
                 }
             }
             
-            // — if zoomed in, draw arrows between each consecutive pair
+            // â if zoomed in, draw arrows between each consecutive pair
             if showAllMarkers {
                 for i in 0..<coords.count - 1 {
                     let start = coords[i]
@@ -298,11 +302,17 @@ struct MapView: UIViewRepresentable {
             // Tile overlays (radar / infrared satellite)
             if let tile = overlay as? MKTileOverlay {
                 let renderer = MKTileOverlayRenderer(tileOverlay: tile)
-                if tile.urlTemplate?.contains("/satellite/") == true {
-                    renderer.alpha = 0.6
-                } else if tile.urlTemplate?.contains("/radar/") == true {
-                    renderer.alpha = 1.0
+                
+                if let template = tile.urlTemplate?.lowercased() {
+                    if template.contains("/infrared/") || template.contains("/satellite/") {
+                        renderer.alpha = 0.6
+//                        renderer.blendMode = .plusLighter // blend to let labels show through
+                    } else if template.contains("/radar/") || template.contains("/rain/") {
+                        renderer.alpha = 1.0
+//                        renderer.blendMode = .plusLighter // softer overlay, labels visible
+                    }
                 }
+                
                 return renderer
             }
             
@@ -318,7 +328,10 @@ struct MapView: UIViewRepresentable {
             // Arrows between nodes
             if let arrow = overlay as? ArrowOverlay {
                 let renderer = ArrowOverlayRenderer(arrow: arrow)
-                let zl = log2(360 * (Double(mapView.frame.size.width)/256) / mapView.region.span.longitudeDelta)
+                let zl = log2(
+                    360 * (Double(mapView.frame.size.width) / 256) /
+                    mapView.region.span.longitudeDelta
+                )
                 renderer.zoomLevel = zl
                 return renderer
             }
@@ -494,15 +507,15 @@ struct MapView: UIViewRepresentable {
                     // Normal nodes: more visible as you zoom in
                     switch span.latitudeDelta {
                     case ..<0.005:
-                        // really close in → show everything
+                        // really close in â show everything
                         view.displayPriority = .required
                         view.collisionMode = .none
                     case 0.005..<0.02:
-                        // mid-zoom → moderate density
+                        // mid-zoom â moderate density
                         view.displayPriority = .defaultHigh
                         view.collisionMode    = .circle
                     default:
-                        // zoomed way out → thin them out
+                        // zoomed way out â thin them out
                         view.displayPriority = .defaultLow
                         view.collisionMode    = .circle
                     }
@@ -636,7 +649,7 @@ struct MapView: UIViewRepresentable {
             // Position both subviews
             label.frame.origin = CGPoint(x: horizPadding, y: vertPadding)
             
-            // Place the arrow by center so its bounds don’t change size
+            // Place the arrow by center so its bounds donât change size
             let arrowCenter = CGPoint(
                 x: label.frame.maxX + horizPadding + ( arrowSize.width / 2 ),
                 y: vertPadding + ( label.frame.height / 2 )
@@ -667,7 +680,7 @@ struct MapView: UIViewRepresentable {
                 case let station as StationAnnotation:
                     self.onStationSelected(station)
                 case let pin as MKPointAnnotation:
-                    // look up the Site by title (or store a map from pin → Site)
+                    // look up the Site by title (or store a map from pin â Site)
                     if let site = self.parent.sites.first(where: { $0.siteName == pin.title }) {
                         self.onSiteSelected(site)
                     }
@@ -751,7 +764,7 @@ struct MapContainerView: View {
                 let stations = userSettingsViewModel.isMapWeatherMode
                   ? stationAnnotationViewModel.clusteredStationAnnotations
                   : []
-
+                
                 MapView(
                     mapRegion:          $userSettingsViewModel.mapRegion,
                     zoomLevel:          $userSettingsViewModel.zoomLevel,
@@ -760,8 +773,8 @@ struct MapContainerView: View {
                     showRadar:          $userSettingsViewModel.showRadar,
                     showInfrared:       $userSettingsViewModel.showInfrared,
                     showSites:          $userSettingsViewModel.showSites,
-                    radarOverlays:      rainViewerOverlayViewModel.radarOverlays,
-                    infraredOverlays:   rainViewerOverlayViewModel.infraredOverlays,
+                    radarOverlay:       rainViewerOverlayViewModel.radarOverlay,
+                    infraredOverlay:    rainViewerOverlayViewModel.infraredOverlay,
                     pilotTracks:        filteredTracks,
                     sites:              siteViewModel.sites,
                     stationAnnotations: stations,
@@ -846,7 +859,6 @@ struct MapContainerView: View {
                                     showStations:       $userSettingsViewModel.showStations,
                                     showRadar:          $userSettingsViewModel.showRadar,
                                     showInfrared:       $userSettingsViewModel.showInfrared,
-                                    radarColorScheme:   $userSettingsViewModel.radarColorScheme,
                                     selectedPilots:     $userSettingsViewModel.selectedPilots
                                 )
                                 .setSheetConfig()
@@ -897,25 +909,24 @@ struct MapContainerView: View {
                     }
                 }
                 else if userSettingsViewModel.isMapWeatherMode {
+                    
                     // Reload radar overlay
-                    if userSettingsViewModel.showRadar {
-                        DispatchQueue.main.async {
-                            rainViewerOverlayViewModel.loadOverlays(radarColorScheme: userSettingsViewModel.radarColorScheme)
-                        }
+                    DispatchQueue.main.async {
+                        rainViewerOverlayViewModel.loadAllOverlays(
+                            showRadar: userSettingsViewModel.showRadar,
+                            showInfrared: userSettingsViewModel.showInfrared
+                        )
                     }
-                    // Reload infrared overlay
-                    if userSettingsViewModel.showInfrared {
-                        DispatchQueue.main.async {
-                            rainViewerOverlayViewModel.loadOverlays(radarColorScheme: userSettingsViewModel.radarColorScheme)
-                        }
-                    }
+
                     // Reload weather readings
                     DispatchQueue.main.async {
                         stationAnnotationViewModel.userSettingsViewModel = userSettingsViewModel
                         stationAnnotationViewModel.siteViewModel = siteViewModel
                     }
                     DispatchQueue.main.async {
-                        stationLatestReadingViewModel.getLatestReadingsData (sitesOnly: false) {
+                        Task {
+                            await stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: false)
+                            // Continue after async call completes
                             stationAnnotationViewModel.stationLatestReadingViewModel = stationLatestReadingViewModel
                             stationAnnotationViewModel.updateStationAnnotations {
                                 stationAnnotationViewModel.clusterStationAnnotations(mapRegionSpan: userSettingsViewModel.mapRegion.span)
@@ -931,7 +942,6 @@ struct MapContainerView: View {
                                            showStations:        userSettingsViewModel.showStations,
                                            showRadar:           userSettingsViewModel.showRadar,
                                            showInfrared:        userSettingsViewModel.showInfrared,
-                                           radarColorScheme:    userSettingsViewModel.radarColorScheme,
                                            scenePhase:          scenePhase,
                                            selectedPilots:      userSettingsViewModel.selectedPilots
                                           )) {
@@ -951,25 +961,24 @@ struct MapContainerView: View {
                         }
                     }
                     else if userSettingsViewModel.isMapWeatherMode {
+                        
                         // Reload radar overlay
-                        if userSettingsViewModel.showRadar {
-                            DispatchQueue.main.async {
-                                rainViewerOverlayViewModel.loadOverlays(radarColorScheme: userSettingsViewModel.radarColorScheme)
-                            }
+                        DispatchQueue.main.async {
+                            rainViewerOverlayViewModel.loadAllOverlays(
+                                showRadar: userSettingsViewModel.showRadar,
+                                showInfrared: userSettingsViewModel.showInfrared
+                            )
                         }
-                        // Reload infrared overlay
-                        if userSettingsViewModel.showInfrared {
-                            DispatchQueue.main.async {
-                                rainViewerOverlayViewModel.loadOverlays(radarColorScheme: userSettingsViewModel.radarColorScheme)
-                            }
-                        }
+
                         // Reload weather readings
                         DispatchQueue.main.async {
                             stationAnnotationViewModel.userSettingsViewModel = userSettingsViewModel
                             stationAnnotationViewModel.siteViewModel = siteViewModel
                         }
                         DispatchQueue.main.async {
-                            stationLatestReadingViewModel.getLatestReadingsData (sitesOnly: false) {
+                            Task {
+                                await stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: false)
+                                // Continue after async call completes
                                 stationAnnotationViewModel.stationLatestReadingViewModel = stationLatestReadingViewModel
                                 stationAnnotationViewModel.updateStationAnnotations {
                                     stationAnnotationViewModel.clusterStationAnnotations(mapRegionSpan: userSettingsViewModel.mapRegion.span)
@@ -1041,25 +1050,24 @@ struct MapContainerView: View {
                     }
                 }
                 else if userSettingsViewModel.isMapWeatherMode {
+                    
                     // Reload radar overlay
-                    if userSettingsViewModel.showRadar {
-                        DispatchQueue.main.async {
-                            rainViewerOverlayViewModel.loadOverlays(radarColorScheme: userSettingsViewModel.radarColorScheme)
-                        }
+                    DispatchQueue.main.async {
+                        rainViewerOverlayViewModel.loadAllOverlays(
+                            showRadar: userSettingsViewModel.showRadar,
+                            showInfrared: userSettingsViewModel.showInfrared
+                        )
                     }
-                    // Reload infrared overlay
-                    if userSettingsViewModel.showInfrared {
-                        DispatchQueue.main.async {
-                            rainViewerOverlayViewModel.loadOverlays(radarColorScheme: userSettingsViewModel.radarColorScheme)
-                        }
-                    }
+
                     // Reload weather readings
                     DispatchQueue.main.async {
                         stationAnnotationViewModel.userSettingsViewModel = userSettingsViewModel
                         stationAnnotationViewModel.siteViewModel = siteViewModel
                     }
                     DispatchQueue.main.async {
-                        stationLatestReadingViewModel.getLatestReadingsData (sitesOnly: false) {
+                        Task {
+                            await stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: false)
+                            // Continue after async call completes
                             stationAnnotationViewModel.stationLatestReadingViewModel = stationLatestReadingViewModel
                             stationAnnotationViewModel.updateStationAnnotations {
                                 stationAnnotationViewModel.clusterStationAnnotations(mapRegionSpan: userSettingsViewModel.mapRegion.span)

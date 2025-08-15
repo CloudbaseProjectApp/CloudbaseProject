@@ -30,76 +30,69 @@ class AppRegionViewModel: ObservableObject {
     
     let sheetName = "Regions"
     
-    func getAppRegions(completion: @escaping () -> Void) {
-        let appRegionsURLString = "https://sheets.googleapis.com/v4/spreadsheets/\(globalGoogleSheetID)/values/\(sheetName)?alt=json&key=\(googleAPIKey)"
-        guard let url = URL(string: appRegionsURLString) else {
+    @MainActor
+    func getAppRegions() async {
+        let urlString = "https://sheets.googleapis.com/v4/spreadsheets/\(globalGoogleSheetID)/values/\(sheetName)?alt=json&key=\(googleAPIKey)"
+        guard let url = URL(string: urlString) else {
             print("Invalid URL for app regions")
-            DispatchQueue.main.async { completion() }
+            self.appRegions = []
             return
         }
-        URLSession.shared.dataTaskPublisher(for: url)
-            .map { $0.data }
-            .decode(type: AppRegionResponse.self, decoder: JSONDecoder())
         
-            .map { response -> [AppRegion] in
-                response.values.dropFirst().compactMap { row in
-                    guard row.count >= 5 else {
-                        print("Skipping malformed app region row: \(row)")
-                        return nil
-                    }
-                    let appRegion               = row[0]
-                    let appCountry              = row[1]
-                    let appRegionName           = row[2]
-                    let appRegionGoogleSheetID  = row[3]
-                    let timezone                = row[4]
-                    let sunriseLatitude         = row.count > 5 ? Double(row[5]) ?? 0.0 : 0.0
-                    let sunriseLongitude        = row.count > 6 ? Double(row[6]) ?? 0.0 : 0.0
-                    let mapInitLatitude         = row.count > 7 ? Double(row[7]) ?? 0.0 : 0.0
-                    let mapInitLongitude        = row.count > 8 ? Double(row[8]) ?? 0.0 : 0.0
-                    let mapInitLatitudeSpan     = row.count > 9 ? Double(row[9]) ?? 0.0 : 0.0
-                    let mapInitLongitudeSpan    = row.count > 10 ? Double(row[10]) ?? 0.0 : 0.0
-                    let mapDefaultZoomLevel     = row.count > 11 ? Double(row[11]) ?? 0.0 : 0.0
-                    let appRegionStatus         = row.count > 12 ? row[12] : ""
-                    
-                    // Make sure region, country, name, Google sheet, and time zone are populated
-                    guard !appRegion.isEmpty,
-                          !appCountry.isEmpty,
-                          !appRegionName.isEmpty,
-                          !appRegionGoogleSheetID.isEmpty,
-                          !timezone.isEmpty else {
-                        print("Skipping app region row with missing critical fields: \(row)")
-                        return nil
-                    }
-                    
-                    return AppRegion(appRegion:                 appRegion,
-                                     appCountry:                appCountry,
-                                     appRegionName:             appRegionName,
-                                     appRegionGoogleSheetID:    appRegionGoogleSheetID,
-                                     timezone:                  timezone,
-                                     sunriseLatitude:           sunriseLatitude,
-                                     sunriseLongitude:          sunriseLongitude,
-                                     mapInitLatitude:           mapInitLatitude,
-                                     mapInitLongitude:          mapInitLongitude,
-                                     mapInitLatitudeSpan:       mapInitLatitudeSpan,
-                                     mapInitLongitudeSpan:      mapInitLongitudeSpan,
-                                     mapDefaultZoomLevel:       mapDefaultZoomLevel,
-                                     appRegionStatus:           appRegionStatus
-                    )
+        do {
+            let response: AppRegionResponse = try await AppNetwork.shared.fetchJSONAsync(url: url, type: AppRegionResponse.self)
+            
+            let regions: [AppRegion] = response.values.dropFirst().compactMap { row in
+                guard row.count >= 5 else {
+                    print("Skipping malformed app region row: \(row)")
+                    return nil
                 }
+                let appRegion = row[0]
+                let appCountry = row[1]
+                let appRegionName = row[2]
+                let appRegionGoogleSheetID = row[3]
+                let timezone = row[4]
+                let sunriseLatitude = row.count > 5 ? Double(row[5]) ?? 0.0 : 0.0
+                let sunriseLongitude = row.count > 6 ? Double(row[6]) ?? 0.0 : 0.0
+                let mapInitLatitude = row.count > 7 ? Double(row[7]) ?? 0.0 : 0.0
+                let mapInitLongitude = row.count > 8 ? Double(row[8]) ?? 0.0 : 0.0
+                let mapInitLatitudeSpan = row.count > 9 ? Double(row[9]) ?? 0.0 : 0.0
+                let mapInitLongitudeSpan = row.count > 10 ? Double(row[10]) ?? 0.0 : 0.0
+                let mapDefaultZoomLevel = row.count > 11 ? Double(row[11]) ?? 0.0 : 0.0
+                let appRegionStatus = row.count > 12 ? row[12] : ""
+                
+                guard !appRegion.isEmpty,
+                      !appCountry.isEmpty,
+                      !appRegionName.isEmpty,
+                      !appRegionGoogleSheetID.isEmpty,
+                      !timezone.isEmpty else {
+                    print("Skipping app region row with missing critical fields: \(row)")
+                    return nil
+                }
+                
+                return AppRegion(
+                    appRegion: appRegion,
+                    appCountry: appCountry,
+                    appRegionName: appRegionName,
+                    appRegionGoogleSheetID: appRegionGoogleSheetID,
+                    timezone: timezone,
+                    sunriseLatitude: sunriseLatitude,
+                    sunriseLongitude: sunriseLongitude,
+                    mapInitLatitude: mapInitLatitude,
+                    mapInitLongitude: mapInitLongitude,
+                    mapInitLatitudeSpan: mapInitLatitudeSpan,
+                    mapInitLongitudeSpan: mapInitLongitudeSpan,
+                    mapDefaultZoomLevel: mapDefaultZoomLevel,
+                    appRegionStatus: appRegionStatus
+                )
             }
-            .replaceError(with: [])
-            .receive(on: DispatchQueue.main)
-
-            // Save regions globally so they can be accessed from anywhere in the app
-            .handleEvents(receiveOutput: { [weak self] appRegions in
-                self?.appRegions = appRegions
-                AppRegionManager.shared.setAppRegions(appRegions) // global set
-            }, receiveCompletion: { _ in
-                completion()
-            })
-        
-            .sink { _ in }
-            .store(in: &cancellables)
+            
+            self.appRegions = regions
+            AppRegionManager.shared.setAppRegions(regions)
+            
+        } catch {
+            print("Failed to fetch app regions: \(error)")
+            self.appRegions = []
+        }
     }
-    
 }

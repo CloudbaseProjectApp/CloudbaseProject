@@ -637,12 +637,17 @@ struct SiteForecastView: View {
                 }
             }
         }
-        .onAppear { siteForecastViewModel.fetchForecast(id:                 id,
-                                                        siteName:           siteName,
-                                                        latitude:           siteLat,
-                                                        longitude:          siteLon,
-                                                        siteType:           siteType,
-                                                        siteWindDirection:  siteWindDirection)
+        .onAppear {
+            Task {
+                await siteForecastViewModel.fetchForecast(
+                    id: id,
+                    siteName: siteName,
+                    latitude: siteLat,
+                    longitude: siteLon,
+                    siteType: siteType,
+                    siteWindDirection: siteWindDirection
+                )
+            }
         }
     }
     

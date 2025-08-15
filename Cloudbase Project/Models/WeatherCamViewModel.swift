@@ -13,6 +13,7 @@ struct WeatherCamGoogleSheetResponse: Codable {
     let values: [[String]]
 }
 
+@MainActor
 class WeatherCamViewModel: ObservableObject {
     @Published var weatherCams: [WeatherCam] = []
     @Published var groupedWeatherCams: [String: [WeatherCam]] = [:]
@@ -24,15 +25,13 @@ class WeatherCamViewModel: ObservableObject {
         self.siteViewModel = siteViewModel
     }
 
-    func fetchWeatherCams() {
+    func fetchWeatherCams() async {
         guard siteViewModel != nil else {
             print("Missing SiteViewModel — skipping fetch for weather cams")
             return
         }
-
-        DispatchQueue.main.async {
-            self.isLoading = true
-        }
+        
+        isLoading = true
         
         let rangeName = "WeatherCams"
         
@@ -40,66 +39,43 @@ class WeatherCamViewModel: ObservableObject {
         guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(),
               let regionURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)") else {
             print("Invalid or missing region Google Sheet ID for region: \(RegionManager.shared.activeAppRegion)")
-            DispatchQueue.main.async {
-                self.isLoading = false
-            }
+            isLoading = false
             return
         }
 
-        URLSession.shared.dataTask(with: regionURL) { [weak self] data, response, error in
-            guard let self = self else { return }
+        do {
+            let response: WeatherCamGoogleSheetResponse = try await AppNetwork.shared.fetchJSONAsync(url: regionURL, type: WeatherCamGoogleSheetResponse.self)
             
-            defer {
-                // Always hide the progress indicator when this closure exits
-                DispatchQueue.main.async {
-                    self.isLoading = false
-                }
+            let skipCondition: ([String]) -> Bool = { row in
+                row.first == "Yes"
             }
             
-            if let error = error {
-                print("Failed to fetch data: \(error.localizedDescription)")
-                return
-            }
-            guard let data = data else {
-                print("No data received")
-                return
-            }
-            
-            do {
-                let response = try JSONDecoder().decode(WeatherCamGoogleSheetResponse.self, from: data)
-                
-                let skipCondition: ([String]) -> Bool = { row in
-                    row.first == "Yes"
-                }
-                
-                let cams: [WeatherCam] = response.values
-                    .dropFirst() // skip header row
-                    .compactMap { row in
-                        guard row.count >= 5 else {
-                            print("Skipping malformed row (not enough columns): \(row)")
-                            return nil
-                        }
-                        if skipCondition(row) {
-                            return nil
-                        }
-                        return WeatherCam(
-                            area: row[1],
-                            name:     row[2],
-                            linkURL:  row[3],
-                            imageURL: row[4]
-                        )
+            let cams: [WeatherCam] = response.values
+                .dropFirst() // skip header row
+                .compactMap { row in
+                    guard row.count >= 5 else {
+                        print("Skipping malformed row (not enough columns): \(row)")
+                        return nil
                     }
-                
-                DispatchQueue.main.async {
-                    self.weatherCams = cams
-                    self.groupedWeatherCams = Dictionary(grouping: cams, by: \.area)
+                    if skipCondition(row) {
+                        return nil
+                    }
+                    return WeatherCam(
+                        area: row[1],
+                        name: row[2],
+                        linkURL: row[3],
+                        imageURL: row[4]
+                    )
                 }
-                
-            } catch {
-                print("Failed to decode JSON: \(error)")
-            }
+            
+            weatherCams = cams
+            groupedWeatherCams = Dictionary(grouping: cams, by: \.area)
+            
+        } catch {
+            print("Failed to fetch or decode weather cams: \(error)")
         }
-        .resume()
+        
+        isLoading = false
     }
     
     func sortedGroupedWeatherCams() -> [(String, [WeatherCam])] {

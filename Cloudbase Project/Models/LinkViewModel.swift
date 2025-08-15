@@ -21,21 +21,23 @@ class LinkViewModel: ObservableObject {
     @Published var isLoading = false
     
     private var cancellable: AnyCancellable?
-
+    
     func fetchLinks() {
         isLoading = true
         let linksRange = "Links"
 
+        guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet() else {
+            print("Region Google Sheet ID not available")
+            isLoading = false
+            return
+        }
+
         guard let globalLinksURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(globalGoogleSheetID)/values/\(linksRange)?alt=json&key=\(googleAPIKey)"),
-              let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(),
               let regionLinksURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(linksRange)?alt=json&key=\(googleAPIKey)") else {
             print("Invalid sheet URLs")
             isLoading = false
             return
         }
-
-        let globalPublisher = fetchAndParseLinks(from: globalLinksURL)
-        let regionPublisher = fetchAndParseLinks(from: regionLinksURL)
 
         // Step 1: Fetch LinkGroups first
         fetchLinkGroupOrder { [weak self] groupOrder in
@@ -43,7 +45,10 @@ class LinkViewModel: ObservableObject {
 
             self.orderedGroupNames = groupOrder
 
-            // Step 2: Fetch links concurrently
+            // Step 2: Fetch global and region links concurrently
+            let globalPublisher = self.fetchAndParseLinks(from: globalLinksURL)
+            let regionPublisher = self.fetchAndParseLinks(from: regionLinksURL)
+
             self.cancellable = Publishers.CombineLatest(globalPublisher, regionPublisher)
                 .map { global, region -> [String: [LinkItem]] in
                     var combined = global
@@ -59,60 +64,55 @@ class LinkViewModel: ObservableObject {
                 }
         }
     }
-
+    
     // Parses a given link sheet into [Category: [LinkItem]]
     private func fetchAndParseLinks(from url: URL) -> AnyPublisher<[String: [LinkItem]], Never> {
-        URLSession.shared.dataTaskPublisher(for: url)
-            .map(\.data)
-            .decode(type: LinkGoogleSheetResponse.self, decoder: JSONDecoder())
-            .map { response in
-                let dataRows = response.values.dropFirst()
-                let linkItems = dataRows.compactMap { row -> LinkItem? in
-                    guard row.count >= 4,
-                          !row[3].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    else { return nil }
-                    return LinkItem(
-                        category: row[0],
-                        title: row[1],
-                        description: row[2],
-                        link: row[3]
-                    )
+        Future { promise in
+            AppNetwork.shared.fetchJSON(url: url, type: LinkGoogleSheetResponse.self) { result in
+                switch result {
+                case .success(let response):
+                    let dataRows = response.values.dropFirst()
+                    let linkItems = dataRows.compactMap { row -> LinkItem? in
+                        guard row.count >= 4,
+                              !row[3].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        else { return nil }
+                        return LinkItem(
+                            category: row[0],
+                            title: row[1],
+                            description: row[2],
+                            link: row[3]
+                        )
+                    }
+                    let grouped = Dictionary(grouping: linkItems, by: \.category)
+                    promise(.success(grouped))
+                    
+                case .failure(let error):
+                    print("Failed to fetch links: \(error)")
+                    promise(.success([:]))
                 }
-                return Dictionary(grouping: linkItems, by: \.category)
             }
-            .replaceError(with: [:])
-            .eraseToAnyPublisher()
+        }
+        .eraseToAnyPublisher()
     }
-
+    
     // Fetch group names in display order from LinkGroups!A2:A
     private func fetchLinkGroupOrder(completion: @escaping ([String]) -> Void) {
         let rangeName = "Validations!A2:A"
-
         guard let url = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(globalGoogleSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)") else {
             print("Invalid LinkGroups URL")
-            DispatchQueue.main.async {
-                completion([])
-            }
+            DispatchQueue.main.async { completion([]) }
             return
         }
 
-        URLSession.shared.dataTask(with: url) { data, _, _ in
-            guard let data = data,
-                  let response = try? JSONDecoder().decode(LinkGoogleSheetResponse.self, from: data) else {
-                print("Failed to fetch LinkGroups")
-                DispatchQueue.main.async {
-                    completion([])
-                }
-                return
+        AppNetwork.shared.fetchJSON(url: url, type: LinkGoogleSheetResponse.self) { result in
+            switch result {
+            case .success(let response):
+                let groupOrder = response.values.compactMap { $0.first?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                DispatchQueue.main.async { completion(groupOrder) }
+            case .failure:
+                DispatchQueue.main.async { completion([]) }
             }
-
-            let groupOrder = response.values.compactMap { $0.first?.trimmingCharacters(in: .whitespacesAndNewlines) }
-
-            // Ensure this runs on the main thread
-            DispatchQueue.main.async {
-                completion(groupOrder)
-            }
-        }.resume()
+        }
     }
     
     func sortedGroupedLinks() -> [(String, [LinkItem])] {

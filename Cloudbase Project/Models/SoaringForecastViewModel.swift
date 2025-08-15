@@ -50,45 +50,38 @@ class SoaringForecastViewModel: ObservableObject {
     init() { print("✅ \(vmtype) \(instanceID) initialized") }
     deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
     
+    @MainActor
     func fetchSoaringForecast(airportCode: String) {
-        isLoading = true
-        
-        // Get base URL, update parameters, and format into URL format
-        guard let baseURL = AppURLManager.shared.getAppURL(URLName: "soaringForecastRichSimple") else {
-            print("Could not find rich/simple soaring forecast URL for appRegion: \(RegionManager.shared.activeAppRegion)")
-            isLoading = false
-            return
-        }
-        let updatedURL = updateURL(url: baseURL, parameter: "airportcode", value: airportCode)
-        
-        // Format URL
-        guard let URL = URL(string: updatedURL)
-        else {
-            print("Invalid rich/simple soaring forecast URL for appRegion: \(RegionManager.shared.activeAppRegion)")
-            isLoading = false
-            return
-        }
-        
-        // Process URL query
-        URLSession.shared.dataTask(with: URL) { [weak self] data, response, error in
-            guard let self = self else { return }
-            guard let data = data, error == nil else {
-                DispatchQueue.main.async { self.isLoading = false }
+        Task {
+            isLoading = true
+            defer { isLoading = false }
+            
+            guard let baseURL = AppURLManager.shared.getAppURL(URLName: "soaringForecastRichSimple") else {
+                print("Could not find rich/simple soaring forecast URL for appRegion: \(RegionManager.shared.activeAppRegion)")
                 return
             }
-            if let content = String(data: data, encoding: .utf8) {
-                
-                // Check if the output is formatted using the summer (rich) forecast
-                if content.contains("Soaring Forecast") {
-                    self.parseRichSoaringForecast(content: content)
-                }
-                // The winter (simple) version should contain "SOARING FORECAST" instead
-                else {
-                    self.parseSimpleSoaringForecast(content: content)
-                }
-                
+            
+            let updatedURL = updateURL(url: baseURL, parameter: "airportcode", value: airportCode)
+            
+            guard let url = URL(string: updatedURL) else {
+                print("Invalid rich/simple soaring forecast URL for appRegion: \(RegionManager.shared.activeAppRegion)")
+                return
             }
-        }.resume()
+            
+            do {
+                let data = try await AppNetwork.shared.fetchDataAsync(url: url)
+                
+                if let content = String(data: data, encoding: .utf8) {
+                    if content.contains("Soaring Forecast") {
+                        parseRichSoaringForecast(content: content)
+                    } else {
+                        parseSimpleSoaringForecast(content: content)
+                    }
+                }
+            } catch {
+                print("Soaring forecast fetch failed: \(error)")
+            }
+        }
     }
     
     // Summer soaring forecast with additional data

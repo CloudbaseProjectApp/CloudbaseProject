@@ -119,6 +119,7 @@ struct RMHPAReadingData: Decodable {
     let wind_speed: Double?
 }
 
+@MainActor
 class StationLatestReadingViewModel: ObservableObject {
     @Published var latestSiteReadings: [StationLatestReading] = []
     @Published var latestAllReadings: [StationLatestReading] = []
@@ -131,7 +132,7 @@ class StationLatestReadingViewModel: ObservableObject {
     
     let siteViewModel: SiteViewModel
     let userSettingsViewModel: UserSettingsViewModel
-
+    
     init(siteViewModel: SiteViewModel,
          userSettingsViewModel: UserSettingsViewModel) {
         self.siteViewModel = siteViewModel
@@ -146,17 +147,15 @@ class StationLatestReadingViewModel: ObservableObject {
     
     // sitesOnly determines whether to only get Mesonet readings for stations associated with sites (SiteView)
     // or all stations in region (MapView)
-    // These are published as separate structures with separate refresh timers
-    func getLatestReadingsData(sitesOnly: Bool,
-                               completion: @escaping () -> Void) {
+    func getLatestReadingsData(sitesOnly: Bool) async {
+
         var favoriteStationIDs: Set<String> = []
+        
         if sitesOnly {
-            // 1) Gather Mesonet stations from SiteViewModel
             let mesonetStations = siteViewModel.sites
                 .filter { $0.readingsSource == "Mesonet" && !$0.readingsStation.isEmpty }
                 .map { $0.readingsStation }
             
-            // 2) Gather favorite Mesonet stations in current region
             let currentRegion = RegionManager.shared.activeAppRegion
             favoriteStationIDs = Set(
                 userSettingsViewModel.userFavoriteSites
@@ -170,17 +169,9 @@ class StationLatestReadingViewModel: ObservableObject {
             )
             
             let allStations = Set(mesonetStations).union(favoriteStationIDs)
-            if allStations.isEmpty {
-                print("No Mesonet sites or favorite stations available")
-                completion()
-                return
-            }
-            self.stationParameters = allStations
-                .map { "&stid=\($0)" }
-                .joined()
-            if printReadingsURL {
-                print("Computed stationParameters: \(self.stationParameters)")
-            }
+            guard !allStations.isEmpty else { return }
+            
+            stationParameters = allStations.map { "&stid=\($0)" }.joined()
         }
         
         // Check if refresh interval has passed
@@ -197,285 +188,186 @@ class StationLatestReadingViewModel: ObservableObject {
         }
         
         if !shouldForceRefresh, let last = lastFetchTime, now.timeIntervalSince(last) < readingsRefreshInterval {
-            completion()
             return
         }
         
+        // Set loading status for network calls
+        isLoading = true
+        defer { isLoading = false }
+
         // Update last fetch times
         if sitesOnly {
             lastSiteFetchTime = now
         } else {
             lastAllFetchTime = now
         }
-        isLoading = true
         
         // Build API call parameters
         let regionCountry = AppRegionManager.shared.getRegionCountry() ?? ""
-        let stationParams: String
+        let stationParams = sitesOnly
+        ? stationParameters
+        : (regionCountry == "US"
+           ? "&state=\(RegionManager.shared.activeAppRegion)"
+           : "&country=\(regionCountry)")
+        
+        // Fetch all three sources in parallel
+        async let mesonetReadings = getLatestMesonetReadings(stationParameters: stationParams)
+        async let cuasaReadings = getLatestCUASAReadings()
+        async let rmhpaReadings = getLatestRMHPAReadings()
+        
+        let mesonetResult = await mesonetReadings
+        let cuasaResult   = await cuasaReadings
+        let rmhpaResult   = await rmhpaReadings
+        let combined = mesonetResult + cuasaResult + rmhpaResult
+        
         if sitesOnly {
-            stationParams = self.stationParameters
+            latestSiteReadings = combined
         } else {
-            stationParams = (regionCountry == "US")
-            ? "&state=\(RegionManager.shared.activeAppRegion)"
-            : "&country=\(regionCountry)"
-        }
-        
-        // Fetch Mesonet, CUASA, RMHPA in parallel
-        var combinedReadings: [StationLatestReading] = []
-        let group = DispatchGroup()
-        
-        group.enter()
-        getLatestMesonetReadings(stationParameters: stationParams) { readings in
-            combinedReadings.append(contentsOf: readings)
-            group.leave()
-        }
-        
-        group.enter()
-        getLatestCUASAReadings { readings in
-            combinedReadings.append(contentsOf: readings)
-            group.leave()
-        }
-        
-        group.enter()
-        getLatestRMHPAReadings { readings in
-            combinedReadings.append(contentsOf: readings)
-            group.leave()
-        }
-
-        group.notify(queue: .main) {
-            if sitesOnly {
-                self.latestSiteReadings = combinedReadings
-            } else {
-                self.latestAllReadings = combinedReadings
-            }
-            self.isLoading = false
-            completion()
+            latestAllReadings = combined
         }
     }
     
-    func getLatestMesonetReadings(stationParameters: String, completion: @escaping ([StationLatestReading]) -> Void) {
-        let readingsLink = AppURLManager.shared.getAppURL(URLName: "mesonetLatestReadingsAPI") ?? "<Unknown Mesonet readings API URL>"
-        let updatedReadingsLink = updateURL(url: readingsLink, parameter: "stationlist", value: stationParameters) + synopticsAPIToken
-        guard let url = URL(string: updatedReadingsLink) else { return }
-        if printReadingsURL {
-            print("Latest readings stationParameters: \(stationParameters)")
-            print("Latest readings URL: \(url)")
-        }
-        URLSession.shared.dataTask(with: url) { data, response, error in
-            DispatchQueue.main.async {
-                guard let data = data, error == nil else { return }
-                do {
-                    let decodedResponse = try JSONDecoder().decode(MesonetLatestResponse.self, from: data)
-                    let latestReadings: [StationLatestReading] = decodedResponse.station.compactMap { station in
-                        guard let _ = station.observations.windSpeed?.value,
-                              let _ = station.observations.windSpeed?.dateTime
-                        else { return nil }
-                        return StationLatestReading(
-                            stationID:          station.stationID,
-                            stationName:        station.stationName,
-                            readingsSource:     "Mesonet",
-                            stationElevation:   station.elevation,
-                            stationLatitude:    station.latitude,
-                            stationLongitude:   station.longitude,
-                            windSpeed:          station.observations.windSpeed?.value,
-                            windDirection:      station.observations.windDirection?.value,
-                            windGust:           station.observations.windGust?.value,
-                            windTime:           station.observations.windSpeed?.dateTime
-                        )
-                    }
-                    DispatchQueue.main.async {
-                        completion(latestReadings)
-                    }
-                } catch {
-                    print("Failed to decode JSON: \(error)")
-                    DispatchQueue.main.async {
-                        completion([])
-                    }
-                }
+    // Mesonet
+    func getLatestMesonetReadings(stationParameters: String) async -> [StationLatestReading] {
+        let baseURL = AppURLManager.shared.getAppURL(URLName: "mesonetLatestReadingsAPI") ?? ""
+        let updated = updateURL(url: baseURL, parameter: "stationlist", value: stationParameters) + synopticsAPIToken
+        guard let url = URL(string: updated) else { return [] }
+        
+        do {
+            let data = try await AppNetwork.shared.fetchDataAsync(url: url)
+            let decoded = try JSONDecoder().decode(MesonetLatestResponse.self, from: data)
+            return decoded.station.compactMap { station in
+                guard let _ = station.observations.windSpeed?.value,
+                      let _ = station.observations.windSpeed?.dateTime else { return nil }
+                return StationLatestReading(
+                    stationID:          station.stationID,
+                    stationName:        station.stationName,
+                    readingsSource:     "Mesonet",
+                    stationElevation:   station.elevation,
+                    stationLatitude:    station.latitude,
+                    stationLongitude:   station.longitude,
+                    windSpeed:          station.observations.windSpeed?.value,
+                    windDirection:      station.observations.windDirection?.value,
+                    windGust:           station.observations.windGust?.value,
+                    windTime:           station.observations.windSpeed?.dateTime
+                )
             }
-        }.resume()
+        } catch {
+            print("Mesonet fetch failed: \(error)")
+            return []
+        }
     }
     
-    func getLatestCUASAReadings(completion: @escaping ([StationLatestReading]) -> Void) {
-        let CUASAStations = Array(
+    // CUASA
+    func getLatestCUASAReadings() async -> [StationLatestReading] {
+        let cuasaStations = Array(
             Dictionary(grouping: siteViewModel.sites.filter { $0.readingsSource == "CUASA" }, by: { $0.readingsStation })
                 .compactMap { $0.value.first }
         )
-        guard !CUASAStations.isEmpty else {
-            if printReadingsURL {
-                print("CUASA stations are empty")
-            }
-            completion([])
-            return
-        }
-
-        var collectedReadings: [StationLatestReading] = []
-        let group = DispatchGroup()
-
+        guard !cuasaStations.isEmpty else { return [] }
+        
+        var results: [StationLatestReading] = []
         let readingInterval: Double = 5 * 60
         let readingEnd = Date().timeIntervalSince1970
         let readingStart = readingEnd - readingInterval
-
-        for station in CUASAStations {
-            group.enter()
-            let readingsLink = AppURLManager.shared.getAppURL(URLName: "CUASAStationInfoAPI") ?? "<Unknown CUASA station info API URL>"
-            let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: station.readingsStation)
-            if printReadingsURL {
-                print("CUASA station info URL: \(updatedReadingsLink)")
-            }
-            guard let stationInfoURL = URL(string: updatedReadingsLink) else {
-                group.leave()
-                continue
-            }
-
-            URLSession.shared.dataTask(with: stationInfoURL) { data, response, error in
-                guard let data = data, error == nil else {
-                    DispatchQueue.main.async { group.leave() }
-                    return
+        
+        for station in cuasaStations {
+            do {
+                let infoURLString = updateURL(url: AppURLManager.shared.getAppURL(URLName: "CUASAStationInfoAPI") ?? "",
+                                              parameter: "station", value: station.readingsStation)
+                guard let infoURL = URL(string: infoURLString) else { continue }
+                let infoData = try await AppNetwork.shared.fetchDataAsync(url: infoURL)
+                let stationInfo = try JSONDecoder().decode(CUASAStationData.self, from: infoData)
+                
+                var readingsURLString = updateURL(url: AppURLManager.shared.getAppURL(URLName: "CUASAHistoryReadingsAPI") ?? "",
+                                                  parameter: "station", value: station.readingsStation)
+                readingsURLString = updateURL(url: readingsURLString, parameter: "readingStart", value: String(readingStart))
+                readingsURLString = updateURL(url: readingsURLString, parameter: "readingEnd", value: String(readingEnd))
+                readingsURLString = updateURL(url: readingsURLString, parameter: "readingInterval", value: String(readingInterval))
+                guard let readingsURL = URL(string: readingsURLString) else { continue }
+                
+                let readingsData = try await AppNetwork.shared.fetchDataAsync(url: readingsURL)
+                let readingsArray = try JSONDecoder().decode([CUASAReadingsData].self, from: readingsData)
+                
+                if let latest = readingsArray.max(by: { $0.timestamp < $1.timestamp }) {
+                    let date = Date(timeIntervalSince1970: latest.timestamp)
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = "h:mm"
+                    let formattedTime = formatter.string(from: date)
+                    
+                    results.append(StationLatestReading(
+                        stationID:              latest.ID,
+                        stationName:            stationInfo.name,
+                        readingsSource:         "CUASA",
+                        stationElevation:       station.readingsAlt,
+                        stationLatitude:        String(stationInfo.lat),
+                        stationLongitude:       String(stationInfo.lon),
+                        windSpeed:              convertKMToMiles(latest.windspeed_avg).rounded(),
+                        windDirection:          latest.wind_direction_avg,
+                        windGust:               convertKMToMiles(latest.windspeed_max).rounded(),
+                        windTime:               formattedTime
+                    ))
                 }
-
-                do {
-                    let CUASAStationInfo = try JSONDecoder().decode(CUASAStationData.self, from: data)
-                    let readingsLink = AppURLManager.shared.getAppURL(URLName: "CUASAHistoryReadingsAPI") ?? "<Unknown CUASA readings history API URL>"
-                    var updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: station.readingsStation)
-                    updatedReadingsLink = updateURL(url: updatedReadingsLink, parameter: "readingStart", value: String(readingStart))
-                    updatedReadingsLink = updateURL(url: updatedReadingsLink, parameter: "readingEnd", value: String(readingEnd))
-                    updatedReadingsLink = updateURL(url: updatedReadingsLink, parameter: "readingInterval", value: String(readingInterval))
-                    guard let readingsURL = URL(string: updatedReadingsLink) else {
-                        DispatchQueue.main.async { group.leave() }
-                        return
-                    }
-
-                    if printReadingsURL {
-                        print("Latest CUASA readings URL: \(readingsURL)")
-                    }
-
-                    URLSession.shared.dataTask(with: readingsURL) { data, response, error in
-                        DispatchQueue.main.async {
-                            defer { group.leave() }
-                            guard let data = data, error == nil else { return }
-
-                            do {
-                                let readingsDataArray = try JSONDecoder().decode([CUASAReadingsData].self, from: data)
-                                if let latestData = readingsDataArray.max(by: { $0.timestamp < $1.timestamp }) {
-                                    let date = Date(timeIntervalSince1970: latestData.timestamp)
-                                    let formatter = DateFormatter()
-                                    formatter.dateFormat = "h:mm"
-                                    let formattedTime = formatter.string(from: date)
-
-                                    let newReading = StationLatestReading(
-                                        stationID: latestData.ID,
-                                        stationName: CUASAStationInfo.name,
-                                        readingsSource: "CUASA",
-                                        stationElevation: station.readingsAlt,
-                                        stationLatitude: String(CUASAStationInfo.lat),
-                                        stationLongitude: String(CUASAStationInfo.lon),
-                                        windSpeed: convertKMToMiles(latestData.windspeed_avg).rounded(),
-                                        windDirection: latestData.wind_direction_avg,
-                                        windGust: convertKMToMiles(latestData.windspeed_max).rounded(),
-                                        windTime: formattedTime
-                                    )
-
-                                    collectedReadings.append(newReading)  // Add to local array
-                                }
-                            } catch {
-                                print("Error decoding CUASA readings: \(error)")
-                            }
-                        }
-                    }.resume()
-                } catch {
-                    print("CUASA station info decoding error: \(error)")
-                    DispatchQueue.main.async { group.leave() }
-                }
-            }.resume()
+            } catch {
+                print("CUASA fetch error: \(error)")
+            }
         }
-
-        group.notify(queue: .main) {
-            completion(collectedReadings)  // Return combined array
-        }
+        
+        return results
     }
-
-    func getLatestRMHPAReadings(completion: @escaping ([StationLatestReading]) -> Void) {
-
-        let RMHPAStations = Array(
+    
+    // RMHPA
+    func getLatestRMHPAReadings() async -> [StationLatestReading] {
+        let rmhpaStations = Array(
             Dictionary(grouping: siteViewModel.sites.filter { $0.readingsSource == "RMHPA" }, by: { $0.readingsStation })
                 .compactMap { $0.value.first }
         )
-        guard !RMHPAStations.isEmpty else {
-            if printReadingsURL {
-                print("RMHPA stations are empty")
+        guard !rmhpaStations.isEmpty else { return [] }
+        
+        var results: [StationLatestReading] = []
+        
+        for station in rmhpaStations {
+            do {
+                let urlString = updateURL(url: AppURLManager.shared.getAppURL(URLName: "RMHPALatestReadingsAPI") ?? "",
+                                          parameter: "station", value: station.readingsStation)
+                guard let url = URL(string: urlString) else { continue }
+                
+                var request = URLRequest(url: url)
+                request.httpMethod = "GET"
+                request.setValue(RMHPAAPIKey, forHTTPHeaderField: "x-api-key")
+                request.setValue("application/json", forHTTPHeaderField: "Accept")
+                
+                let data = try await AppNetwork.shared.fetchDataAsync(request: request)
+                let apiResponse = try JSONDecoder().decode(RMHPAAPIResponse.self, from: data)
+                guard let reading = apiResponse.data.first else { continue }
+                
+                let metadata = apiResponse.metadata
+                let inputFormatter = DateFormatter()
+                inputFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+                inputFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+                
+                let outputFormatter = DateFormatter()
+                outputFormatter.dateFormat = "h:mm"
+                let formattedTime = inputFormatter.date(from: reading.timestamp).map { outputFormatter.string(from: $0) } ?? ""
+                
+                results.append(StationLatestReading(
+                    stationID: metadata.device_id,
+                    stationName: metadata.name,
+                    readingsSource: "RMHPA",
+                    stationElevation: String(metadata.elevation),
+                    stationLatitude: String(metadata.lat),
+                    stationLongitude: String(metadata.lon),
+                    windSpeed: reading.wind_speed,
+                    windDirection: reading.wind_direction,
+                    windGust: reading.wind_gust,
+                    windTime: formattedTime
+                ))
+                
+            } catch {
+                print("RMHPA fetch error: \(error)")
             }
-            completion([])
-            return
-        }
-
-        var collectedReadings: [StationLatestReading] = []
-        let group = DispatchGroup()
-
-        for station in RMHPAStations {
-            group.enter()
-            let readingsLink = AppURLManager.shared.getAppURL(URLName: "RMHPALatestReadingsAPI") ?? "<Unknown RMHPA latest readings API URL>"
-            let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: station.readingsStation)
-            
-            if printReadingsURL {
-                print("RMHPA latest readings URL: \(updatedReadingsLink)")
-            }
-
-            guard let latestReadingsURL = URL(string: updatedReadingsLink) else {
-                group.leave()
-                continue
-            }
-            
-            var request = URLRequest(url: latestReadingsURL)
-            request.httpMethod = "GET"
-            request.setValue(RMHPAAPIKey, forHTTPHeaderField: "x-api-key")
-            request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-            URLSession.shared.dataTask(with: request) { data, response, error in
-                DispatchQueue.main.async {
-                    defer { group.leave() }
-                    guard
-                        let data = data,
-                        let apiResponse = try? JSONDecoder().decode(RMHPAAPIResponse.self, from: data),
-                        let reading = apiResponse.data.first
-                    else {
-                        print("Error getting valid RMHPA response for station: \(station.readingsStation); error: \(String(describing: error))")
-                        return
-                    }
-                    let metadata = apiResponse.metadata
-
-                    // Get time from data in format: "2025-07-31T05:45:00.000"
-                    var formattedTime = ""
-                    let inputFormatter = DateFormatter()
-                    inputFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
-                    inputFormatter.timeZone = TimeZone(secondsFromGMT: 0) // 'Z' means UTC
-
-                    let outputFormatter = DateFormatter()
-                    outputFormatter.dateFormat = "h:mm"
-                    if let date = inputFormatter.date(from: reading.timestamp) {
-                        formattedTime = outputFormatter.string(from: date)
-                    }
-                    
-                    let newReading = StationLatestReading(
-                        stationID:          metadata.device_id,
-                        stationName:        metadata.name,
-                        readingsSource:     "RMHPA",
-                        stationElevation:   String(metadata.elevation),
-                        stationLatitude:    String(metadata.lat),
-                        stationLongitude:   String(metadata.lon),
-                        windSpeed:          reading.wind_speed,         // Provided in mph
-                        windDirection:      reading.wind_direction,
-                        windGust:           reading.wind_gust,          // Provided in mph
-                        windTime:           formattedTime
-                    )
-                    collectedReadings.append(newReading)
-                }
-            }.resume()
         }
         
-        group.notify(queue: .main) {
-            completion(collectedReadings)  // Return combined array
-        }
- 
+        return results
     }
 }

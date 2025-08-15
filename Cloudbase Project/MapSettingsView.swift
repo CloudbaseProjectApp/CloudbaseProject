@@ -3,11 +3,6 @@ import MapKit
 import Combine
 import UIKit
 
-struct RadarColorScheme: Identifiable {
-    let id: Int
-    let title: String
-}
-
 // This view uses temporary variables while the sheet is open, then publishes when the sheet is closed.
 // This is done to prevent lag on this sheet each time a view item is changed.
 struct MapSettingsView: View {
@@ -18,7 +13,6 @@ struct MapSettingsView: View {
     @Binding var showStations: Bool
     @Binding var showRadar: Bool
     @Binding var showInfrared: Bool
-    @Binding var radarColorScheme: Int
     @Binding var selectedPilots: [Pilot]
     
     @EnvironmentObject var pilotViewModel: PilotViewModel
@@ -33,7 +27,6 @@ struct MapSettingsView: View {
     @State private var tempShowStations: Bool
     @State private var tempShowRadar: Bool
     @State private var tempShowInfrared: Bool
-    @State private var tempRadarColorScheme: Int
     
     // Selected pilot list variables
     @State private var selectedPilotIDs: Set<UUID> = []
@@ -52,7 +45,6 @@ struct MapSettingsView: View {
          showStations:      Binding<Bool>,
          showRadar:         Binding<Bool>,
          showInfrared:      Binding<Bool>,
-         radarColorScheme:  Binding<Int>,
          selectedPilots:    Binding<[Pilot]>
     ) {
         _selectedMapType =  selectedMapType
@@ -62,7 +54,6 @@ struct MapSettingsView: View {
         _showStations =     showStations
         _showRadar =        showRadar
         _showInfrared =     showInfrared
-        _radarColorScheme = radarColorScheme
         _selectedPilots =   selectedPilots
         
         // Initialize temporary states with current values
@@ -73,21 +64,7 @@ struct MapSettingsView: View {
         _tempShowStations =     State(initialValue: showStations.wrappedValue)
         _tempShowRadar =        State(initialValue: showRadar.wrappedValue)
         _tempShowInfrared =     State(initialValue: showInfrared.wrappedValue)
-        _tempRadarColorScheme = State(initialValue: radarColorScheme.wrappedValue)
     }
-    
-    // Rainviewer color schemes for radar overlay
-    let radarColorSchemes: [RadarColorScheme] = [
-//        .init(id: 0, title: "0 – BW Black and White: dBZ values"),
-        .init(id: 1, title: "Original"),
-        .init(id: 2, title: "Universal Blue"),
-        .init(id: 3, title: "TITAN"),
-        .init(id: 4, title: "Weather Channel"),
-        .init(id: 5, title: "Meteored"),
-        .init(id: 6, title: "NEXRAD Level III"),
-        .init(id: 7, title: "Rainbow @ SELEX-IS"),
-        .init(id: 8, title: "Dark Sky")
-    ]
     
     var body: some View {
         VStack(alignment: .leading) {
@@ -132,19 +109,6 @@ struct MapSettingsView: View {
                         Toggle("Radar (precip)", isOn: $tempShowRadar)
                         Toggle("Satellite (clouds)", isOn: $tempShowInfrared)
                     }
-                    
-                    if tempShowRadar {
-                        Section(header: Text("Radar Color Scheme")) {
-                            Picker("Radar colors", selection: $tempRadarColorScheme) {
-                                ForEach(radarColorSchemes) { radarColorScheme in
-                                    Text(radarColorScheme.title)
-                                        .tag(radarColorScheme.id)
-                                }
-                            }
-                            .pickerStyle(.inline)
-                        }
-                    }
-
                 }
                 
                 if $tempMapDisplayMode.wrappedValue == .tracking {
@@ -328,13 +292,13 @@ struct MapSettingsView: View {
             showStations        = tempShowStations
             showRadar           = tempShowRadar
             showInfrared        = tempShowInfrared
-            radarColorScheme    = tempRadarColorScheme
             selectedPilots      = pilotViewModel.pilots.filter { selectedPilotIDs.contains($0.id) }
             
         }
         
         .sheet(isPresented: $addPilot, onDismiss: {
-            pilotViewModel.getPilots() {
+            Task {
+                await pilotViewModel.getPilots()
                 resyncSelectedPilotIDs()
             }
         }) {
@@ -343,7 +307,8 @@ struct MapSettingsView: View {
         }
         
         .sheet(isPresented: $activatePilot, onDismiss: {
-            pilotViewModel.getPilots() {
+            Task {
+                await pilotViewModel.getPilots()
                 resyncSelectedPilotIDs()
             }
         }) {

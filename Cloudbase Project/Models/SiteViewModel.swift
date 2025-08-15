@@ -1,7 +1,5 @@
 import SwiftUI
-import Combine
 
-// Used to specify good/ok wind directions for flying
 struct SiteWindDirection: Codable, Equatable, Hashable {
     var N:  String
     var NE: String
@@ -19,16 +17,14 @@ struct Site: Codable, Identifiable, Equatable, Hashable {
     var siteName: String
     var readingsNote: String
     var forecastNote: String
-    var siteType: String        // sites have types of Soaring, Mountain, Airport, or blank
-                                // Detailed forecast uses type of Aloft
-                                // Map view and favorites also use type of Station
+    var siteType: String
     var readingsAlt: String
     var readingsSource: String
     var readingsStation: String
     var pressureZoneReadingTime: String
     var siteLat: String
     var siteLon: String
-    var sheetRow: Int           // Used to manage updates to Google sheet via API
+    var sheetRow: Int
     var windDirection: SiteWindDirection
 }
 
@@ -36,110 +32,88 @@ struct SitesResponse: Codable {
     let values: [[String]]
 }
 
+@MainActor
 class SiteViewModel: ObservableObject {
     @Published var areaOrder: [String] = []
     @Published var sites: [Site] = []
-    private var cancellables = Set<AnyCancellable>()
-    
-    func getSites(completion: @escaping () -> Void) {
-        let rangeName = "Sites"
-        
+
+    func getSites() async {
         guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(),
-              let regionURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)") else {
+              let sitesURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/Sites?alt=json&key=\(googleAPIKey)") else {
             print("Invalid or missing region Google Sheet ID for region: \(RegionManager.shared.activeAppRegion)")
-            DispatchQueue.main.async { completion() }
             return
         }
 
-        URLSession.shared.dataTaskPublisher(for: regionURL)
-            .map { $0.data }
-            .decode(type: SitesResponse.self, decoder: JSONDecoder())
-            .map { response in
-                response.values.enumerated().compactMap { index, row -> Site? in
-                    guard index > 0 else { return nil }
-                    guard row.count >= 12 else { return nil }
-                    guard row[0] != "Yes" else { return nil }
-                    let siteLat = row[10].trimmingCharacters(in: .whitespacesAndNewlines)
-                    let siteLon = row[11].trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard let _ = Double(siteLat), let _ = Double(siteLon) else {
-                        print("Skipping row with invalid coordinates: \(row[10]), \(row[11])")
-                        return nil
-                    }
+        do {
+            let response: SitesResponse = try await AppNetwork.shared.fetchJSONAsync(url: sitesURL, type: SitesResponse.self)
+            var parsedSites: [Site] = []
 
-                    let windDirection = SiteWindDirection(
-                        N:  row.count > 12 ? row[12] : "",
-                        NE: row.count > 13 ? row[13] : "",
-                        E:  row.count > 14 ? row[14] : "",
-                        SE: row.count > 15 ? row[15] : "",
-                        S:  row.count > 16 ? row[16] : "",
-                        SW: row.count > 17 ? row[17] : "",
-                        W:  row.count > 18 ? row[18] : "",
-                        NW: row.count > 19 ? row[19] : ""
-                    )
-
-                    return Site(
-                        id:                 "\(row[1])-\(row[2])",
-                        area:               row[1],
-                        siteName:           row[2],
-                        readingsNote:       row[3],
-                        forecastNote:       row[4],
-                        siteType:           row[5],
-                        readingsAlt:        row[6],
-                        readingsSource:     row[7],
-                        readingsStation:    row[8],
-                        pressureZoneReadingTime: row[9],
-                        siteLat:            siteLat,
-                        siteLon:            siteLon,
-                        sheetRow:           index + 1,
-                        windDirection:      windDirection
-                    )
+            for (index, row) in response.values.enumerated() {
+                guard index > 0, row.count >= 12, row[0] != "Yes" else { continue }
+                let siteLat = row[10].trimmingCharacters(in: .whitespacesAndNewlines)
+                let siteLon = row[11].trimmingCharacters(in: .whitespacesAndNewlines)
+                guard Double(siteLat) != nil, Double(siteLon) != nil else {
+                    print("Skipping row with invalid coordinates: \(row[10]), \(row[11])")
+                    continue
                 }
-            }
-            .replaceError(with: [])
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] sites in
-                self?.sites = sites
 
-                self?.fetchAreaOrder { orderedAreas in
-                    DispatchQueue.main.async {
-                        self?.areaOrder = orderedAreas
-                        completion()
-                    }
-                }
+                let windDirection = SiteWindDirection(
+                    N:  row.count > 12 ? row[12] : "",
+                    NE: row.count > 13 ? row[13] : "",
+                    E:  row.count > 14 ? row[14] : "",
+                    SE: row.count > 15 ? row[15] : "",
+                    S:  row.count > 16 ? row[16] : "",
+                    SW: row.count > 17 ? row[17] : "",
+                    W:  row.count > 18 ? row[18] : "",
+                    NW: row.count > 19 ? row[19] : ""
+                )
+
+                parsedSites.append(Site(
+                    id: "\(row[1])-\(row[2])",
+                    area: row[1],
+                    siteName: row[2],
+                    readingsNote: row[3],
+                    forecastNote: row[4],
+                    siteType: row[5],
+                    readingsAlt: row[6],
+                    readingsSource: row[7],
+                    readingsStation: row[8],
+                    pressureZoneReadingTime: row[9],
+                    siteLat: siteLat,
+                    siteLon: siteLon,
+                    sheetRow: index + 1,
+                    windDirection: windDirection
+                ))
             }
-            .store(in: &cancellables)
+
+            self.sites = parsedSites
+            self.areaOrder = await fetchAreaOrder()
+        } catch {
+            print("Failed to fetch Sites: \(error)")
+            self.sites = []
+            self.areaOrder = []
+        }
     }
 
-    func fetchAreaOrder(completion: @escaping ([String]) -> Void) {
-        let rangeName = "Areas"
-
+    private func fetchAreaOrder() async -> [String] {
         guard let regionGoogleSheetID = AppRegionManager.shared.getRegionGoogleSheet(),
-              let areaURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/\(rangeName)!A2:B?alt=json&key=\(googleAPIKey)") else {
+              let areasURL = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionGoogleSheetID)/values/Areas!A2:B?alt=json&key=\(googleAPIKey)") else {
             print("Invalid or missing region Google Sheet ID for Areas tab.")
-            completion([])
-            return
+            return []
         }
 
-        URLSession.shared.dataTask(with: areaURL) { data, response, error in
-            guard let data = data,
-                  let response = try? JSONDecoder().decode(SitesResponse.self, from: data) else {
-                print("Failed to fetch or parse Areas tab.")
-                completion([])
-                return
-            }
-
-            // Column A = Exclude flag, Column B = Area name
+        do {
+            let response: SitesResponse = try await AppNetwork.shared.fetchJSONAsync(url: areasURL, type: SitesResponse.self)
             let orderedAreas = response.values.compactMap { row -> String? in
                 guard row.count >= 2 else { return nil }
-
                 let exclude = row[0].trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "yes"
                 let areaName = row[1].trimmingCharacters(in: .whitespacesAndNewlines)
-
                 return exclude ? nil : areaName
             }
-
-            completion(orderedAreas)
-        }.resume()
+            return orderedAreas
+        } catch {
+            print("Failed to fetch Areas tab: \(error)")
+            return []
+        }
     }
-    
 }

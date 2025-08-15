@@ -19,53 +19,41 @@ class AppURLViewModel: ObservableObject {
     
     let sheetName = "URLs"
     
-    func getAppURLs(completion: @escaping () -> Void) {
-        let appURLsURLString = "https://sheets.googleapis.com/v4/spreadsheets/\(globalGoogleSheetID)/values/\(sheetName)?alt=json&key=\(googleAPIKey)"
-        guard let url = URL(string: appURLsURLString) else {
+    @MainActor
+    func getAppURLs() async {
+        let urlString = "https://sheets.googleapis.com/v4/spreadsheets/\(globalGoogleSheetID)/values/\(sheetName)?alt=json&key=\(googleAPIKey)"
+        guard let url = URL(string: urlString) else {
             print("Invalid URL for app URLs metadata")
-            DispatchQueue.main.async { completion() }
+            self.appURLs = []
             return
         }
-        URLSession.shared.dataTaskPublisher(for: url)
-            .map { $0.data }
-            .decode(type: AppURLResponse.self, decoder: JSONDecoder())
-        
-            .map { response -> [AppURL] in
-                response.values.dropFirst().compactMap { row in
-                    guard row.count >= 3 else {
-                        print("Skipping malformed app URL metadata row: \(row)")
-                        return nil
-                    }
-                    let appCountry = row[0]
-                    let URLName = row[1]
-                    let URL = row[2]
-                    
-                    // Make sure URL name and URL are populated
-                    guard !URLName.isEmpty,
-                          !URL.isEmpty else {
-                        print("Skipping app URL metadata row with missing critical fields: \(row)")
-                        return nil
-                    }
-                    
-                    return AppURL(appCountry: appCountry,
-                                  URLName: URLName,
-                                  URL: URL
-                    )
-                }
-            }
-            .replaceError(with: [])
-            .receive(on: DispatchQueue.main)
 
-            // Save URLs globally so they can be accessed from anywhere in the app
-            .handleEvents(receiveOutput: { [weak self] appURLs in
-                self?.appURLs = appURLs
-                AppURLManager.shared.setAppURLs(appURLs) // global set
-            }, receiveCompletion: { _ in
-                completion()
-            })
-        
-            .sink { _ in }
-            .store(in: &cancellables)
+        do {
+            let response: AppURLResponse = try await AppNetwork.shared.fetchJSONAsync(url: url, type: AppURLResponse.self)
+
+            let urls: [AppURL] = response.values.dropFirst().compactMap { row in
+                guard row.count >= 3 else {
+                    print("Skipping malformed app URL metadata row: \(row)")
+                    return nil
+                }
+                let appCountry = row[0]
+                let URLName = row[1]
+                let URL = row[2]
+
+                guard !URLName.isEmpty, !URL.isEmpty else {
+                    print("Skipping app URL metadata row with missing critical fields: \(row)")
+                    return nil
+                }
+
+                return AppURL(appCountry: appCountry, URLName: URLName, URL: URL)
+            }
+
+            self.appURLs = urls
+            AppURLManager.shared.setAppURLs(urls)
+
+        } catch {
+            print("Failed to fetch app URLs: \(error)")
+            self.appURLs = []
+        }
     }
-    
 }

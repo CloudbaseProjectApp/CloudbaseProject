@@ -57,7 +57,7 @@ class StationAnnotationViewModel: ObservableObject {
 
     
     // Update the annotation source item list based on the active layers.
-    func updateStationAnnotations(completion: @escaping () -> Void) {
+    @MainActor func updateStationAnnotations(completion: @escaping () -> Void) {
         
         // Remove all existing station annotations before starting parallel/async processing
         stationAnnotations = []
@@ -71,7 +71,8 @@ class StationAnnotationViewModel: ObservableObject {
             // Define another dispatch group for to ensure station annotations aren't added until prior calls complete
             let readingsGroup = DispatchGroup()
             readingsGroup.enter()
-            stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: false) {
+            Task {
+                await stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: false)
                 readingsGroup.leave()
             }
 

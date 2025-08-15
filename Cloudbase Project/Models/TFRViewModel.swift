@@ -18,31 +18,27 @@ class TFRViewModel: ObservableObject {
     func fetchTFRs() {
         isLoading = true
         
-        guard let url = URL(string: AppURLManager.shared.getAppURL(URLName: "TFRAPI") ?? "<Unknown TFR API URL>") else {
+        guard let urlString = AppURLManager.shared.getAppURL(URLName: "TFRAPI"),
+              let url = URL(string: urlString) else {
             print("Error getting TFR API URL")
             isLoading = false
             return
         }
         
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
-            if let self = self, let data = data {
-                do {
-                    let tfrList = try JSONDecoder().decode([TFR].self, from: data)
-                    DispatchQueue.main.async {
-                        self.tfrs = tfrList.filter { $0.state == RegionManager.shared.activeAppRegion }
-                        self.isLoading = false
-                    }
-                } catch {
-                    print("Error decoding JSON: \(error)")
-                    DispatchQueue.main.async { self.isLoading = false }
-                }
-            } else {
-                print("Error processing TFRs: \(String(describing: error))")
-                DispatchQueue.main.async {
-                    self?.isLoading = false
+        AppNetwork.shared.fetchJSON(url: url, type: [TFR].self) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                
+                switch result {
+                case .success(let tfrList):
+                    self.tfrs = tfrList.filter { $0.state == RegionManager.shared.activeAppRegion }
+                    self.isLoading = false
+                    
+                case .failure(let error):
+                    print("Error fetching TFRs: \(error)")
+                    self.isLoading = false
                 }
             }
-        }.resume()
+        }
     }
 }
-

@@ -93,9 +93,10 @@ struct PilotTrackInfoView: View {
                         .font(.caption)
                         .foregroundColor(.orange)
                     Button("Activate Pilot") {
-                        pilotViewModel.setPilotActiveStatus(pilot: pilot,
-                                                            isInactive: false)
-                        pilotViewModel.getPilots() {}
+                        Task {
+                            try? await pilotViewModel.setPilotActiveStatus(pilot: pilot, isInactive: false)
+                            await pilotViewModel.getPilots()
+                        }
                     }
                     .font(.caption)
                     .buttonStyle(BorderlessButtonStyle())
@@ -119,9 +120,10 @@ struct PilotTrackInfoView: View {
                             .foregroundColor(.yellow)
                             .foregroundColor(.orange)
                         Button("Deactivate Pilot") {
-                            pilotViewModel.setPilotActiveStatus(pilot: pilot,
-                                                                isInactive: true)
-                            pilotViewModel.getPilots() {}
+                            Task {
+                                try? await pilotViewModel.setPilotActiveStatus(pilot: pilot, isInactive: false)
+                                await pilotViewModel.getPilots()
+                            }
                         }
                         .font(.caption)
                         .buttonStyle(BorderlessButtonStyle())

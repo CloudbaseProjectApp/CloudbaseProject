@@ -85,7 +85,9 @@ struct SiteView: View {
             editableFavorites = favoriteSites
             startTimer()
             guard !siteViewModel.sites.isEmpty else { return }
-            stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {}
+            Task {
+                await stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true)
+            }
         }
         
         .onDisappear {
@@ -100,7 +102,9 @@ struct SiteView: View {
             onDismiss: {
                 guard !siteViewModel.sites.isEmpty else { return }
                 // Skipping getLatestReadingsData - sites not yet loaded
-                stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {}
+                Task {
+                    await stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true)
+                }
             }
         ) { selection in
             SiteDetailView(site: selection.site, favoriteName: selection.favoriteName)
@@ -115,7 +119,9 @@ struct SiteView: View {
                     // Skipping getLatestReadingsData - sites not yet loaded
                     return
                 }
-                stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {}
+                Task {
+                    await stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true)
+                }
             } else {
                 isActive = false
             }
@@ -164,7 +170,9 @@ struct SiteView: View {
                     // Skipping getLatestReadingsData - sites not yet loaded
                     return
                 }
-                stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {}
+                Task {
+                    await stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true)
+                }
             }
         }
     }

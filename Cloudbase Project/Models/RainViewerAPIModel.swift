@@ -1,130 +1,131 @@
-import Foundation
+import SwiftUI
 import MapKit
-import Combine
+import Foundation
 
-class RainViewerTileOverlay: MKTileOverlay {
-    enum OverlayType { case radar, satellite }
-
-    private let radarColorScheme: Int
-    private let satelliteColorScheme = 0
-
-    private let smoothing   = 1
-    private let snow        = 0
-    private let tileSizePx  = 256
-
-    init(
-        host: String,
-        framePath: String,
-        type: OverlayType,
-        radarColorScheme: Int
-    ) {
-        self.radarColorScheme = radarColorScheme
-
-        // pick segment
-        let segment = (type == .radar) ? "radar" : "satellite"
-        // pick the proper scheme
-        let colorScheme = (type == .radar)
-            ? self.radarColorScheme
-            : self.satelliteColorScheme
-
-        let template = "\(host)/v2/\(segment)/\(framePath)/" +
-                       "\(tileSizePx)/{z}/{x}/{y}/" +
-                       "\(colorScheme)/\(smoothing)_\(snow).png"
-
-        super.init(urlTemplate: template)
-        self.canReplaceMapContent = false
-        self.tileSize = CGSize(width: tileSizePx, height: tileSizePx)
+// RainViewer Overlay Model
+struct RainViewerTileOverlay: Decodable, Identifiable {
+    let id = UUID() // Generated locally, not from JSON
+    let path: String
+    let time: Int
+    
+    private enum CodingKeys: String, CodingKey {
+        case path
+        case time
     }
 }
 
-// JSON models
-struct RainViewerResponse: Decodable {
-    let host: String
-    let radar:   RadarData?
-    let satellite: SatelliteData?
+// RainViewer API Response
+struct RainViewerAPIResponse: Decodable {
+    let radar: Radar
+    let satellite: Satellite
+    
+    struct Radar: Decodable {
+        let past: [RainViewerTileOverlay]
+        let nowcast: [RainViewerTileOverlay]
+    }
+    struct Satellite: Decodable {
+        let infrared: [RainViewerTileOverlay]
+    }
 }
 
-struct RadarData: Decodable { let past: [Frame]; let nowcast: [Frame]? }
-struct SatelliteData: Decodable { let infrared: [Frame] }
-struct Frame: Decodable { let time: Int; let path: String }
-
-class RainViewerOverlayProvider {
-    private let apiURL = AppURLManager.shared.getAppURL(URLName: "rainviewerAPI") ?? "<Unknown Rainviewer API URL>"
-
-    func getRainViewerOverlays(
-        radarColorScheme: Int
-    ) -> AnyPublisher<(
-        radar: [RainViewerTileOverlay],
-        infrared: [RainViewerTileOverlay]
-    ), Error> {
-        // We’ll fetch metadata only once, then build both overlays from it.
-        guard let url = URL(string: apiURL) else {
-            return Fail(error: URLError(.badURL)).eraseToAnyPublisher()
+// Provider
+final class RainViewerOverlayProvider {
+    static let shared = RainViewerOverlayProvider()
+    private init() {}
+    
+    private let baseURL = "https://tilecache.rainviewer.com"
+    
+    func fetchLatestOverlay(infrared: Bool = false) async throws -> MKTileOverlay? {
+        
+        // Get the API URL
+        guard let apiURL = URL(string: AppURLManager.shared.getAppURL(URLName: "rainviewerAPI")!) else {
+            print("Error: rainviewerAPI URL not found in AppURLManager")
+            return nil
         }
 
-        return URLSession.shared.dataTaskPublisher(for: url)
-            .map(\.data)
-            .decode(type: RainViewerResponse.self, decoder: JSONDecoder())
-            .map { resp in
-                var radarResult:    [RainViewerTileOverlay] = []
-                var infraredResult: [RainViewerTileOverlay] = []
-
-                if let lastRadar = resp.radar?.past.last {
-                    radarResult = [
-                        RainViewerTileOverlay(
-                            host: resp.host,
-                            framePath: lastRadar.path,
-                            type: .radar,
-                            radarColorScheme: radarColorScheme
-                        )
-                    ]
-                }
-                if let lastInfra = resp.satellite?.infrared.last {
-                    infraredResult = [
-                        RainViewerTileOverlay(
-                            host: resp.host,
-                            framePath: lastInfra.path,
-                            type: .satellite,
-                            radarColorScheme: radarColorScheme
-                        )
-                    ]
-                }
-                return (radar: radarResult, infrared: infraredResult)
+        let response: RainViewerAPIResponse = try await AppNetwork.shared.fetchJSONAsync(
+            url: apiURL,
+            type: RainViewerAPIResponse.self
+        )
+        
+        let overlayData: RainViewerTileOverlay?
+        if infrared {
+            overlayData = response.satellite.infrared.last
+        } else {
+            overlayData = response.radar.past.last // safest complete radar frame
+        }
+        
+        guard let data = overlayData else {
+            print("[RainViewer] No \(infrared ? "infrared" : "radar") frames available.")
+            return nil
+        }
+        
+        var cacheURLString: String
+        if infrared {
+            guard let baseURL = AppURLManager.shared.getAppURL(URLName: "rainviewerInfraredTileAPI") else {
+                print("Error: rainviewerInfraredTileAPI URL not found in AppURLManager")
+                return nil
             }
-            .receive(on: DispatchQueue.main)
-            .eraseToAnyPublisher()
+            cacheURLString = updateURL(url: baseURL, parameter: "datapath", value: data.path)
+        } else {
+            guard let baseURL = AppURLManager.shared.getAppURL(URLName: "rainviewerRadarTileAPI") else {
+                print("Error: rainviewerRadarTileAPI URL not found in AppURLManager")
+                return nil
+            }
+            cacheURLString = updateURL(url: baseURL, parameter: "datapath", value: data.path)
+        }
+        guard URL(string: cacheURLString) != nil else {
+            print("Error: Invalid rainviewer cache URL after adding parameters; URL: \(cacheURLString), datapath: \(data.path)")
+            return nil
+        }
+        
+        let overlay = MKTileOverlay(urlTemplate: cacheURLString)
+        overlay.canReplaceMapContent = false
+        overlay.minimumZ = 0
+        overlay.maximumZ = 12
+        overlay.tileSize = CGSize(width: 256, height: 256)
+        return overlay
     }
 }
 
-class RainViewerOverlayViewModel: ObservableObject {
+// ViewModel
+@MainActor
+final class RainViewerOverlayViewModel: ObservableObject {
+    @Published var radarOverlay: MKTileOverlay?
+    @Published var infraredOverlay: MKTileOverlay?
     @Published var isLoading = false
-    @Published var radarOverlays:    [RainViewerTileOverlay] = []
-    @Published var infraredOverlays: [RainViewerTileOverlay] = []
-
-    private let provider: RainViewerOverlayProvider
-    private var cancellables = Set<AnyCancellable>()
-
-    init(provider: RainViewerOverlayProvider = .init()) {
-        self.provider = provider
-    }
-
-    func loadOverlays(radarColorScheme: Int) {
-        isLoading = true
-
-        provider
-            .getRainViewerOverlays(radarColorScheme: radarColorScheme)
-            .sink { [weak self] completion in
-                // on error or finished, hide loader
-                self?.isLoading = false
-                if case .failure(let err) = completion {
-                    // handle/report the error...
-                    print("Failed to load overlays:", err)
+    @Published var errorMessage: String?
+    
+    func loadAllOverlays(showRadar: Bool, showInfrared: Bool) {
+        Task {
+            isLoading = true
+            errorMessage = nil
+            do {
+                
+                async let infraredTask: MKTileOverlay? = showInfrared
+                    ? RainViewerOverlayProvider.shared.fetchLatestOverlay(infrared: true) : nil
+                
+                async let radarTask: MKTileOverlay? = showRadar
+                    ? RainViewerOverlayProvider.shared.fetchLatestOverlay(infrared: false) : nil
+                
+                let (newRadar, newInfrared) = try await (radarTask, infraredTask)
+                
+                if let newInfrared = newInfrared {
+                    if infraredOverlay?.urlTemplate != newInfrared.urlTemplate {
+                        infraredOverlay = newInfrared
+                    }
                 }
-            } receiveValue: { [weak self] result in
-                // publish the new overlays
-                self?.radarOverlays    = result.radar
-                self?.infraredOverlays = result.infrared
+                
+                if let newRadar = newRadar {
+                    if radarOverlay?.urlTemplate != newRadar.urlTemplate {
+                        radarOverlay = newRadar
+                    }
+                }
+                
+            } catch {
+                errorMessage = error.localizedDescription
             }
-            .store(in: &cancellables)
+            isLoading = false
+        }
     }
 }

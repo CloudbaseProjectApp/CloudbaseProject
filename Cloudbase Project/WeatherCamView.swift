@@ -26,9 +26,9 @@ struct WeatherCamView: View {
             }
         }
         .onAppear {
-            if weatherCamViewModel.siteViewModel == nil {
-                weatherCamViewModel.setSiteViewModel(siteViewModel)
-                weatherCamViewModel.fetchWeatherCams()
+            weatherCamViewModel.setSiteViewModel(siteViewModel)
+            Task {
+                await weatherCamViewModel.fetchWeatherCams()
             }
 
             if Date().timeIntervalSince(webcamLastUpdate) > readingsRefreshInterval {

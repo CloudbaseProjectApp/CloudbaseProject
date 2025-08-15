@@ -14,7 +14,7 @@ struct Observations: Codable {
     let date_time: [String]
     let wind_speed_set_1: [Double?]
     let wind_gust_set_1: [Double?]?
-    let wind_direction_set_1: [Double]
+    let wind_direction_set_1: [Double?]?
 }
 
 struct ReadingsHistoryData {
@@ -39,86 +39,85 @@ class StationReadingsHistoryDataModel: ObservableObject {
     func GetReadingsHistoryData(stationID: String, readingsSource: String) {
         switch readingsSource {
         case "Mesonet":
-            let readingsLink = AppURLManager.shared.getAppURL(URLName: "mesonetHistoryReadingsAPI") ?? "<Unknown Mesonet readings history API URL>"
+            let readingsLink = AppURLManager.shared.getAppURL(URLName: "mesonetHistoryReadingsAPI")
+                ?? "<Unknown Mesonet readings history API URL>"
             let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: stationID) + synopticsAPIToken
-            let url = URL(string: updatedReadingsLink)!
+            
+            guard let url = URL(string: updatedReadingsLink) else {
+                self.readingsHistoryData.errorMessage = "Invalid Mesonet readings URL"
+                return
+            }
             if printReadingsURL { print(url) }
-            cancellable = URLSession.shared.dataTaskPublisher(for: url)
-                .map { $0.data }
-                .map { data in
-                    // Convert data to string, replace "null" with "0.0", and convert back to data
-                    if var jsonString = String(data: data, encoding: .utf8) {
-                        jsonString = jsonString.replacingOccurrences(of: "null", with: "0.0")
-                        return Data(jsonString.utf8)
-                    }
-                    return data
-                }
-                .decode(type: ReadingsData.self, decoder: JSONDecoder())
-                .replaceError(with: ReadingsData(STATION: []))
-                .receive(on: DispatchQueue.main)
-                .sink { [weak self] data in
-                    guard let self = self, let station = data.STATION.first else {
-                        print("No valid data found for station: \(stationID)")
-                        self?.readingsHistoryData.errorMessage = "No valid data found for station: \(stationID)"
-                        return
-                    }
-                    let recentTimes = Array(station.OBSERVATIONS.date_time.suffix(8))
-                    let recentWindSpeed = Array(station.OBSERVATIONS.wind_speed_set_1.suffix(8)).map { $0 ?? 0.0 }
-                    let recentWindGust = station.OBSERVATIONS.wind_gust_set_1?.suffix(8).map { $0 ?? 0.0 } ?? Array(repeating: nil, count: 8)
-                    let recentWindDirection = Array(station.OBSERVATIONS.wind_direction_set_1.suffix(8))
-                    if let latestTimeString = recentTimes.last,
-                       let latestTime = ISO8601DateFormatter().date(from: latestTimeString),
-                       Date().timeIntervalSince(latestTime) > 2 * 60 * 60 {
-                        self.readingsHistoryData.errorMessage = "Station \(stationID) has not updated in the past 2 hours"
-                        print("Station \(stationID) has not updated in the past 2 hours")
-                    } else {
-                        self.readingsHistoryData.times = recentTimes
-                        self.readingsHistoryData.windSpeed = recentWindSpeed
-                        self.readingsHistoryData.windGust = recentWindGust
-                        self.readingsHistoryData.windDirection = recentWindDirection
-                        self.readingsHistoryData.errorMessage = nil
-                    }
-                }
 
+            AppNetwork.shared.fetchJSON(url: url, type: ReadingsData.self) { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success(let data):
+                        guard let station = data.STATION.first else {
+                            self?.readingsHistoryData.errorMessage = "No valid data found for station: \(stationID)"
+                            return
+                        }
+                        let recentTimes = Array(station.OBSERVATIONS.date_time.suffix(8))
+                        let recentWindSpeed = Array(station.OBSERVATIONS.wind_speed_set_1.suffix(8)).map { $0 ?? 0.0 }
+                        let recentWindGust = station.OBSERVATIONS.wind_gust_set_1?.suffix(8).map { $0 ?? 0.0 }
+                            ?? Array(repeating: nil, count: 8)
+                        let recentWindDirection = Array( (station.OBSERVATIONS.wind_direction_set_1 ?? Array(repeating: nil, count: 8))
+                                .suffix(8).map { $0 ?? 0.0 } )
+                        
+                        if let latestTimeString = recentTimes.last,
+                           let latestTime = ISO8601DateFormatter().date(from: latestTimeString),
+                           Date().timeIntervalSince(latestTime) > 2 * 60 * 60 {
+                            self?.readingsHistoryData.errorMessage = "Station \(stationID) has not updated in the past 2 hours"
+                        } else {
+                            self?.readingsHistoryData = ReadingsHistoryData(
+                                times: recentTimes,
+                                windSpeed: recentWindSpeed,
+                                windGust: recentWindGust,
+                                windDirection: recentWindDirection,
+                                errorMessage: nil
+                            )
+                        }
+                    case .failure(let error):
+                        self?.readingsHistoryData.errorMessage = "Error: \(error)"
+                    }
+                }
+            }
+            
         case "CUASA":
-            let readingInterval: Double = 5 * 60 // 5 minutes in seconds
-            let readingEnd = Date().timeIntervalSince1970 // current timestamp in seconds
-            let readingStart = readingEnd - (readingInterval * 10) // to ensure >= 8 readings
-            let readingsLink = AppURLManager.shared.getAppURL(URLName: "CUASAHistoryReadingsAPI") ?? "<Unknown CUASA readings history API URL>"
+            let readingInterval: Double = 5 * 60
+            let readingEnd = Date().timeIntervalSince1970
+            let readingStart = readingEnd - (readingInterval * 10)
+            let readingsLink = AppURLManager.shared.getAppURL(URLName: "CUASAHistoryReadingsAPI")
+                ?? "<Unknown CUASA readings history API URL>"
             var updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: stationID)
             updatedReadingsLink = updateURL(url: updatedReadingsLink, parameter: "readingStart", value: String(readingStart))
             updatedReadingsLink = updateURL(url: updatedReadingsLink, parameter: "readingEnd", value: String(readingEnd))
             updatedReadingsLink = updateURL(url: updatedReadingsLink, parameter: "readingInterval", value: String(readingInterval))
-
+            
             guard let url = URL(string: updatedReadingsLink) else {
                 self.readingsHistoryData.errorMessage = "Invalid CUASA readings URL"
-                print("Invalid CUASA readings URL")
                 return
             }
             if printReadingsURL { print(url) }
-            URLSession.shared.dataTaskPublisher(for: url)
-                .map { $0.data }
-                .decode(type: [CUASAReadingsData].self, decoder: JSONDecoder())
-                .receive(on: DispatchQueue.main)
-                .sink(receiveCompletion: { completion in
-                    switch completion {
+            
+            AppNetwork.shared.fetchJSON(url: url, type: [CUASAReadingsData].self) { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success(let readingsArray):
+                        self?.processCUASAReadingsHistoryData(readingsArray)
                     case .failure(let error):
-                        self.readingsHistoryData.errorMessage = error.localizedDescription
-                        print("Error fetching CUASA data: \(error.localizedDescription)")
-                    case .finished:
-                        break
+                        self?.readingsHistoryData.errorMessage = "Error: \(error)"
                     }
-                }, receiveValue: { [weak self] readingsHistoryDataArray in
-                    self?.processCUASAReadingsHistoryData(readingsHistoryDataArray)
-                })
-                .store(in: &cancellables)
-
+                }
+            }
+            
         case "RMHPA":
-            let readingsLink = AppURLManager.shared.getAppURL(URLName: "RMHPAHistoryReadingsAPI") ?? "<Unknown RMHPA readings history API URL>"
+            let readingsLink = AppURLManager.shared.getAppURL(URLName: "RMHPAHistoryReadingsAPI")
+                ?? "<Unknown RMHPA readings history API URL>"
             let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: stationID)
+            
             guard let url = URL(string: updatedReadingsLink) else {
                 self.readingsHistoryData.errorMessage = "Invalid RMHPA readings URL"
-                print("Invalid RMHPA readings URL")
                 return
             }
             
@@ -126,24 +125,20 @@ class StationReadingsHistoryDataModel: ObservableObject {
             request.httpMethod = "GET"
             request.setValue(RMHPAAPIKey, forHTTPHeaderField: "x-api-key")
             request.setValue("application/json", forHTTPHeaderField: "Accept")
-
+            
             if printReadingsURL { print(url) }
-            URLSession.shared.dataTaskPublisher(for: request)
-                .map { $0.data }
-                .decode(type: RMHPAAPIResponse.self, decoder: JSONDecoder())
-                .receive(on: DispatchQueue.main)
-                .sink(receiveCompletion: { completion in
-                    switch completion {
+            
+            AppNetwork.shared.fetchJSON(url: url, type: RMHPAAPIResponse.self) { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success(let response):
+                        self?.processRMHPAReadingHistoryData(response.data)
                     case .failure(let error):
-                        self.readingsHistoryData.errorMessage = error.localizedDescription
-                        print("Error fetching RMHPA data: \(error.localizedDescription)")
-                    case .finished:
-                        break
+                        self?.readingsHistoryData.errorMessage = "Error: \(error)"
                     }
-                }, receiveValue: { [weak self] response in
-                    self?.processRMHPAReadingHistoryData(response.data)
-                })
-                .store(in: &cancellables)
+                }
+            }
+            
         default:
             print("Invalid readings source for station: \(stationID)")
         }

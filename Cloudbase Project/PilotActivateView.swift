@@ -52,15 +52,14 @@ struct PilotActivateView: View {
                         HStack {
                             Spacer()
                             Button(action: {
-                                
-                                // Update Google sheets to activate pilot
-                                pilotViewModel.setPilotActiveStatus(pilot: pilot,
-                                                                    isInactive: false)
+                                Task {
+                                    // Update Google Sheets
+                                    try? await pilotViewModel.setPilotActiveStatus(pilot: pilot, isInactive: false)
 
-                                // Force update to pilot listing
-                                pilotViewModel.getPilots() {
+                                    // Force update to pilot listing
+                                    await pilotViewModel.getPilots()
 
-                                    // Dismiss sheet and return to map settings
+                                    // Dismiss sheet on main thread
                                     DispatchQueue.main.async {
                                         dismiss()
                                     }

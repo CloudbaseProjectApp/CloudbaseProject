@@ -14,6 +14,7 @@ struct LiftParameterSource: Codable, Identifiable {
     var value: Double
     var notes: String
 }
+
 struct LiftParametersResponse: Codable {
     var values: [[String]]
 }
@@ -36,103 +37,91 @@ struct ColorMappingRow {
 }
 
 class LiftParametersViewModel: ObservableObject {
-    static let shared = LiftParametersViewModel() // <-- singleton instance
+    static let shared = LiftParametersViewModel()
     
     @Published var liftParameters: LiftParameters?
     @Published var colorMappings: [String: [ColorMappingRow]] = [:]
     
-    private init() {} // <-- prevent creating new instances from outside
+    private init() {} // singleton
     
-    func getLiftParameters(completion: @escaping () -> Void) {
-        var liftParameters = LiftParameters(
-            thermalLapseRate: 0,
-            thermalVelocityConstant: 0,
-            initialTriggerTempDiff: 0,
-            ongoingTriggerTempDiff: 0,
-            thermalRampDistance: 0,
-            thermalRampStartPct: 0,
-            cloudbaseLapseRatesDiff: 0,
-            thermalGliderSinkRate: 0
-        )
-        
+    @MainActor
+    func getLiftParameters() async {
         let rangeName = "LiftParameters"
         let urlString = "https://sheets.googleapis.com/v4/spreadsheets/\(globalGoogleSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)"
-        
         guard let url = URL(string: urlString) else {
             print("Invalid URL for lift parameters")
-            completion()
+            self.liftParameters = nil
             return
         }
-        
-        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
-            guard let data = data else {
-                DispatchQueue.main.async { completion() }
-                return
-            }
-            
-            let decoder = JSONDecoder()
-            if let decodedResponse = try? decoder.decode(LiftParametersResponse.self, from: data) {
-                DispatchQueue.main.async {
-                    for row in decodedResponse.values.dropFirst() {
-                        guard !row.isEmpty else { continue }
-                        
-                        let parameter = row[0].trimmingCharacters(in: .whitespacesAndNewlines)
-                        let thirdColumnHasValue: Bool = {
-                            if row.count > 2 {
-                                let val = row[2].trimmingCharacters(in: .whitespacesAndNewlines)
-                                return !val.isEmpty
-                            }
-                            return false
-                        }()
-                        
-                        if !thirdColumnHasValue {
-                            // Single value processing
-                            if row.count > 1,
-                               let value = Double(row[1].trimmingCharacters(in: .whitespacesAndNewlines)) {
-                                switch parameter {
-                                case "thermalLapseRate":
-                                    liftParameters.thermalLapseRate = value
-                                case "thermalVelocityConstant":
-                                    liftParameters.thermalVelocityConstant = value
-                                case "initialTriggerTempDiff":
-                                    liftParameters.initialTriggerTempDiff = value
-                                case "ongoingTriggerTempDiff":
-                                    liftParameters.ongoingTriggerTempDiff = value
-                                case "thermalRampDistance":
-                                    liftParameters.thermalRampDistance = value
-                                case "thermalRampStartPct":
-                                    liftParameters.thermalRampStartPct = value
-                                case "cloudbaseLapseRatesDiff":
-                                    liftParameters.cloudbaseLapseRatesDiff = value
-                                case "thermalGliderSinkRate":
-                                    liftParameters.thermalGliderSinkRate = value
-                                default:
-                                    break
-                                }
-                            }
-                        } else {
-                            // Range color processing
-                            guard row.count > 3,
-                                  let minVal = Double(row[1].trimmingCharacters(in: .whitespacesAndNewlines)),
-                                  let maxVal = Double(row[2].trimmingCharacters(in: .whitespacesAndNewlines)) else {
-                                print("Invalid range row: \(row)")
-                                continue
-                            }
-                            let colorName = row[3].trimmingCharacters(in: .whitespacesAndNewlines)
-                            var arr = self?.colorMappings[parameter] ?? []
-                            arr.append(ColorMappingRow(minValue: minVal, maxValue: maxVal, colorName: colorName))
-                            arr.sort { $0.minValue < $1.minValue } // ensure ascending order
-                            self?.colorMappings[parameter] = arr
+
+        do {
+            let response: LiftParametersResponse = try await AppNetwork.shared.fetchJSONAsync(url: url, type: LiftParametersResponse.self)
+
+            var liftParams = LiftParameters(
+                thermalLapseRate: 0,
+                thermalVelocityConstant: 0,
+                initialTriggerTempDiff: 0,
+                ongoingTriggerTempDiff: 0,
+                thermalRampDistance: 0,
+                thermalRampStartPct: 0,
+                cloudbaseLapseRatesDiff: 0,
+                thermalGliderSinkRate: 0
+            )
+
+            var newColorMappings: [String: [ColorMappingRow]] = [:]
+
+            for row in response.values.dropFirst() {
+                guard !row.isEmpty else { continue }
+                let parameter = row[0].trimmingCharacters(in: .whitespacesAndNewlines)
+                let thirdColumnHasValue: Bool = {
+                    if row.count > 2 {
+                        let val = row[2].trimmingCharacters(in: .whitespacesAndNewlines)
+                        return !val.isEmpty
+                    }
+                    return false
+                }()
+
+                if !thirdColumnHasValue {
+                    // Single value processing
+                    if row.count > 1,
+                       let value = Double(row[1].trimmingCharacters(in: .whitespacesAndNewlines)) {
+                        switch parameter {
+                        case "thermalLapseRate": liftParams.thermalLapseRate = value
+                        case "thermalVelocityConstant": liftParams.thermalVelocityConstant = value
+                        case "initialTriggerTempDiff": liftParams.initialTriggerTempDiff = value
+                        case "ongoingTriggerTempDiff": liftParams.ongoingTriggerTempDiff = value
+                        case "thermalRampDistance": liftParams.thermalRampDistance = value
+                        case "thermalRampStartPct": liftParams.thermalRampStartPct = value
+                        case "cloudbaseLapseRatesDiff": liftParams.cloudbaseLapseRatesDiff = value
+                        case "thermalGliderSinkRate": liftParams.thermalGliderSinkRate = value
+                        default: break
                         }
                     }
-                    
-                    self?.liftParameters = liftParameters
-                    completion()
+                } else {
+                    // Range color processing
+                    guard row.count > 3,
+                          let minVal = Double(row[1].trimmingCharacters(in: .whitespacesAndNewlines)),
+                          let maxVal = Double(row[2].trimmingCharacters(in: .whitespacesAndNewlines)) else {
+                        print("Invalid range row: \(row)")
+                        continue
+                    }
+                    let colorName = row[3].trimmingCharacters(in: .whitespacesAndNewlines)
+                    var arr = newColorMappings[parameter] ?? []
+                    arr.append(ColorMappingRow(minValue: minVal, maxValue: maxVal, colorName: colorName))
+                    arr.sort { $0.minValue < $1.minValue }
+                    newColorMappings[parameter] = arr
                 }
-            } else {
-                DispatchQueue.main.async { completion() }
             }
-        }.resume()
+
+            // Update published properties once at the end
+            self.liftParameters = liftParams
+            self.colorMappings = newColorMappings
+
+        } catch {
+            print("Failed to fetch lift parameters: \(error)")
+            self.liftParameters = nil
+            self.colorMappings = [:]
+        }
     }
 }
 
@@ -164,4 +153,3 @@ extension LiftParametersViewModel {
         }
     }
 }
-

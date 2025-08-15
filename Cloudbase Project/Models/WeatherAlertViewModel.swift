@@ -43,55 +43,34 @@ struct WeatherAlertsResponse: Decodable {
     }
 }
 
+@MainActor
 class WeatherAlertViewModel: ObservableObject {
     @Published var weatherAlerts: [WeatherAlert] = []
     @Published var isLoading = false
     
-    func getWeatherAlerts() {
+    func getWeatherAlerts() async {
         isLoading = true
-
-        guard let baseURL = AppURLManager.shared.getAppURL(URLName: "weatherAlertsURL") else {
+        
+        guard let baseURLString = AppURLManager.shared.getAppURL(URLName: "weatherAlertsURL") else {
             print("Could not find weather alerts URL for appRegion: \(RegionManager.shared.activeAppRegion)")
             isLoading = false
             return
         }
-
-        let updatedURL = updateURL(url: baseURL, parameter: "appregion", value: RegionManager.shared.activeAppRegion)
-
-        guard let url = URL(string: updatedURL) else {
+        
+        let updatedURLString = updateURL(url: baseURLString, parameter: "appregion", value: RegionManager.shared.activeAppRegion)
+        guard let url = URL(string: updatedURLString) else {
             print("Invalid weather alerts URL for appRegion: \(RegionManager.shared.activeAppRegion)")
             isLoading = false
             return
         }
-
-        URLSession.shared.dataTask(with: url) { data, response, error in
-            if let error = error {
-                print("Weather alerts request failed: \(error.localizedDescription)")
-                DispatchQueue.main.async { self.isLoading = false }
-                return
-            }
-
-            guard let data = data else {
-                print("No data received in weather alerts response")
-                DispatchQueue.main.async { self.isLoading = false }
-                return
-            }
-            self.parseWeatherAlertsData(data: data)
-
-        }.resume()
-    }
-    
-    private func parseWeatherAlertsData(data: Data) {
+        
         do {
-            let decodedResponse = try JSONDecoder().decode(WeatherAlertsResponse.self, from: data)
-            DispatchQueue.main.async {
-                self.weatherAlerts = decodedResponse.features.map { $0.properties }
-                self.isLoading = false
-            }
+            let response: WeatherAlertsResponse = try await AppNetwork.shared.fetchJSONAsync(url: url, type: WeatherAlertsResponse.self)
+            self.weatherAlerts = response.features.map { $0.properties }
         } catch {
-            print("Error decoding weather alerts JSON: \(error)")
-            DispatchQueue.main.async { self.isLoading = false }
+            print("Failed to fetch or decode weather alerts: \(error)")
         }
+        
+        isLoading = false
     }
-    
 }

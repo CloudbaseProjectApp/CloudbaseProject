@@ -162,31 +162,38 @@ class SkewTChartManager: ObservableObject {
         return skewTLiftParameters
     }
     
-    func populateSoaringForecast(forecastMaxTemp: Int) {
-        
+    @MainActor
+    func populateSoaringForecast(forecastMaxTemp: Int) async {
         // Use soaringForecastViewModel to get forecast max temp
         self.maxTempF = Double(forecastMaxTemp)
         
-        // Get sounding data
         let soundingURL = URL(string: "https://storage.googleapis.com/wasatch-wind-static/raob.json")!
-        URLSession.shared.dataTask(with: soundingURL) { [weak self] data2, response2, error2 in
-            if let self = self, let data2 = data2 {
-                if let jsonData = try? JSONSerialization.jsonObject(with: data2) as? [[String: Any]] {
-                    let decodedData = jsonData.compactMap { dict -> SkewTDataPoint? in
-                        if let Temp_c = dict["Temp_c"] as? Double,
-                           let Dewpoint_c = dict["Dewpoint_c"] as? Double,
-                           let Altitude_m = dict["Altitude_m"] as? Double {
-                            return SkewTDataPoint(Temp_c: Temp_c, Dewpoint_c: Dewpoint_c, Altitude_m: Altitude_m)
-                        }
-                        return nil
+        
+        do {
+            // Fetch JSON as text
+            let dataString = try await AppNetwork.shared.fetchTextAsync(url: soundingURL)
+            
+            // Convert string to Data
+            guard let data = dataString.data(using: .utf8) else { return }
+            
+            // Decode JSON manually since it's an array of dictionaries
+            if let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                let decodedData = jsonArray.compactMap { dict -> SkewTDataPoint? in
+                    if let Temp_c = dict["Temp_c"] as? Double,
+                       let Dewpoint_c = dict["Dewpoint_c"] as? Double,
+                       let Altitude_m = dict["Altitude_m"] as? Double {
+                        return SkewTDataPoint(Temp_c: Temp_c, Dewpoint_c: Dewpoint_c, Altitude_m: Altitude_m)
                     }
-                    DispatchQueue.main.async {
-                        self.skewTSoundingData = decodedData
-                        self.skewTLiftParameters = self.getSkewTLiftParameters(temp: self.maxTempF, data: decodedData)
-                    }
+                    return nil
                 }
+                
+                self.skewTSoundingData = decodedData
+                self.skewTLiftParameters = self.getSkewTLiftParameters(temp: self.maxTempF, data: decodedData)
             }
-        }.resume()
+            
+        } catch {
+            print("Failed to fetch or parse sounding data: \(error)")
+        }
     }
 }
 
@@ -408,7 +415,9 @@ struct SkewTChartView: View {
         .background(tableBackgroundColor)
         .cornerRadius(8)
         .onAppear {
-            manager.populateSoaringForecast(forecastMaxTemp: forecastMaxTemp)
+            Task {
+                await manager.populateSoaringForecast(forecastMaxTemp: forecastMaxTemp)
+            }
         }
     }
 

@@ -441,8 +441,11 @@ struct PilotTrackNodeView: View {
             .onChange(of: currentTrackIndex) { oldIndex, newIndex in
                 // Determine the newly‐visible track node
                 let newTrack = sameDayTracks[safe: newIndex] ?? originalPilotTrack
-                fetchGroundElevation(latitude: newTrack.latitude,
-                                     longitude: newTrack.longitude)
+                Task {
+                    await fetchGroundElevation(latitude: newTrack.latitude,
+                                               longitude: newTrack.longitude)
+                }
+
             }
             // Update all ground elevations when the view model publishes a new track array
             // (also executes when sheet is opened)
@@ -459,68 +462,69 @@ struct PilotTrackNodeView: View {
                     currentTrackIndex = max(0, updatedSameDay.count - 1)
                 }
 
-                fetchAllGroundElevations(for: updatedSameDay)
+                Task {
+                    await fetchAllGroundElevations(for: updatedSameDay)
+                }
             }
         }
         Spacer()
     }
     
-    private func fetchGroundElevation(latitude: Double, longitude: Double) {
+    @MainActor
+    private func fetchGroundElevation(latitude: Double, longitude: Double) async {
         let baseURL = AppURLManager.shared.getAppURL(URLName: "groundElevation") ?? "<Unknown ground elevation URL>"
         var updatedURL = updateURL(url: baseURL, parameter: "latitude", value: String(latitude))
         updatedURL = updateURL(url: updatedURL, parameter: "longitude", value: String(longitude))
+        
         guard let url = URL(string: updatedURL) else { return }
-        URLSession.shared.dataTaskPublisher(for: url)
-            .map { $0.data }
-            .decode(type: ElevationResponse.self, decoder: JSONDecoder())
-            .map { $0.elevation.first }
-            .replaceError(with: nil)
-            .receive(on: DispatchQueue.main)
-            .sink { elevation in
-                self.currentNodeGroundElevation = convertMetersToFeet(elevation ?? 0)
+        
+        do {
+            let response: ElevationResponse = try await AppNetwork.shared.fetchJSONAsync(url: url, type: ElevationResponse.self)
+            if let elevationMeters = response.elevation.first {
+                self.currentNodeGroundElevation = convertMetersToFeet(elevationMeters)
             }
-            .store(in: &cancellables)
+        } catch {
+            print("Failed to fetch ground elevation: \(error)")
+        }
     }
     
     // fetch elevations for array of points in one request
-    private func fetchAllGroundElevations(for tracks: [PilotTrack]) {
+    @MainActor
+    private func fetchAllGroundElevations(for tracks: [PilotTrack]) async {
         struct MultiElevationResponse: Codable {
             let elevation: [Double]
         }
 
-        // elevation API call is limited to 99 coordinates per call,
-        // so break break into pages of up to 99 coordinates each
+        guard !tracks.isEmpty else { return }
+
+        var allElevations: [Int] = []
+
+        // elevation API call is limited to 99 coordinates per call
         let pages = tracks.chunked(into: 99)
 
-        // For each page, create a publisher that returns [Int] (feet)
-        let elevationPublishers = pages.map { page -> AnyPublisher<[Int], Never> in
+        for page in pages {
             let latList = page.map { "\($0.latitude)" }.joined(separator: ",")
             let lonList = page.map { "\($0.longitude)" }.joined(separator: ",")
             let baseURL = AppURLManager.shared.getAppURL(URLName: "groundElevation") ?? "<Unknown ground elevation URL>"
             var updatedURL = updateURL(url: baseURL, parameter: "latitude", value: latList)
             updatedURL = updateURL(url: updatedURL, parameter: "longitude", value: lonList)
+
             guard let url = URL(string: updatedURL) else {
-                // if URL fails, return an empty array immediately
-                return Just([Int]()).eraseToAnyPublisher()
+                // Skip this page if URL fails
+                continue
             }
 
-            return URLSession.shared.dataTaskPublisher(for: url)
-                .map(\.data)
-                .decode(type: MultiElevationResponse.self, decoder: JSONDecoder())
-                .map { resp in resp.elevation.map { Int(convertMetersToFeet($0)) } }
-                .replaceError(with: [])
-                .eraseToAnyPublisher()
+            do {
+                let response: MultiElevationResponse = try await AppNetwork.shared.fetchJSONAsync(url: url, type: MultiElevationResponse.self)
+                let elevationsFeet = response.elevation.map { Int(convertMetersToFeet($0)) }
+                allElevations.append(contentsOf: elevationsFeet)
+            } catch {
+                print("Failed to fetch elevations for a page: \(error)")
+                // continue to next page
+            }
         }
 
-        // Merge all pages:  Collect the [ [Int] ] into a single [[Int]], then flatten and assign
-        Publishers.MergeMany(elevationPublishers)
-            .collect()                           // [[Int]]
-            .map { $0.flatMap { $0 } }           // [Int]
-            .receive(on: DispatchQueue.main)
-            .sink { allElevations in
-                self.groundElevations = allElevations
-            }
-            .store(in: &cancellables)
+        self.groundElevations = allElevations
     }
     
     private func getPilotTrackInfo(pilotTrack: PilotTrack) -> (flightStartDateTime: Date, flightLatestDateTime: Date, formattedFlightDuration: String, startToEndDistance: CLLocationDistance, maxAltitude: Double, totalDistance: CLLocationDistance) {

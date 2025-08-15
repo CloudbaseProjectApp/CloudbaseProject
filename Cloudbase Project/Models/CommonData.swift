@@ -10,6 +10,7 @@ let printReadingsURL: Bool          = false
 let printForecastURL: Bool          = false
 let printPilotTracksTimings: Bool   = false
 let printPilotTrackURLs: Bool       = false
+let printURLRawResponse: Bool       = false
 let printFunctionCallSource: Bool   = false         /* Need to put logic at top of function being called to see output:
                                                     if printFunctionCallSource { Thread.callStackSymbols.forEach { print($0) } }
                                                     */
@@ -83,18 +84,6 @@ let defaultShowSites: Bool                      = false
 let defaultShowStations: Bool                   = true
 let defaultShowRadar: Bool                      = true
 let defaultShowInfrared: Bool                   = true
-let defaultRadarColorScheme: Int                = 3
-    /* Rainviewer radar color scheme options are:
-    0        BW Black and White: dBZ values
-    1        Original (green -> blue)  for increasing precip)
-    2        Universal Blue (blue -> yellow -> red for increasing precip)  **
-    3        TITAN (green -> blue -> purple -> magenta -> orange -> yellow for increasing precip)  **
-    4        The Weather Channel (TWC) (green -> yellow for increasing precip) *
-    5        Meteored (blue -> green -> yellow for increasing precip) *
-    6        NEXRAD Level III (blue -> green -> yellow -> red for increasing precip) *
-    7        Rainbow @ SELEX-IS (green -> yellow -> red for increasing precip)  **
-    8        Dark Sky ((deep blue -> red -> yellow for increasing precip)  **
-    */
 
 // Grid structure sizing parameters
 let headingHeight: CGFloat                      = 16        // Day, date, time rows

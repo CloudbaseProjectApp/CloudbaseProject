@@ -44,7 +44,6 @@ struct Cloudbase_ProjectApp: App {
         let appRegionVM         = AppRegionViewModel()
         let appRegionCodesVM    = AppRegionCodesViewModel()
         let appURLVM            = AppURLViewModel()
-        let liftVM              = LiftParametersViewModel.shared
         let sunVM               = SunriseSunsetViewModel()
         let weatherVM           = WeatherCodeViewModel()
         let siteVM              = SiteViewModel()
@@ -82,12 +81,18 @@ struct Cloudbase_ProjectApp: App {
         let weatherCamVM        = WeatherCamViewModel()
         
         // Populate app region view model (for user to select region and other metadata to load)
-        appRegionVM.getAppRegions() {}
+        Task { await appRegionVM.getAppRegions() }
         
-        // Populate app URLs and region codes
-        appURLVM.getAppURLs() {}
-        appRegionCodesVM.getAppRegionCodes() {}
-        
+        // Populate (in parallel) app URLs and region codes
+        Task {
+            async let _: Void = appURLVM.getAppURLs()
+            async let _: Void = appRegionCodesVM.getAppRegionCodes()
+
+            // Wait for both to finish
+            await appURLVM.getAppURLs()
+            await appRegionCodesVM.getAppRegionCodes()
+        }
+
         // Load user settings from storage
         userSettingsVM.loadFromStorage()
         _userSettingsViewModel = StateObject(wrappedValue: userSettingsVM)
@@ -220,43 +225,32 @@ struct BaseAppView: View {
     }
     
     private func loadInitialMetadata() {
-        let group = DispatchGroup()
-        
-        func loadWithGroup(_ task: (@escaping () -> Void) -> Void) {
-            group.enter()
-            task {
-                group.leave()
+        Task {
+            // Step 1 – Load app regions and app URLs first
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { await appRegionViewModel.getAppRegions() }
+                group.addTask { await appURLViewModel.getAppURLs() }
             }
-        }
-        
-        // Step 1 – Load app regions, then kick off all the rest in parallel
-        loadWithGroup { done in
-            appRegionViewModel.getAppRegions {
-                // Load others in parallel
-                loadWithGroup { done in appURLViewModel.getAppURLs(completion: done) }
-                loadWithGroup { done in appRegionCodesViewModel.getAppRegionCodes(completion: done) }
-                loadWithGroup { done in LiftParametersViewModel.shared.getLiftParameters(completion: done) }
-                loadWithGroup { done in weatherCodesViewModel.getWeatherCodes(completion: done) }
-                loadWithGroup { done in sunriseSunsetViewModel.getSunriseSunset(completion: done) }
-                loadWithGroup { done in pilotViewModel.getPilots(completion: done) }
-                loadWithGroup { done in
-                    siteViewModel.getSites {
-                        stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true) {
-                            // not waiting for readings
-                        }
-                        done()
-                    }
-                }
-                done()
+            
+            // Step 2 – Load everything else in parallel
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { await appRegionCodesViewModel.getAppRegionCodes() }
+                group.addTask { await LiftParametersViewModel.shared.getLiftParameters() }
+                group.addTask { await weatherCodesViewModel.getWeatherCodes() }
+                group.addTask { await sunriseSunsetViewModel.getSunriseSunset() }
+                group.addTask { await pilotViewModel.getPilots() }
+                group.addTask { await siteViewModel.getSites() }
+                await group.waitForAll()
             }
-        }
-        
-        group.notify(queue: .main) {
+            
+            // Fire-and-forget latest readings call after all of the above are complete (particularly getSites)
+            Task {
+                await stationLatestReadingViewModel.getLatestReadingsData(sitesOnly: true)
+            }
             metadataLoaded = true
             checkIfReadyToTransition()
+            initializeLoggingFile()
         }
-        
-        initializeLoggingFile()
     }
     
     private func checkIfReadyToTransition() {

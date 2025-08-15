@@ -4,13 +4,13 @@ import Foundation
 // To call, use this format:
 //      AppURLManager.shared.getAppURL(URLName: "<URL name to get>")
 
-final class AppURLManager {
-    
+final class AppURLManager: ObservableObject {
+
     static let shared = AppURLManager()
     
     private init() {}
-    
-    private(set) var appURLs: [AppURL] = []
+
+    @Published private(set) var appURLs: [AppURL] = []
 
     func setAppURLs(_ appURLs: [AppURL]) {
         self.appURLs = appURLs
@@ -31,5 +31,4 @@ final class AppURLManager {
             $0.appCountry == "Global" && $0.URLName == URLName
         })?.URL
     }
-
 }

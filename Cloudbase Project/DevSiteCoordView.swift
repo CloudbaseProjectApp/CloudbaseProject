@@ -108,13 +108,13 @@ struct SiteMapView: View {
     @State private var markerCoordinate: CLLocationCoordinate2D?
     @EnvironmentObject var siteViewModel: SiteViewModel
     @Environment(\.presentationMode) var presentationMode
-
+    
     init(site: Site, coordinateRegion: Binding<MKCoordinateRegion>) {
         self.site = site
         _coordinateRegion = coordinateRegion
         _markerCoordinate = State(initialValue: coordinateRegion.wrappedValue.center) // Initialize marker at center
     }
-
+    
     var body: some View {
         VStack(alignment: .leading) {
             HStack {
@@ -175,19 +175,19 @@ struct SiteMapView: View {
             }
         }
     }
-            
+    
     func updateSiteCoordinates(siteName: String,
                                sheetRow: Int,
-                               newCoordinate: CLLocationCoordinate2D) {
+                               newCoordinate: CLLocationCoordinate2D) async {
         // Build range to specify row and columns to be updated
         let rangeName = "Sites!R\(sheetRow)C11:R\(sheetRow)C12"
         let regionSheetID = AppRegionManager.shared.getRegionGoogleSheet() ?? ""
-        let url = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)")!
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
+        
+        guard let url = URL(string: "https://sheets.googleapis.com/v4/spreadsheets/\(regionSheetID)/values/\(rangeName)?alt=json&key=\(googleAPIKey)") else {
+            print("Invalid URL for updating site coordinates")
+            return
+        }
+        
         let body: [String: Any] = [
             "range": rangeName,
             "majorDimension": "ROWS",
@@ -195,15 +195,13 @@ struct SiteMapView: View {
                 ["\(newCoordinate.latitude)", "\(newCoordinate.longitude)"]
             ]
         ]
-
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body, options: [])
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                print("Error updating coordinates: \(error.localizedDescription)")
-                return
-            }
+        
+        do {
+            // Assuming you have a valid token if needed; otherwise remove the token argument
+            try await AppNetwork.shared.postJSON(url: url, token: googleAPIKey, body: body)
             print("Coordinates updated successfully.")
-        }.resume()
+        } catch {
+            print("Error updating coordinates: \(error)")
+        }
     }
 }

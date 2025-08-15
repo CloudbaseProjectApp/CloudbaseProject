@@ -42,7 +42,9 @@ struct UDOTCameraListView: View {
             .cornerRadius(10)
             .padding(.vertical, 8)
             .onAppear {
-                camerasViewModel.fetchCameras()
+                Task {
+                    await camerasViewModel.fetchCameras()
+                }
                 startMonitoringRegion()
             }
             .sheet(item: $selectedCamera) { camera in

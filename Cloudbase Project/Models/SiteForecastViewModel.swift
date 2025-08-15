@@ -133,78 +133,78 @@ class SiteForecastViewModel: ObservableObject {
     // Forecast cache based on each forecast URL
     private var forecastCache: [String: ForecastCacheEntry] = [:]
     
-    // Define a specific URL session to number of concurrent API requests (e.g., when called from Flying Potential with many sites)
-    private let urlSession: URLSession
+    // Central network instance with connection limit
+    private let network: AppNetwork
     
-    // Make thermal lift parameters, weather code images, and sunrise/sunset times available in this view model
     init(sunriseSunsetViewModel: SunriseSunsetViewModel,
          weatherCodesViewModel: WeatherCodeViewModel) {
         self.sunriseSunsetViewModel = sunriseSunsetViewModel
         self.weatherCodesViewModel = weatherCodesViewModel
         
-        // Set limit on number of concurrent API requests for this session
+        // Custom session with 3 max concurrent requests per host
         let config = URLSessionConfiguration.default
-        config.httpMaximumConnectionsPerHost = 3   // allow only 3 concurrent requests
-        self.urlSession = URLSession(configuration: config)
+        config.httpMaximumConnectionsPerHost = 3
+        let limitedSession = URLSession(configuration: config)
+        
+        // Create network wrapper with limited session
+        self.network = AppNetwork.withSession(limitedSession)
     }
     
     func clearForecastCache() {
         forecastCache.removeAll()
     }
     
+    // Async/await version
     func fetchForecast(id: String,
                        siteName: String,
                        latitude: String,
                        longitude: String,
                        siteType: String,
-                       siteWindDirection: SiteWindDirection) {
+                       siteWindDirection: SiteWindDirection) async {
 
         let encodedTimezone = AppRegionManager.shared.getRegionEncodedTimezone() ?? ""
         let baseForecastURL = AppURLManager.shared.getAppURL(URLName: "forecastURL") ?? "<Unknown forecast URL>"
+        
         var updatedForecastURL = updateURL(url: baseForecastURL, parameter: "latitude", value: latitude)
         updatedForecastURL = updateURL(url: updatedForecastURL, parameter: "longitude", value: longitude)
         updatedForecastURL = updateURL(url: updatedForecastURL, parameter: "encodedTimezone", value: encodedTimezone)
         
-        if printForecastURL { print(updatedForecastURL) }
-
+        let safeURLKey = updatedForecastURL
+        if printForecastURL { print(safeURLKey) }
+        
         // Cache check
-        if let cached = forecastCache[updatedForecastURL],
+        if let cached = forecastCache[safeURLKey],
            Date().timeIntervalSince(cached.timestamp) < forecastCacheInterval {
-            DispatchQueue.main.async {
+            await MainActor.run {
                 self.forecastData = cached.data
             }
             return
         }
 
-        guard let forecastURL = URL(string: updatedForecastURL) else { return }
+        guard let forecastURL = URL(string: safeURLKey) else { return }
         
-        urlSession.dataTask(with: forecastURL) { data, response, error in
-            if let data = data {
-                let decoder = JSONDecoder()
-                let modifiedData = replaceNullsInJSON(data: data)
-                if var forecastData = try? decoder.decode(ForecastData.self, from: modifiedData ?? data) {
-                    DispatchQueue.main.async {
-                        
-                        // Set id based on site/station/favorite id passed in
-                        forecastData.id = id
-                        
-                        // Process forecast data
-                        let processed = self.processForecastData(id:                 id,
-                                                                 siteName:           siteName,
-                                                                 siteType:           siteType,
-                                                                 siteWindDirection:  siteWindDirection,
-                                                                 data:               forecastData)
-                        self.forecastData = processed
-                        self.forecastCache[updatedForecastURL] = ForecastCacheEntry(data: processed, timestamp: Date())
-                    }
-                } else {
-                    print("JSON decode failed for forecast")
-                }
+        do {
+            var fetched = try await network.fetchJSONAsync(url: forecastURL, type: ForecastData.self)
+            fetched.id = id
+            let safeFetched = fetched  // immutable copy
+
+            await MainActor.run {
+                let processed = self.processForecastData(
+                    id: id,
+                    siteName: siteName,
+                    siteType: siteType,
+                    siteWindDirection: siteWindDirection,
+                    data: safeFetched
+                )
+                self.forecastData = processed
+                self.forecastCache[safeURLKey] = ForecastCacheEntry(data: processed, timestamp: Date())
             }
-        }.resume()
+        } catch {
+            print("Forecast fetch/decoding failed: \(error)")
+        }
     }
     
-    // Overloaded version with completion handler for use in FlyingPotentialView
+    // Completion-handler version
     func fetchForecast(id: String,
                        siteName: String,
                        latitude: String,
@@ -212,60 +212,57 @@ class SiteForecastViewModel: ObservableObject {
                        siteType: String,
                        siteWindDirection: SiteWindDirection,
                        completion: @escaping (ForecastData?) -> Void) {
-
+        
         let encodedTimezone = AppRegionManager.shared.getRegionEncodedTimezone() ?? ""
         let baseForecastURL = AppURLManager.shared.getAppURL(URLName: "forecastURL") ?? "<Unknown forecast URL>"
         
         var updatedForecastURL = updateURL(url: baseForecastURL, parameter: "latitude", value: latitude)
         updatedForecastURL = updateURL(url: updatedForecastURL, parameter: "longitude", value: longitude)
         updatedForecastURL = updateURL(url: updatedForecastURL, parameter: "encodedTimezone", value: encodedTimezone)
-
-        if printForecastURL { print(updatedForecastURL) }
-
+        
+        let safeURLKey = updatedForecastURL
+        if printForecastURL { print(safeURLKey) }
+        
         // Cache check
-        if let cached = forecastCache[updatedForecastURL],
+        if let cached = forecastCache[safeURLKey],
            Date().timeIntervalSince(cached.timestamp) < forecastCacheInterval {
-            DispatchQueue.main.async {
-                completion(cached.data)
-            }
+            DispatchQueue.main.async { completion(cached.data) }
             return
         }
-        guard let forecastURL = URL(string: updatedForecastURL) else {
+        
+        guard let forecastURL = URL(string: safeURLKey) else {
             completion(nil)
             return
         }
         
-        urlSession.dataTask(with: forecastURL) { data, response, error in
-            if let data = data {
-                let decoder = JSONDecoder()
-                let modifiedData = replaceNullsInJSON(data: data)
-                do {
-                    let forecastData = try decoder.decode(ForecastData.self, from: modifiedData ?? data)
-                    let processed = self.processForecastData(id:                   id,
-                                                             siteName:             siteName,
-                                                             siteType:             siteType,
-                                                             siteWindDirection:    siteWindDirection,
-                                                             data:                 forecastData)
-                    DispatchQueue.main.async {
-                        self.forecastCache[updatedForecastURL] = ForecastCacheEntry(data: processed, timestamp: Date())
-                        completion(processed)
-                    }
-                } catch {
-                    print("Decoding error: \(error)")
-                    print("Raw JSON: \(String(data: modifiedData ?? data, encoding: .utf8) ?? "Invalid data")")
-                    DispatchQueue.main.async {
-                        completion(nil)
-                    }
+        network.fetchJSON(url: forecastURL, type: ForecastData.self) { [weak self] result in
+            guard let self = self else { return }
+
+            switch result {
+            case .success(var fetched):
+                fetched.id = id
+                let safeFetched = fetched  // immutable copy
+
+                Task { @MainActor in
+                    let processed = self.processForecastData(
+                        id: id,
+                        siteName: siteName,
+                        siteType: siteType,
+                        siteWindDirection: siteWindDirection,
+                        data: safeFetched
+                    )
+                    self.forecastCache[safeURLKey] = ForecastCacheEntry(data: processed, timestamp: Date())
+                    completion(processed)
                 }
-            } else {
-                DispatchQueue.main.async {
-                    completion(nil)
-                }
+
+            case .failure(let error):
+                print("Forecast fetch/decoding failed: \(error)")
+                DispatchQueue.main.async { completion(nil) }
             }
-        }.resume()
+        }
     }
-    
-    func processForecastData(id: String,
+
+    @MainActor func processForecastData(id: String,
                              siteName: String,
                              siteType: String,
                              siteWindDirection: SiteWindDirection,

@@ -116,14 +116,15 @@ struct PilotAppendView: View {
                         
                         hideKeyboard()
                         
-                        // Add pilot to Google sheets
-                        pilotViewModel.addPilot(pilotName: trimmedName,
-                                                trackingShareURL: trimmedURL)
+                        Task {
+                            // Add pilot to Google Sheets
+                            try? await pilotViewModel.addPilot(pilotName: trimmedName,
+                                                               trackingShareURL: trimmedURL)
 
-                        // Force update to pilot listing
-                        pilotViewModel.getPilots() {
+                            // Force update to pilot listing
+                            await pilotViewModel.getPilots()
 
-                            // Dismiss sheet and return to map settings
+                            // Dismiss sheet on main thread
                             DispatchQueue.main.async {
                                 dismiss()
                             }

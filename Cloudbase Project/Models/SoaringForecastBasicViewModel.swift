@@ -1,8 +1,6 @@
 import SwiftUI
 import Combine
 
-// "Basic" Soaring Forecast and Sounding for locations that do not use summer/winter soaring forecasts
-
 struct SoaringForecastBasic: Identifiable {
     let id = UUID()
     let date: String
@@ -18,7 +16,7 @@ struct BasicSoaringForecastData: Identifiable {
     let heading: String
     let value: String?
 }
-    
+
 struct BasicLiftData: Identifiable {
     let id = UUID()
     let altitude: String
@@ -26,73 +24,73 @@ struct BasicLiftData: Identifiable {
     let tempOfConvection: Int       // Fahrenheit
     let liftRate: Double            // Converted to m/s
 }
-    
+
 struct BasicSoundingData: Identifiable {
     let id = UUID()
     let altitude: String
     let amWindDirection: Int
-    let amWindSpeed: Int            // converted to mph
+    let amWindSpeed: Int            // mph
     let pmWindDirection: Int
-    let pmWindSpeed: Int            // converted to mph
+    let pmWindSpeed: Int            // mph
 }
-    
+
 struct BasicModelData: Identifiable {
     let id = UUID()
     let value: String
 }
 
+@MainActor
 class SoaringForecastBasicViewModel: ObservableObject {
     @Published var soaringForecastBasic: SoaringForecastBasic?
     @Published var isLoading = false
     
-    // Instance Tracking code
     private let vmtype = "SoaringForecastViewModel (Basic)"
     private let instanceID = UUID()
+    private let network = AppNetwork.shared
+    
     init() { print("✅ \(vmtype) \(instanceID) initialized") }
     deinit { print("🗑️ \(vmtype) \(instanceID) deinitialized") }
     
     func fetchSoaringForecast(airportCode: String) {
-        isLoading = true
-        
-        // Get base URL, update parameters, and format into URL format
-        guard let baseURL = AppURLManager.shared.getAppURL(URLName: "soaringForecastBasic") else {
-            print("Could not find basic soaring forecast URL for appRegion: \(RegionManager.shared.activeAppRegion)")
-            isLoading = false
-            return
-        }
-        let updatedURL = updateURL(url: baseURL, parameter: "airportcode", value: airportCode)
-        
-        // Format URL
-        guard let URL = URL(string: updatedURL) else {
-            print("Invalid basic soaring forecast URL for appRegion: \(RegionManager.shared.activeAppRegion)")
-            isLoading = false
-            return
-        }
-
-        // Process URL query
-        URLSession.shared.dataTask(with: URL) { [weak self] data, response, error in
-            guard let self = self else { return }
-            guard let data = data, error == nil else {
-                DispatchQueue.main.async { self.isLoading = false }
+        Task {
+            isLoading = true
+            
+            guard let baseURL = AppURLManager.shared.getAppURL(URLName: "soaringForecastBasic") else {
+                print("Could not find basic soaring forecast URL for appRegion: \(RegionManager.shared.activeAppRegion)")
+                isLoading = false
                 return
             }
-            if let content = String(data: data, encoding: .utf8) {
-                self.parseBasicSoaringForecast(content: content)
+            
+            let updatedURL = updateURL(url: baseURL, parameter: "airportcode", value: airportCode)
+            guard let url = URL(string: updatedURL) else {
+                print("Invalid basic soaring forecast URL for appRegion: \(RegionManager.shared.activeAppRegion)")
+                isLoading = false
+                return
             }
-        }.resume()
-    }
-    
-    
-    func parseModelData(_ input: String) -> [ModelData] {
-        let lines = input.split(separator: "\n")
-        var dataRows: [ModelData] = []
-        for line in lines {
-            dataRows.append(ModelData(value: String(line)))
+            
+            do {
+                let data: Data = try await AppNetwork.shared.fetchDataAsync(url: url)
+                guard let content = String(data: data, encoding: .utf8) else {
+                    print("Failed to decode soaring forecast as UTF-8 string")
+                    isLoading = false
+                    return
+                }
+                parseBasicSoaringForecast(content: content)
+            } catch {
+                print("Basic soaring forecast fetch failed: \(error)")
+            }
+            
+            isLoading = false
         }
-        return dataRows
     }
     
-    // Winter soaring forecast with limited data
+    // Parsing
+    func parseModelData(_ input: String) -> [BasicModelData] {
+        input
+            .split(separator: "\n")
+            .map { BasicModelData(value: String($0)) }
+    }
+    
     func parseBasicSoaringForecast(content: String) {
         let start = "SOARING FORECAST FOR "
         let datePrefix = "DATE..."
@@ -102,46 +100,16 @@ class SoaringForecastBasicViewModel: ObservableObject {
         let soundingPrefix = "Morning  ####  Afternoon"
         let endPrefix = "IT IS EMPHASIZED"
         
-        guard let startRange = content.range(of: start)
+        guard let startRange = content.range(of: start),
+              let dateRange = content.range(of: datePrefix, range: startRange.upperBound..<content.endIndex),
+              let liftRange = content.range(of: liftPrefix, range: dateRange.upperBound..<content.endIndex),
+              let soaringRange = content.range(of: soaringPrefix, range: liftRange.upperBound..<content.endIndex),
+              let soaringRangeEnd = content.range(of: soaringSuffix, range: soaringRange.upperBound..<content.endIndex),
+              let soundingRange = content.range(of: soundingPrefix, range: soaringRange.upperBound..<content.endIndex),
+              let endRange = content.range(of: endPrefix, range: soundingRange.upperBound..<content.endIndex)
         else {
-            print("Basic soaring forecast: could not parse start date (e.g., no row for \(start))")
-            DispatchQueue.main.async { self.isLoading = false }
-            return
-        }
-        guard let dateRange = content.range(of: datePrefix, range: startRange.upperBound..<content.endIndex)
-        else {
-            print("Basic soaring forecast: could not parse date range (e.g., no row for \(datePrefix))")
-            DispatchQueue.main.async { self.isLoading = false }
-            return
-        }
-        guard let liftRange = content.range(of: liftPrefix, range: dateRange.upperBound..<content.endIndex)
-        else {
-            print("Basic soaring forecast: could not parse lift range (e.g., no row for \(liftPrefix))")
-            DispatchQueue.main.async { self.isLoading = false }
-            return
-        }
-        guard let soaringRange = content.range(of: soaringPrefix, range: liftRange.upperBound..<content.endIndex)
-        else {
-            print("Basic soaring forecast: could not parse soaring forecast range (e.g., no row for \(soaringPrefix))")
-            DispatchQueue.main.async { self.isLoading = false }
-            return
-        }
-        guard let soaringRangeEnd = content.range(of: soaringSuffix, range: soaringRange.upperBound..<content.endIndex)
-        else {
-            print("Basic soaring forecast: could not parse soaring forecast range (e.g., no row for \(soaringPrefix))")
-            DispatchQueue.main.async { self.isLoading = false }
-            return
-        }
-        guard let soundingRange = content.range(of: soundingPrefix, range: soaringRange.upperBound..<content.endIndex)
-        else {
-            print("Basic soaring forecast: could not parse sounding data range (e.g., no row for \(soundingPrefix))")
-            DispatchQueue.main.async { self.isLoading = false }
-            return
-        }
-        guard let endRange = content.range(of: endPrefix, range: soundingRange.upperBound..<content.endIndex)
-        else {
-            print("Basic soaring forecast: Could not parse end range (e.g., no row for \(endPrefix))")
-            DispatchQueue.main.async { self.isLoading = false }
+            print("Basic soaring forecast: could not parse required sections")
+            isLoading = false
             return
         }
         
@@ -156,25 +124,25 @@ class SoaringForecastBasicViewModel: ObservableObject {
         let soundingDataString = removeExtraBlankLines(String(content[soundingRange.upperBound..<endRange.lowerBound]))
         let soundingData = parseBasicSoundingData(soundingDataString)
         
-        // Find forecast max temp to use in skew-T diagarm
+        // Find forecast max temp
         var forecastMaxTemp: Int = 0
-        let pattern = "MAX TEMPERATURE FORECAST\\s+\\.+\\d+\\DEGREES F)"
-        let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive)
-        let nsString = soaringDataString as NSString
-        let results = regex?.matches(in: soaringDataString, options: [], range: NSRange(location: 0, length: nsString.length))
-        if let match = results?.first, let range = Range(match.range(at: 1), in: soaringDataString) {
+        let pattern = #"MAX TEMPERATURE FORECAST\s+\.*(\d+)DEGREES F"#
+        if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+           let match = regex.firstMatch(in: soaringDataString, range: NSRange(location: 0, length: soaringDataString.utf16.count)),
+           let range = Range(match.range(at: 1), in: soaringDataString) {
             forecastMaxTemp = Int(soaringDataString[range]) ?? 0
         }
         
-        DispatchQueue.main.async {
-            self.isLoading = false
-            self.soaringForecastBasic = SoaringForecastBasic(date:                      date,
-                                                             soaringForecastFormat:     "Basic",
-                                                             basicSoaringForecastData:  soaringForecast,
-                                                             basicLiftData:             liftData.reversed(),
-                                                             basicSoundingData:         soundingData.reversed(),
-                                                             forecastMaxTemp:           forecastMaxTemp)
-        }
+        soaringForecastBasic = SoaringForecastBasic(
+            date: date,
+            soaringForecastFormat: "Basic",
+            basicSoaringForecastData: soaringForecast,
+            basicLiftData: liftData.reversed(),
+            basicSoundingData: soundingData.reversed(),
+            forecastMaxTemp: forecastMaxTemp
+        )
+        
+        isLoading = false
     }
     
     func parseBasicLiftData(_ input: String) -> [BasicLiftData] {
@@ -182,27 +150,26 @@ class SoaringForecastBasicViewModel: ObservableObject {
             .replacingOccurrences(of: "FT ASL", with: "")
             .replacingOccurrences(of: " ", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let lines = formattedInput.split(separator: "\n")
-        var basicLiftData: [BasicLiftData] = []
-        for line in lines { // Header rows parsed out above; otherwise use .dropFirst()
-            let columns = line.split(separator: "|", omittingEmptySubsequences: true)
-            if columns.count >= 4 {
+        
+        return formattedInput
+            .split(separator: "\n")
+            .compactMap { line -> BasicLiftData? in
+                let columns = line.split(separator: "|", omittingEmptySubsequences: true)
+                guard columns.count >= 4 else { return nil }
+                
                 let altitude = String(columns[0])
                 let thermalIndex = Double(extractNumber(from: String(columns[1])) ?? 0.0)
                 let tempOfConvection = Int(extractNumber(from: String(columns[2])) ?? 0)
                 let liftRate = Int(extractNumber(from: String(columns[3])) ?? 0)
                 let liftRateMSec = convertFtMinToMSec(Double(liftRate))
-                let dataRow = BasicLiftData(
-                    altitude:           altitude,
-                    thermalIndex:       thermalIndex,
-                    tempOfConvection:   tempOfConvection,
-                    liftRate:           liftRateMSec
+                
+                return BasicLiftData(
+                    altitude: altitude,
+                    thermalIndex: thermalIndex,
+                    tempOfConvection: tempOfConvection,
+                    liftRate: liftRateMSec
                 )
-                basicLiftData.append(dataRow)
-                    
             }
-        }
-        return basicLiftData
     }
     
     func parseBasicSoaringForecastData(_ input: String) -> [BasicSoaringForecastData] {
@@ -214,66 +181,56 @@ class SoaringForecastBasicViewModel: ObservableObject {
             .replacingOccurrences(of: "(", with: "")
             .replacingOccurrences(of: ")", with: "")
         
-        // Convert max lift to m/s
         let pattern = #"(\d+)\sFT/MIN"#
-        let regex = try! NSRegularExpression(pattern: pattern)
-        let input = formattedInput
-
-        if let match = regex.firstMatch(in: input, range: NSRange(input.startIndex..., in: input)),
-           let numberRange = Range(match.range(at: 1), in: input),
-           let fullRange = Range(match.range, in: input) {
-
-            let numberStr = String(input[numberRange])
-            if let ftMin = Double(numberStr) {
-                let mSec = convertFtMinToMSec(ftMin)
-                formattedInput = input.replacingCharacters(in: fullRange, with: String(format: "%.2f m/s", mSec))
-            }
+        if let regex = try? NSRegularExpression(pattern: pattern),
+           let match = regex.firstMatch(in: formattedInput, range: NSRange(formattedInput.startIndex..., in: formattedInput)),
+           let numberRange = Range(match.range(at: 1), in: formattedInput),
+           let fullRange = Range(match.range, in: formattedInput),
+           let ftMin = Double(formattedInput[numberRange]) {
+            let mSec = convertFtMinToMSec(ftMin)
+            formattedInput.replaceSubrange(fullRange, with: String(format: "%.2f m/s", mSec))
         }
         
         formattedInput = formatNumbersInString(formattedInput)
             .capitalized
             .replacingOccurrences(of: "M/S", with: "m/s")
             .replacingOccurrences(of: "Ft", with: "ft")
-        let lines = formattedInput.split(separator: "\n")
-        var dataRows: [BasicSoaringForecastData] = []
-        for line in lines {
-            let components = line.split(separator: ".", omittingEmptySubsequences: true)
-            if components.count > 1 {
-                let heading = components[0].trimmingCharacters(in: .whitespacesAndNewlines)
-                let value = components.dropFirst().joined(separator: ".").trimmingCharacters(in: .whitespacesAndNewlines)
-                dataRows.append(BasicSoaringForecastData(heading: heading, value: value))
-            } else {
-                let heading = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                dataRows.append(BasicSoaringForecastData(heading: heading, value: nil))
+        
+        return formattedInput
+            .split(separator: "\n")
+            .map { line -> BasicSoaringForecastData in
+                let components = line.split(separator: ".", omittingEmptySubsequences: true)
+                if components.count > 1 {
+                    let heading = components[0].trimmingCharacters(in: .whitespacesAndNewlines)
+                    let value = components.dropFirst().joined(separator: ".").trimmingCharacters(in: .whitespacesAndNewlines)
+                    return BasicSoaringForecastData(heading: heading, value: value)
+                } else {
+                    return BasicSoaringForecastData(heading: line.trimmingCharacters(in: .whitespacesAndNewlines), value: nil)
+                }
             }
-        }
-        return dataRows
     }
-
+    
     func parseBasicSoundingData(_ input: String) -> [BasicSoundingData] {
-        let lines = input.split(separator: "\n")
-        var basicSoundingData: [BasicSoundingData] = []
-        for line in lines { // Header rows parsed out above; otherwise use .dropFirst(3)
-            let columns = line.split(separator: " ", omittingEmptySubsequences: true)
-            if columns.count >= 5, let altitude = Int(columns[0]), altitude <= 18000 {
+        input
+            .split(separator: "\n")
+            .compactMap { line -> BasicSoundingData? in
+                let columns = line.split(separator: " ", omittingEmptySubsequences: true)
+                guard columns.count >= 6,
+                      let altitude = Int(columns[0]),
+                      altitude <= 18000 else { return nil }
+                
                 let amWindDirection = Int(columns[1]) ?? 0
                 let amWindSpeedKt = Int(columns[2]) ?? 0
-                // Ignore column 3; it contains #### as a separator
                 let pmWindDirection = Int(columns[4]) ?? 0
                 let pmWindSpeedKt = Int(columns[5]) ?? 0
                 
-                let amWindSpeed = convertKnotsToMPH(amWindSpeedKt)
-                let pmWindSpeed = convertKnotsToMPH(pmWindSpeedKt)
-
-                let dataRow = BasicSoundingData(altitude:           String(altitude),
-                                                amWindDirection:    amWindDirection,
-                                                amWindSpeed:        amWindSpeed,
-                                                pmWindDirection:    pmWindDirection,
-                                                pmWindSpeed:        pmWindSpeed)
-                basicSoundingData.append(dataRow)
+                return BasicSoundingData(
+                    altitude: String(altitude),
+                    amWindDirection: amWindDirection,
+                    amWindSpeed: convertKnotsToMPH(amWindSpeedKt),
+                    pmWindDirection: pmWindDirection,
+                    pmWindSpeed: convertKnotsToMPH(pmWindSpeedKt)
+                )
             }
-        }
-        return basicSoundingData
     }
-
 }

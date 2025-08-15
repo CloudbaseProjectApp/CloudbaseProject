@@ -54,7 +54,6 @@ class UserSettingsViewModel: ObservableObject {
     @Published var showStations: Bool
     @Published var showRadar: Bool
     @Published var showInfrared: Bool
-    @Published var radarColorScheme: Int
     @Published var selectedPilots: [Pilot]
     @Published var userFavoriteSites: [UserFavoriteSite]
     @Published var userPickListSelections: [UserPickListSelection]
@@ -68,7 +67,6 @@ class UserSettingsViewModel: ObservableObject {
          showStations:              Bool = defaultShowStations,
          showRadar:                 Bool = defaultShowRadar,
          showInfrared:              Bool = defaultShowInfrared,
-         radarColorSchme:           Int = defaultRadarColorScheme,
          selectedPilots:            [Pilot] = [],
          userFavoriteSites:         [UserFavoriteSite] = [],
          userPickListSelections:    [UserPickListSelection] = []
@@ -82,7 +80,6 @@ class UserSettingsViewModel: ObservableObject {
         self.showStations           = showStations
         self.showRadar              = showRadar
         self.showInfrared           = showInfrared
-        self.radarColorScheme       = radarColorSchme
         self.selectedPilots         = selectedPilots
         self.userFavoriteSites      = userFavoriteSites
         self.userPickListSelections = userPickListSelections
@@ -110,7 +107,6 @@ class UserSettingsViewModel: ObservableObject {
         let showStations:           Bool
         let showRadar:              Bool
         let showInfrared:           Bool
-        let radarColorScheme:       Int
         let selectedPilots:         [Pilot]
         let userFavoriteSites:      [UserFavoriteSite]
         let userPickListSelections: [UserPickListSelection]
@@ -229,7 +225,6 @@ struct MapSettingsState: Equatable {
     let showStations: Bool
     let showRadar: Bool
     let showInfrared: Bool
-    let radarColorScheme: Int
     let scenePhase: ScenePhase
     let selectedPilots: [Pilot]
 }
@@ -266,7 +261,6 @@ extension UserSettingsViewModel {
         showStations            = stored.showStations
         showRadar               = stored.showRadar
         showInfrared            = stored.showInfrared
-        radarColorScheme        = stored.radarColorScheme
         selectedPilots          = stored.selectedPilots
         userFavoriteSites       = stored.userFavoriteSites
         userPickListSelections  = stored.userPickListSelections
@@ -287,7 +281,6 @@ extension UserSettingsViewModel {
             showStations:           showStations,
             showRadar:              showRadar,
             showInfrared:           showInfrared,
-            radarColorScheme:       radarColorScheme,
             selectedPilots:         selectedPilots,
             userFavoriteSites:      userFavoriteSites,
             userPickListSelections: userPickListSelections
@@ -317,7 +310,6 @@ extension UserSettingsViewModel {
         showStations            = defaultShowStations
         showRadar               = defaultShowRadar
         showInfrared            = defaultShowInfrared
-        radarColorScheme        = defaultRadarColorScheme
         selectedPilots          = []
         userFavoriteSites       = []
         userPickListSelections  = []
