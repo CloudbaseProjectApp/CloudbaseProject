@@ -716,6 +716,7 @@ class SiteForecastViewModel: ObservableObject {
                             let gustFactorColorValue = FlyingPotentialColor.value(for: gustFactorColor(gustFactor))
                             
                             // Winds aloft and thermals up to 6k ft (800 hpa) for all sites; higher altitude for mountain sites
+                            // Note:  Not currently checking top of lift to limit winds aloft readings
                             var windsAloftMax: Double = max(data.hourly.windspeed_900hPa[index],
                                                     data.hourly.windspeed_850hPa[index],
                                                     data.hourly.windspeed_800hPa[index])
@@ -748,30 +749,50 @@ class SiteForecastViewModel: ObservableObject {
                             var combinedColorValue = max(cloudCoverColorValue,
                                                          precipColorValue,
                                                          CAPEColorValue,
-                                                         windsAloftColorValue,
                                                          surfaceWindColorValue,
                                                          surfaceGustColorValue,
                                                          gustFactorColorValue,
-                                                         windDirectionColorValue)
+                                                         windDirectionColorValue,
+                                                         thermalVelocityColorValue)
                             
                             // For soaring sites, reduce the value if wind speed can is too low to soar
                             if siteType == "Soaring" {
-                                if combinedColorValue <= FlyingPotentialColor.value(for: .green) {
+                                if combinedColorValue <= FlyingPotentialColor.value(for: displayValueGreen) {
                                     // No warning conditions; base color on wind, including "downgrading" if there isn't enough surface wind
                                     combinedColorValue = max(surfaceWindColorValue, surfaceGustColorValue)
                                 }
+                                // If wind strength is at least "green", then factor in winds aloft
+                                // (assumes a soaring site won't use only thermals to get above launch)
+                                if combinedColorValue >= FlyingPotentialColor.value(for: displayValueGreen) {
+                                    combinedColorValue = max(combinedColorValue, windsAloftColorValue)
+                                }
                             }
-                            // Note:  Not currently checking top of lift to limit winds aloft readings
+                            
+                            // For mountain sites, reduce the value if thermals are too low to soar
+                            if siteType == "Mountain" {
+print("combinedColorValue: \(combinedColorValue), thermalVelocityColorValue: \(thermalVelocityColorValue), FlyingPotentialColor.value(for: displayValueGreen): \(FlyingPotentialColor.value(for: displayValueGreen))")
+                                if combinedColorValue <= FlyingPotentialColor.value(for: displayValueGreen) {
+                                    // No warning conditions; base color on thermals strength
+                                    combinedColorValue = thermalVelocityColorValue
+                                }
+                                // If thermal strength is at least "green" then factor in winds aloft
+                                // (assumes a mountain site won't use only soaring to get above launch)
+                                if combinedColorValue >= FlyingPotentialColor.value(for: displayValueGreen) {
+                                    combinedColorValue = max(combinedColorValue, windsAloftColorValue)
+                                }
+                            }
                             
                             // If there are unknown color values, override the combined value with an unknown status
-                            if cloudCoverColorValue == -1 ||
-                               precipColorValue == -1 ||
-                               CAPEColorValue == -1 ||
-                               windsAloftColorValue == -1 ||
-                               surfaceWindColorValue == -1 ||
-                               surfaceGustColorValue == -1 ||
-                               gustFactorColorValue == -1 ||
-                               windDirectionColorValue == -1 {
+                            if cloudCoverColorValue         == -1 ||
+                               precipColorValue             == -1 ||
+                               CAPEColorValue               == -1 ||
+                               windsAloftColorValue         == -1 ||
+                               surfaceWindColorValue        == -1 ||
+                               surfaceGustColorValue        == -1 ||
+                               gustFactorColorValue         == -1 ||
+                               windDirectionColorValue      == -1 ||
+                               thermalVelocityColorValue    == -1
+                            {
                                 combinedColorValue = -1
                             }
                             

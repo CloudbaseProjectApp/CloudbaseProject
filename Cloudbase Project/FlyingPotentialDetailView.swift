@@ -313,15 +313,15 @@ struct WindDirectionIndicator: View {
     private func colorForDirection(_ degree: Int) -> Color {
         for (start, end) in goodRanges {
             if angleInRange(degree, start, end) {
-                return .green
+                return displayValueGreen
             }
         }
         for (start, end) in marginalRanges {
             if angleInRange(degree, start, end) {
-                return .yellow
+                return displayValueYellow
             }
         }
-        return .red
+        return displayValueRed
     }
 
     private func angleInRange(_ angle: Int, _ start: Double, _ end: Double) -> Bool {

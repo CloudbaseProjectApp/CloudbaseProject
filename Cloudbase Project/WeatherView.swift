@@ -301,7 +301,8 @@ struct WeatherView: View {
                             VStack {
                                 WebImage (url: URL(string: updatedSoundingModelURL)) { image in image.resizable() }
                                 placeholder: {
-                                    Text("Tap to view")
+                                    Text("Tap to view sounding for \(soundingModelCodeOptions[soundingModelSelectedIndex].name)")
+                                        .font(.subheadline)
                                         .foregroundColor(infoFontColor)
                                 }
                                 .onSuccess { image, data, cacheType in }
