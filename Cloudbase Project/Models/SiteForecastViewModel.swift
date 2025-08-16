@@ -107,6 +107,7 @@ struct HourlyData: Codable {
     var thermalVelocityColorValue: [Int]?
     var windsAloftMax: [Double]?
     var thermalVelocityMax: [Double]?
+    var potentialNotes: [String]?
 }
 
 // Structure used to store data that is common for all altitudes and pass to thermal calculation function
@@ -356,7 +357,8 @@ class SiteForecastViewModel: ObservableObject {
             windsAloftColorValue: [],
             thermalVelocityColorValue: [],
             windsAloftMax: [],
-            thermalVelocityMax: []
+            thermalVelocityMax: [],
+            potentialNotes: []
         )
         
         // Get sunrise/sunset times from environment object
@@ -738,12 +740,13 @@ class SiteForecastViewModel: ObservableObject {
                                     windSpeed: Int(windsAloftMax), siteType: siteType))
 
                             // Determine wind direction color for site
-                            let windDirectionColorValue = FlyingPotentialColor.value(for: windDirectionColor(
+                            let (windDirectionColor, windDirectionNote) = windDirectionColor(
                                 siteWindDirection:  siteWindDirection,
                                 siteType:           siteType,
                                 windDirection:      Int(data.hourly.winddirection_10m[index]),
                                 windSpeed:          Int(data.hourly.windspeed_10m[index]),
-                                windGust:           Int(data.hourly.windgusts_10m[index])))
+                                windGust:           Int(data.hourly.windgusts_10m[index]))
+                            let windDirectionColorValue = FlyingPotentialColor.value(for: windDirectionColor)
 
                             // Determine potential
                             var combinedColorValue = max(cloudCoverColorValue,
@@ -755,32 +758,42 @@ class SiteForecastViewModel: ObservableObject {
                                                          windDirectionColorValue,
                                                          thermalVelocityColorValue)
                             
+                            var potentialNote = ""
+                            
                             // For soaring sites, reduce the value if wind speed can is too low to soar
                             if siteType == "Soaring" {
+                                potentialNote = "Winds aloft and thermal strength evaluated up to 6k ft for soaring sites."
                                 if combinedColorValue <= FlyingPotentialColor.value(for: displayValueGreen) {
                                     // No warning conditions; base color on wind, including "downgrading" if there isn't enough surface wind
                                     combinedColorValue = max(surfaceWindColorValue, surfaceGustColorValue)
                                 }
                                 // If wind strength is at least "green", then factor in winds aloft
                                 // (assumes a soaring site won't use only thermals to get above launch)
-                                if combinedColorValue >= FlyingPotentialColor.value(for: displayValueGreen) {
+                                if max(surfaceWindColorValue, surfaceGustColorValue) >= FlyingPotentialColor.value(for: displayValueGreen) {
                                     combinedColorValue = max(combinedColorValue, windsAloftColorValue)
+                                } else {
+                                    potentialNote = "Wind is less than soarable; winds aloft not evaluated."
                                 }
                             }
                             
                             // For mountain sites, reduce the value if thermals are too low to soar
                             if siteType == "Mountain" {
-print("combinedColorValue: \(combinedColorValue), thermalVelocityColorValue: \(thermalVelocityColorValue), FlyingPotentialColor.value(for: displayValueGreen): \(FlyingPotentialColor.value(for: displayValueGreen))")
+                                potentialNote = "Winds aloft and thermal strength evaluated up to 11k ft for mountain sites."
                                 if combinedColorValue <= FlyingPotentialColor.value(for: displayValueGreen) {
                                     // No warning conditions; base color on thermals strength
                                     combinedColorValue = thermalVelocityColorValue
                                 }
                                 // If thermal strength is at least "green" then factor in winds aloft
                                 // (assumes a mountain site won't use only soaring to get above launch)
-                                if combinedColorValue >= FlyingPotentialColor.value(for: displayValueGreen) {
+                                if thermalVelocityColorValue >= FlyingPotentialColor.value(for: displayValueGreen) {
                                     combinedColorValue = max(combinedColorValue, windsAloftColorValue)
+                                } else {
+                                    potentialNote = "Thermal strength is less than soarable; winds aloft not evaluated."
                                 }
                             }
+                            
+                            // Combine notes
+                            potentialNote = (windDirectionNote.isEmpty == false ? windDirectionNote + "\n" : "") + potentialNote
                             
                             // If there are unknown color values, override the combined value with an unknown status
                             if cloudCoverColorValue         == -1 ||
@@ -794,6 +807,7 @@ print("combinedColorValue: \(combinedColorValue), thermalVelocityColorValue: \(t
                                thermalVelocityColorValue    == -1
                             {
                                 combinedColorValue = -1
+                                potentialNote = "Unknown values; overall potential not evaluated.\n\(potentialNote)"
                             }
                             
                             // Store potential results
@@ -809,6 +823,7 @@ print("combinedColorValue: \(combinedColorValue), thermalVelocityColorValue: \(t
                             processedHourly.thermalVelocityColorValue?.append(thermalVelocityColorValue)
                             processedHourly.windsAloftMax?.append(windsAloftMax)
                             processedHourly.thermalVelocityMax?.append(thermalVelocityMax)
+                            processedHourly.potentialNotes?.append(potentialNote)
                             
                         }
                     }

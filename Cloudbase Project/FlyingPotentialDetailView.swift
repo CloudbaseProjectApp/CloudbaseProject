@@ -178,7 +178,20 @@ struct FlyingPotentialDetailView: View {
 
                 }
                 .padding(.vertical, 0)
-
+                
+                // Potential notes
+                if forecastData.hourly.potentialNotes?[currentForecastIndex] != "" {
+                    
+                    Section()
+                    {
+                        Text(forecastData.hourly.potentialNotes?[currentForecastIndex] ?? "")
+                            .multilineTextAlignment(.leading)
+                            .font(.subheadline)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .padding(.vertical, 0)
+                }
+                
             }
             .listSectionSpacing(8)
             

@@ -42,7 +42,7 @@ func windDirectionColor(siteWindDirection: SiteWindDirection,
                         siteType: String,
                         windDirection: Int?,
                         windSpeed: Int?,
-                        windGust: Int?) -> Color {
+                        windGust: Int?) -> (color: Color, windDirectionNote: String) {
     
     // Return .clear if the site doesn't have any "Good" or "Ok" wind directions defined
     let allDirections = [
@@ -57,11 +57,11 @@ func windDirectionColor(siteWindDirection: SiteWindDirection,
     ]
     let hasAcceptableDirection = allDirections.contains { $0 == "Good" || $0 == "Ok" }
     guard hasAcceptableDirection else {
-        return .clear
+        return (.clear, "Site does not have wind directions defined.")
     }
 
     guard let originalWindDirection = windDirection else {
-        return .clear
+        return (.clear, "Invalid station reading wind direction.")
     }
     
     // Normalize to 0–359
@@ -80,18 +80,20 @@ func windDirectionColor(siteWindDirection: SiteWindDirection,
         default:    windDirectionQuality = ""
     }
 
+    var windDirectionNote = ""
     if windDirectionQuality != "Good",
        (windSpeed ?? 0) <= 5,
        (windGust ?? 0) <= 5,
        siteType == "Mountain" {
         windDirectionQuality = "Ok"
+        windDirectionNote = "Wind direction ignored (light and variable)."
     }
     
     switch windDirectionQuality {
-        case "Good":        return displayValueGreen
-        case "Ok":          return displayValueLime
-        case "Marginal":    return displayValueYellow
-        default:            return displayValueRed
+        case "Good":        return (displayValueGreen,  windDirectionNote)
+        case "Ok":          return (displayValueLime,   windDirectionNote)
+        case "Marginal":    return (displayValueYellow, windDirectionNote)
+        default:            return (displayValueRed,    windDirectionNote)
     }
 }
 
