@@ -220,6 +220,11 @@ struct SiteDetailView: View {
                     Text("Station ID: \(site.readingsStation) from \(site.readingsSource) at \(site.readingsAlt) ft")
                         .font(.caption)
                         .foregroundColor(infoFontColor)
+                        .padding(.bottom, 0)
+                    Text("Station coordinates:  \(site.siteLat), \(site.siteLon)")
+                        .font(.caption)
+                        .foregroundColor(infoFontColor)
+                        .padding(.top, 0)
                 }
                 .listRowBackground(attributionSheetBackgroundColor)
             }
