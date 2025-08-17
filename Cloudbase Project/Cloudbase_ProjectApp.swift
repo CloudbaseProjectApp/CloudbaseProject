@@ -208,7 +208,13 @@ struct BaseAppView: View {
         }
         .onChange(of: refreshMetadata) { _, newValue in
             if newValue {
+                
+                // Clear readings cache (or new sites in metadata won't have readings until cache clears)
                 stationLatestReadingViewModel.resetLastFetchTimes()
+                
+                // Clear forecast cache (or potential calcs won't reflect new metadata)
+                siteForecastViewModel.clearForecastCache()
+
                 isActive = false
                 metadataLoaded = false
                 if !RegionManager.shared.activeAppRegion.isEmpty {

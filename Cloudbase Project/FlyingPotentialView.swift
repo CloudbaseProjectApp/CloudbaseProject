@@ -488,16 +488,18 @@ struct SiteGridSectionUnified: View {
                                             .frame(height: rowHeight)
                                         } else {
                                             HStack(spacing: 2) {
-                                                ForEach(0..<dateTimeCount, id: \.self) { _ in
-                                                    Text("-")
-                                                        .frame(width: dataWidth, height: rowHeight)
-                                                        .font(.caption)
-                                                        .overlay(
-                                                            Divider()
-                                                                .frame(width: dateChangeDividerSize)
-                                                                .padding(.vertical, 6),
-                                                            alignment: .trailing
-                                                        )
+                                                ForEach(0..<dateTimeCount, id: \.self) { i in
+                                                    ZStack(alignment: .leading) {
+                                                        if i > 0 {
+                                                            dateDivider(isNew: hourly.newDateFlag?[i] == true)
+                                                                .frame(height: rowHeight)
+                                                                .alignmentGuide(.leading) { _ in 0 }
+                                                        }
+                                                        Text("-")
+                                                            .frame(width: dataWidth, height: rowHeight)
+                                                            .font(.caption)
+                                                    }
+                                                    .frame(width: dataWidth, height: rowHeight)
                                                 }
                                             }
                                             .background(potentialChartBackgroundColor)

@@ -141,6 +141,8 @@ class StationLatestReadingViewModel: ObservableObject {
     
     // Allows forced reset when user changes regions, resets metadata, etc.
     func resetLastFetchTimes() {
+        latestSiteReadings = []
+        latestAllReadings = []
         lastSiteFetchTime = nil
         lastAllFetchTime = nil
     }
