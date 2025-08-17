@@ -232,10 +232,17 @@ struct SiteDetailView: View {
         }
         .onAppear {
             updateIsFavorite()
-            viewModel.GetReadingsHistoryData(stationID: site.readingsStation, readingsSource: site.readingsSource)
             isActive = true
             historyIsLoading = true
             startTimer()
+            Task {
+                await viewModel.GetReadingsHistoryData(
+                    stationID: site.readingsStation,
+                    readingsSource: site.readingsSource
+                )
+                historyIsLoading = false
+            }
+
         }
         .onReceive(viewModel.$readingsHistoryData) { newData in
             historyIsLoading = false
@@ -245,7 +252,13 @@ struct SiteDetailView: View {
         }
         .onChange(of: scenePhase) { oldValue, newValue in
             if newValue == .active {
-                viewModel.GetReadingsHistoryData(stationID: site.readingsStation, readingsSource: site.readingsSource)
+                Task {
+                    await viewModel.GetReadingsHistoryData(
+                        stationID: site.readingsStation,
+                        readingsSource: site.readingsSource
+                    )
+                    historyIsLoading = false
+                }
             } else {
                 isActive = false
             }
@@ -268,8 +281,14 @@ struct SiteDetailView: View {
     private func startTimer() {
         DispatchQueue.main.asyncAfter(deadline: .now() + readingsRefreshInterval) {
             if isActive {
-                viewModel.GetReadingsHistoryData(stationID: site.readingsStation, readingsSource: site.readingsSource)
-                startTimer() // Continue the timer loop
+                startTimer()
+                Task {
+                    await viewModel.GetReadingsHistoryData(
+                        stationID: site.readingsStation,
+                        readingsSource: site.readingsSource
+                    )
+                    historyIsLoading = false
+                }
             }
         }
     }

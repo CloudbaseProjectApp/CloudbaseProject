@@ -333,7 +333,7 @@ class StationLatestReadingViewModel: ObservableObject {
                 let urlString = updateURL(url: AppURLManager.shared.getAppURL(URLName: "RMHPALatestReadingsAPI") ?? "",
                                           parameter: "station", value: station.readingsStation)
                 guard let url = URL(string: urlString) else { continue }
-                
+
                 var request = URLRequest(url: url)
                 request.httpMethod = "GET"
                 request.setValue(RMHPAAPIKey, forHTTPHeaderField: "x-api-key")

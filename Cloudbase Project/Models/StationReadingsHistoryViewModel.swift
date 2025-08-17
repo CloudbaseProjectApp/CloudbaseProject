@@ -33,110 +33,117 @@ class StationReadingsHistoryDataModel: ObservableObject {
         windDirection: [],
         errorMessage: nil
     )
-    private var cancellable: AnyCancellable?
-    private var cancellables = Set<AnyCancellable>()
-    
-    func GetReadingsHistoryData(stationID: String, readingsSource: String) {
-        switch readingsSource {
-        case "Mesonet":
-            let readingsLink = AppURLManager.shared.getAppURL(URLName: "mesonetHistoryReadingsAPI")
-                ?? "<Unknown Mesonet readings history API URL>"
-            let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: stationID) + synopticsAPIToken
-            
-            guard let url = URL(string: updatedReadingsLink) else {
-                self.readingsHistoryData.errorMessage = "Invalid Mesonet readings URL"
-                return
-            }
-
-            AppNetwork.shared.fetchJSON(url: url, type: ReadingsData.self) { [weak self] result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success(let data):
-                        guard let station = data.STATION.first else {
-                            self?.readingsHistoryData.errorMessage = "No valid data found for station: \(stationID)"
-                            return
-                        }
-                        let recentTimes = Array(station.OBSERVATIONS.date_time.suffix(8))
-                        let recentWindSpeed = Array(station.OBSERVATIONS.wind_speed_set_1.suffix(8)).map { $0 ?? 0.0 }
-                        let recentWindGust = station.OBSERVATIONS.wind_gust_set_1?.suffix(8).map { $0 ?? 0.0 }
-                            ?? Array(repeating: nil, count: 8)
-                        let recentWindDirection = Array( (station.OBSERVATIONS.wind_direction_set_1 ?? Array(repeating: nil, count: 8))
-                                .suffix(8).map { $0 ?? 0.0 } )
-                        
-                        if let latestTimeString = recentTimes.last,
-                           let latestTime = ISO8601DateFormatter().date(from: latestTimeString),
-                           Date().timeIntervalSince(latestTime) > 2 * 60 * 60 {
-                            self?.readingsHistoryData.errorMessage = "Station \(stationID) has not updated in the past 2 hours"
-                        } else {
-                            self?.readingsHistoryData = ReadingsHistoryData(
-                                times: recentTimes,
-                                windSpeed: recentWindSpeed,
-                                windGust: recentWindGust,
-                                windDirection: recentWindDirection,
-                                errorMessage: nil
-                            )
-                        }
-                    case .failure(let error):
-                        self?.readingsHistoryData.errorMessage = "Error: \(error)"
+ 
+    func GetReadingsHistoryData(stationID: String, readingsSource: String) async {
+        do {
+            switch readingsSource {
+            case "Mesonet":
+                let readingsLink = AppURLManager.shared.getAppURL(URLName: "mesonetHistoryReadingsAPI")
+                    ?? "<Unknown Mesonet readings history API URL>"
+                let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: stationID) + synopticsAPIToken
+                
+                guard let url = URL(string: updatedReadingsLink) else {
+                    await MainActor.run {
+                        self.readingsHistoryData.errorMessage = "Invalid Mesonet readings URL"
+                    }
+                    return
+                }
+                
+                let request = URLRequest(url: url)
+                let data = try await AppNetwork.shared.fetchDataAsync(request: request)
+                let decoded = try JSONDecoder().decode(ReadingsData.self, from: data)
+                
+                guard let station = decoded.STATION.first else {
+                    await MainActor.run {
+                        self.readingsHistoryData.errorMessage = "No valid data found for station: \(stationID)"
+                    }
+                    return
+                }
+                
+                let recentTimes = Array(station.OBSERVATIONS.date_time.suffix(8))
+                let recentWindSpeed = Array(station.OBSERVATIONS.wind_speed_set_1.suffix(8)).map { $0 ?? 0.0 }
+                let recentWindGust = station.OBSERVATIONS.wind_gust_set_1?.suffix(8).map { $0 ?? 0.0 }
+                    ?? Array(repeating: nil, count: 8)
+                let recentWindDirection = Array((station.OBSERVATIONS.wind_direction_set_1 ?? Array(repeating: nil, count: 8))
+                    .suffix(8).map { $0 ?? 0.0 })
+                
+                if let latestTimeString = recentTimes.last,
+                   let latestTime = ISO8601DateFormatter().date(from: latestTimeString),
+                   Date().timeIntervalSince(latestTime) > 2 * 60 * 60 {
+                    await MainActor.run {
+                        self.readingsHistoryData.errorMessage = "Station \(stationID) has not updated in the past 2 hours"
+                    }
+                } else {
+                    await MainActor.run {
+                        self.readingsHistoryData = ReadingsHistoryData(
+                            times: recentTimes,
+                            windSpeed: recentWindSpeed,
+                            windGust: recentWindGust,
+                            windDirection: recentWindDirection,
+                            errorMessage: nil
+                        )
                     }
                 }
-            }
-            
-        case "CUASA":
-            let readingInterval: Double = 5 * 60
-            let readingEnd = Date().timeIntervalSince1970
-            let readingStart = readingEnd - (readingInterval * 10)
-            let readingsLink = AppURLManager.shared.getAppURL(URLName: "CUASAHistoryReadingsAPI")
-                ?? "<Unknown CUASA readings history API URL>"
-            var updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: stationID)
-            updatedReadingsLink = updateURL(url: updatedReadingsLink, parameter: "readingStart", value: String(readingStart))
-            updatedReadingsLink = updateURL(url: updatedReadingsLink, parameter: "readingEnd", value: String(readingEnd))
-            updatedReadingsLink = updateURL(url: updatedReadingsLink, parameter: "readingInterval", value: String(readingInterval))
-            
-            guard let url = URL(string: updatedReadingsLink) else {
-                self.readingsHistoryData.errorMessage = "Invalid CUASA readings URL"
-                return
-            }
-            
-            AppNetwork.shared.fetchJSON(url: url, type: [CUASAReadingsData].self) { [weak self] result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success(let readingsArray):
-                        self?.processCUASAReadingsHistoryData(readingsArray)
-                    case .failure(let error):
-                        self?.readingsHistoryData.errorMessage = "Error: \(error)"
+                
+            case "CUASA":
+                let readingInterval: Double = 5 * 60
+                let readingEnd = Date().timeIntervalSince1970
+                let readingStart = readingEnd - (readingInterval * 10)
+                
+                let readingsLink = AppURLManager.shared.getAppURL(URLName: "CUASAHistoryReadingsAPI")
+                    ?? "<Unknown CUASA readings history API URL>"
+                
+                var updatedLink = updateURL(url: readingsLink, parameter: "station", value: stationID)
+                updatedLink = updateURL(url: updatedLink, parameter: "readingStart", value: String(readingStart))
+                updatedLink = updateURL(url: updatedLink, parameter: "readingEnd", value: String(readingEnd))
+                updatedLink = updateURL(url: updatedLink, parameter: "readingInterval", value: String(readingInterval))
+                
+                guard let url = URL(string: updatedLink) else {
+                    await MainActor.run {
+                        self.readingsHistoryData.errorMessage = "Invalid CUASA readings URL"
                     }
+                    return
                 }
-            }
-            
-        case "RMHPA":
-            let readingsLink = AppURLManager.shared.getAppURL(URLName: "RMHPAHistoryReadingsAPI")
-                ?? "<Unknown RMHPA readings history API URL>"
-            let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: stationID)
-            
-            guard let url = URL(string: updatedReadingsLink) else {
-                self.readingsHistoryData.errorMessage = "Invalid RMHPA readings URL"
-                return
-            }
-            
-            var request = URLRequest(url: url)
-            request.httpMethod = "GET"
-            request.setValue(RMHPAAPIKey, forHTTPHeaderField: "x-api-key")
-            request.setValue("application/json", forHTTPHeaderField: "Accept")
-                        
-            AppNetwork.shared.fetchJSON(url: url, type: RMHPAAPIResponse.self) { [weak self] result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success(let response):
-                        self?.processRMHPAReadingHistoryData(response.data)
-                    case .failure(let error):
-                        self?.readingsHistoryData.errorMessage = "Error: \(error)"
+                
+                let request = URLRequest(url: url)
+                let data = try await AppNetwork.shared.fetchDataAsync(request: request)
+                let decoded = try JSONDecoder().decode([CUASAReadingsData].self, from: data)
+                
+                await MainActor.run {
+                    self.processCUASAReadingsHistoryData(decoded)
+                }
+                
+            case "RMHPA":
+                let readingsLink = AppURLManager.shared.getAppURL(URLName: "RMHPAHistoryReadingsAPI")
+                    ?? "<Unknown RMHPA readings history API URL>"
+                let updatedLink = updateURL(url: readingsLink, parameter: "station", value: stationID)
+                
+                guard let url = URL(string: updatedLink) else {
+                    await MainActor.run {
+                        self.readingsHistoryData.errorMessage = "Invalid RMHPA readings URL"
                     }
+                    return
                 }
+                
+                var request = URLRequest(url: url)
+                request.httpMethod = "GET"
+                request.setValue(RMHPAAPIKey, forHTTPHeaderField: "x-api-key")
+                request.setValue("application/json", forHTTPHeaderField: "Accept")
+                
+                let data = try await AppNetwork.shared.fetchDataAsync(request: request)
+                let decoded = try JSONDecoder().decode(RMHPAAPIResponse.self, from: data)
+                
+                await MainActor.run {
+                    self.processRMHPAReadingHistoryData(decoded.data)
+                }
+                
+            default:
+                print("Invalid readings source for station: \(stationID)")
             }
-            
-        default:
-            print("Invalid readings source for station: \(stationID)")
+        } catch {
+            await MainActor.run {
+                self.readingsHistoryData.errorMessage = "Error: \(error.localizedDescription)"
+            }
         }
     }
     
