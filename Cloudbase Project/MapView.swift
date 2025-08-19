@@ -727,6 +727,7 @@ struct MapContainerView: View {
     @State private var animationProgress: Double = 0.0
     @State private var currentTime: String = "00:00"
     @State private var isActive = false
+    @State private var monitoringTimer: Timer?
     @State private var refreshWorkItem: DispatchWorkItem?
     @State private var position = MapCameraPosition.region(MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: mapDefaultLatitude, longitude: mapDefaultLongitude),
@@ -993,11 +994,13 @@ struct MapContainerView: View {
                     isActive = false
                 }
             }
+            
+            .onDisappear {
+                stopMonitoringRegion()
+                isActive = false
+            }
+
         }
-        
-       .onDisappear {
-           isActive = false
-       }
         
        .sheet(item: $selectedStation) { station in
            let windDirection = SiteWindDirection( N:  "", NE: "", E:  "", SE: "", S:  "", SW: "", W:  "", NW: "" )
@@ -1093,19 +1096,26 @@ struct MapContainerView: View {
     }
     
     private func startMonitoringRegion() {
+        monitoringTimer?.invalidate() // cancel any old timer
+
         if userSettingsViewModel.isMapTrackingMode {
-            // Do nothing; pilot map changes handled elsewhere
-        } else {
-            Timer.scheduledTimer(withTimeInterval: mapBatchProcessingInterval, repeats: true) { _ in
-                let currentSpan = userSettingsViewModel.mapRegion.span
-                if hasRegionSpanChanged(from: lastRegionSpan, to: currentSpan) {
-                    lastRegionSpan = currentSpan
-                    stationAnnotationViewModel.clusterStationAnnotations(mapRegionSpan: currentSpan)
-                }
+            return // Do nothing; pilot changes handled elsewhere
+        }
+
+        monitoringTimer = Timer.scheduledTimer(withTimeInterval: mapBatchProcessingInterval, repeats: true) { _ in
+            let currentSpan = userSettingsViewModel.mapRegion.span
+            if hasRegionSpanChanged(from: lastRegionSpan, to: currentSpan) {
+                lastRegionSpan = currentSpan
+                stationAnnotationViewModel.clusterStationAnnotations(mapRegionSpan: currentSpan)
             }
         }
     }
-    
+
+    private func stopMonitoringRegion() {
+        monitoringTimer?.invalidate()
+        monitoringTimer = nil
+    }
+
     private func hasRegionSpanChanged(from oldSpan: MKCoordinateSpan, to newSpan: MKCoordinateSpan) -> Bool {
         return abs(oldSpan.latitudeDelta - newSpan.latitudeDelta) > mapScaleChangeTolerance ||
         abs(oldSpan.longitudeDelta - newSpan.longitudeDelta) > mapScaleChangeTolerance

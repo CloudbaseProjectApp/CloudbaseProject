@@ -58,10 +58,17 @@ class LinkViewModel: ObservableObject {
                     return combined
                 }
                 .receive(on: DispatchQueue.main)
-                .sink { [weak self] combinedLinks in
-                    self?.groupedLinks = combinedLinks
-                    self?.isLoading = false
-                }
+                .sink(
+                    receiveCompletion: { [weak self] completion in
+                        self?.isLoading = false
+                        if case .failure(let error) = completion {
+                            print("Error: \(error)")
+                        }
+                    },
+                    receiveValue: { [weak self] combinedLinks in
+                        self?.groupedLinks = combinedLinks
+                    }
+                )
         }
     }
     

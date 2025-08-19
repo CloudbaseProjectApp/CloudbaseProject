@@ -6,6 +6,7 @@ struct ForecastData: Codable {
     var elevation           : Double
     var maxPressureReading  : Int = defaultMaxPressureReading
     var hourly              : HourlyData
+    var pastHourly          : PastHourlyData?
 
     private enum CodingKeys: String, CodingKey {
         case elevation, hourly
@@ -112,7 +113,7 @@ struct HourlyData: Codable {
 
 // Store forecasts for the past four hours to compare with actuals on site detail
 struct PastHourlyData {
-    var time: [String]
+    var timestamp: [Date]
     var windSpeed: [Double]
     var windGust: [Double]
     var windDirection: [Double]
@@ -369,6 +370,13 @@ class SiteForecastViewModel: ObservableObject {
             potentialNotes: []
         )
         
+        var  processedPastHourly = PastHourlyData (
+            timestamp: [],
+            windSpeed: [],
+            windGust: [],
+            windDirection: []
+        )
+        
         // Get sunrise/sunset times from environment object
         var forecastStartTime = 6
         var forecastEndTime = 21
@@ -414,7 +422,7 @@ class SiteForecastViewModel: ObservableObject {
                 if timeObj >= startOfDay {
                     let hour = Calendar.current.component(.hour, from: timeObj)
                     if hour >= forecastStartTime && hour <= forecastEndTime {
-
+                        
                         let dateFormatter = DateFormatter()
                         dateFormatter.dateFormat = "E"
                         let formattedDay = dateFormatter.string(from: timeObj)
@@ -423,7 +431,7 @@ class SiteForecastViewModel: ObservableObject {
                         timeFormatter.dateFormat = "h a"
                         let formattedTime = timeFormatter.string(from: timeObj).lowercased()
                         let surfaceTemp = convertCelsiusToFahrenheit(Int(data.hourly.temperature_2m[index]))
-                                                
+                        
                         // Determine if this reading is a new day to set a divider in the view
                         if formattedDate == priorReadingFormattedDate {
                             newDateFlag = false
@@ -594,7 +602,7 @@ class SiteForecastViewModel: ObservableObject {
                             topOfLiftTemp: thermalResult.topOfLiftTemp,
                             cloudbaseAltitude: thermalResult.cloudbaseAltitude)
                         thermalVelocity_500hPa = thermalResult.thermalVelocity
-
+                        
                         // Maintain status if thermal trigger has been reached for the day
                         thermalTriggerReachedForDay = thermalResult.thermalTriggerReachedForDay
                         
@@ -629,7 +637,7 @@ class SiteForecastViewModel: ObservableObject {
                         // Calculate surface gust factor; use 0 if the gusts are lower than wind
                         // (which seems like a bug in the data returned from the source)
                         let gustFactor =  max(Int(data.hourly.windgusts_10m[index]) - Int(data.hourly.windspeed_10m[index]), 0)
-
+                        
                         // Only append display structure for times that are no more than an hour ago
                         // (earlier times only processed to determine if thermal trigger temp has already been reached today)
                         if timeObj >= oneHourAgo {
@@ -728,11 +736,11 @@ class SiteForecastViewModel: ObservableObject {
                             // Winds aloft and thermals up to 6k ft (800 hpa) for all sites; higher altitude for mountain sites
                             // Note:  Not currently checking top of lift to limit winds aloft readings
                             var windsAloftMax: Double = max(data.hourly.windspeed_900hPa[index],
-                                                    data.hourly.windspeed_850hPa[index],
-                                                    data.hourly.windspeed_800hPa[index])
+                                                            data.hourly.windspeed_850hPa[index],
+                                                            data.hourly.windspeed_800hPa[index])
                             var thermalVelocityMax: Double = max(thermalVelocity_900hPa,
-                                                         thermalVelocity_850hPa,
-                                                         thermalVelocity_800hPa)
+                                                                 thermalVelocity_850hPa,
+                                                                 thermalVelocity_800hPa)
                             if siteType == "Mountain" {
                                 windsAloftMax = max(windsAloftMax,
                                                     data.hourly.windspeed_750hPa[index],
@@ -745,8 +753,8 @@ class SiteForecastViewModel: ObservableObject {
                             }
                             let thermalVelocityColorValue = FlyingPotentialColor.value(for: thermalColor(thermalVelocityMax))
                             let windsAloftColorValue = FlyingPotentialColor.value(for: windSpeedColor(
-                                    windSpeed: Int(windsAloftMax), siteType: siteType))
-
+                                windSpeed: Int(windsAloftMax), siteType: siteType))
+                            
                             // Determine wind direction color for site
                             let (windDirectionColor, windDirectionNote) = windDirectionColor(
                                 siteWindDirection:  siteWindDirection,
@@ -755,7 +763,7 @@ class SiteForecastViewModel: ObservableObject {
                                 windSpeed:          Int(data.hourly.windspeed_10m[index]),
                                 windGust:           Int(data.hourly.windgusts_10m[index]))
                             let windDirectionColorValue = FlyingPotentialColor.value(for: windDirectionColor)
-
+                            
                             // Determine potential
                             var combinedColorValue = max(cloudCoverColorValue,
                                                          precipColorValue,
@@ -815,21 +823,21 @@ class SiteForecastViewModel: ObservableObject {
                                     potentialNote = "Light kiting conditions; winds aloft not evaluated."
                                 }
                             }
-
+                            
                             
                             // Combine notes
                             potentialNote = (windDirectionNote.isEmpty == false ? windDirectionNote + "\n" : "") + potentialNote
                             
                             // If there are unknown color values, override the combined value with an unknown status
                             if cloudCoverColorValue         == -1 ||
-                               precipColorValue             == -1 ||
-                               CAPEColorValue               == -1 ||
-                               windsAloftColorValue         == -1 ||
-                               surfaceWindColorValue        == -1 ||
-                               surfaceGustColorValue        == -1 ||
-                               gustFactorColorValue         == -1 ||
-                               windDirectionColorValue      == -1 ||
-                               thermalVelocityColorValue    == -1
+                                precipColorValue             == -1 ||
+                                CAPEColorValue               == -1 ||
+                                windsAloftColorValue         == -1 ||
+                                surfaceWindColorValue        == -1 ||
+                                surfaceGustColorValue        == -1 ||
+                                gustFactorColorValue         == -1 ||
+                                windDirectionColorValue      == -1 ||
+                                thermalVelocityColorValue    == -1
                             {
                                 combinedColorValue = -1
                                 potentialNote = "Unknown values; overall potential not evaluated.\n\(potentialNote)"
@@ -852,13 +860,22 @@ class SiteForecastViewModel: ObservableObject {
                             
                         }
                     }
+                    
+                    // Store today's past hourly forecasts to allow site detail view to compare to actuals
+                    if timeObj >= startOfDay && timeObj <= currentDate {
+                        processedPastHourly.timestamp.append(timeObj)
+                        processedPastHourly.windSpeed.append(data.hourly.windspeed_10m[index].rounded())
+                        processedPastHourly.windGust.append(data.hourly.windgusts_10m[index].rounded())
+                        processedPastHourly.windDirection.append(data.hourly.winddirection_10m[index])
+                    }
                 }
             }
         }
         return ForecastData(id:                 id,
                             elevation:          data.elevation,
                             maxPressureReading: maxPressureReading,
-                            hourly:             processedHourly)
+                            hourly:             processedHourly,
+                            pastHourly:         processedPastHourly)
     }
     
     struct ThermalResult {
