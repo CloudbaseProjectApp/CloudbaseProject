@@ -28,6 +28,8 @@ struct AreaForecastDiscussionView: View {
                 }
                 else if codeOptions.isEmpty {
                     Text("No area forecast discussion found for region")
+                        .font(.subheadline)
+                        .foregroundColor(rowHeaderColor)
                 }
                 else {
                     

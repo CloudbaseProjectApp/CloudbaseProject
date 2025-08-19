@@ -238,8 +238,9 @@ class StationReadingsHistoryDataModel: ObservableObject {
             // Append data for each history reading
             times.append(formattedTime)
             windSpeed.append(data.wind_speed ?? 0.0)
-            windGust.append(data.wind_gust)
+            windGust.append(data.wind_gust ?? 0.0)
             windDirection.append(data.wind_direction ?? 0.0)
+
         }
         self.readingsHistoryData = ReadingsHistoryData(
             times: times,

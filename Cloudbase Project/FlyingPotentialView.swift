@@ -57,7 +57,7 @@ struct FlyingPotentialView: View {
         if includeFavorites {
             let favoriteSites: [SiteWithDisplayName] = favorites.compactMap { favorite in
                 if let site = siteViewModel.sites.first(where: { $0.siteName == favorite.favoriteID }),
-                   site.siteType == "Soaring" || site.siteType == "Mountain" {
+                   site.siteType == "Soaring" || site.siteType == "Mountain" || site.siteType == "Kiting" {
                     return SiteWithDisplayName(site: site,
                                                displayName: favorite.favoriteName,
                                                customID: "favorite-\(site.id)")
@@ -73,7 +73,7 @@ struct FlyingPotentialView: View {
 
         if includeSites {
             let grouped = Dictionary(grouping: siteViewModel.sites.filter {
-                $0.siteType == "Soaring" || $0.siteType == "Mountain"
+                $0.siteType == "Soaring" || $0.siteType == "Mountain" || $0.siteType == "Kiting"
             }) { $0.area }
 
             let sortedGrouped = siteViewModel.areaOrder.compactMap { area in
@@ -237,7 +237,7 @@ struct FlyingPotentialView: View {
             if includeFavorites {
                 let favoriteList = favoriteSites.compactMap {
                     if let (site, _) = siteFromFavorite($0),
-                       site.siteType == "Soaring" || site.siteType == "Mountain" {
+                       site.siteType == "Soaring" || site.siteType == "Mountain" || site.siteType == "Kiting" {
                         return site
                     }
                     return nil
@@ -247,7 +247,7 @@ struct FlyingPotentialView: View {
             
             if includeSites {
                 let siteList = siteViewModel.sites.filter {
-                    $0.siteType == "Soaring" || $0.siteType == "Mountain"
+                    $0.siteType == "Soaring" || $0.siteType == "Mountain" || $0.siteType == "Kiting"
                 }
                 result += siteList
             }

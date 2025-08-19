@@ -206,11 +206,12 @@ class StationLatestReadingViewModel: ObservableObject {
         
         // Build API call parameters
         let regionCountry = AppRegionManager.shared.getRegionCountry() ?? ""
+        let regionState = AppRegionManager.shared.getRegionState() ?? ""
         let stationParams = sitesOnly
-        ? stationParameters
-        : (regionCountry == "US"
-           ? "&state=\(RegionManager.shared.activeAppRegion)"
-           : "&country=\(regionCountry)")
+            ? stationParameters
+            : (regionCountry == "US"
+               ? "&state=\(regionState)"
+               : "&country=\(regionCountry)")
         
         // Fetch all three sources in parallel
         async let mesonetReadings = getLatestMesonetReadings(stationParameters: stationParams)

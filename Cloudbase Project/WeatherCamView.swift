@@ -68,7 +68,7 @@ struct WeatherCamView: View {
 
     private var contentView: some View {
         List {
-            if RegionManager.shared.activeAppRegion == "UT" {
+            if AppRegionManager.shared.getRegionState() == "UT" {
                 Section(header: Text("Point of the Mountain")
                     .font(.subheadline)
                     .foregroundColor(sectionHeaderColor)

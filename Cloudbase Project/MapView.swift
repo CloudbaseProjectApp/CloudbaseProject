@@ -135,7 +135,7 @@ struct MapView: UIViewRepresentable {
         
         // Add sites if enabled
         if mapDisplayMode == .weather && showSites {
-            let allowedTypes: Set<String> = ["Mountain", "Soaring"]
+            let allowedTypes: Set<String> = ["Mountain", "Soaring", "Kiting"]
             let filteredSites = sites
                 .filter { allowedTypes.contains($0.siteType) }
 

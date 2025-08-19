@@ -78,7 +78,7 @@ struct WeatherView: View {
                             .scaleEffect(0.75)
                             .frame(width: 20, height: 20)
                     } else if TFRviewModel.tfrs.isEmpty {
-                        Text("No active TFRs for \(RegionManager.shared.activeAppRegion)")
+                        Text("No active TFRs for region")
                             .font(.subheadline)
                             .foregroundColor(rowHeaderColor)
                     } else {
@@ -116,7 +116,7 @@ struct WeatherView: View {
                                 .scaleEffect(0.75)
                                 .frame(width: 20, height: 20)
                         } else if weatherAlertViewModel.weatherAlerts.count == 0 {
-                            Text("No active weather alerts for \(AppRegionManager.shared.getRegionName() ?? "")")
+                            Text("No active weather alerts for region")
                                 .font(.subheadline)
                                 .foregroundColor(rowHeaderColor)
                         } else {
@@ -177,6 +177,8 @@ struct WeatherView: View {
                             .frame(width: 20, height: 20)
                     } else if windsAloftCodeOptions.count == 0 {
                         Text("No winds aloft forecast found for region")
+                            .font(.subheadline)
+                            .foregroundColor(rowHeaderColor)
                     } else {
                         if windsAloftCodeOptions.count > 1 {
                             Picker("Select Location", selection: $windsAloftSelectedIndex) {
@@ -261,7 +263,7 @@ struct WeatherView: View {
                 
                 // High res diagram from morning sounding (from Matt Hansen)
                 // Only if region is Utah at this point
-                if RegionManager.shared.activeAppRegion == "UT" && soaringForecastViewModel.soaringForecast?.forecastMaxTemp ?? 0 > 0 {
+                if AppRegionManager.shared.getRegionState() == "UT" && soaringForecastViewModel.soaringForecast?.forecastMaxTemp ?? 0 > 0 {
                     Section(header: Text("SLC Morning Sounding")
                         .font(.headline)
                         .foregroundColor(sectionHeaderColor)
@@ -281,6 +283,8 @@ struct WeatherView: View {
                         
                         if windsAloftCodeOptions.count == 0 {
                             Text ("No latest model soundings available for region")
+                                .font(.subheadline)
+                                .foregroundColor(rowHeaderColor)
                         } else {
                             if soundingModelCodeOptions.count > 1 {
                                 Picker("Select Location", selection: $soundingModelSelectedIndex) {
@@ -317,7 +321,7 @@ struct WeatherView: View {
                     }
                 
                 // Attribute SLC morning sounding if displayed (for Utah region only)
-                if RegionManager.shared.activeAppRegion == "UT" {
+                if AppRegionManager.shared.getRegionState() == "UT" {
                     VStack (alignment: .leading) {
                         Text("SLC Morning Sounding data served by Matt Hansen")
                             .font(.caption)

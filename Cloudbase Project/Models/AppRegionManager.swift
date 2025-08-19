@@ -27,6 +27,14 @@ final class AppRegionManager {
         appRegions.first(where: { $0.appRegion == RegionManager.shared.activeAppRegion })?.appCountry
     }
     
+    // Return first two digits as the state code for the region only if country is US
+    func getRegionState() -> String? {
+        appRegions.first(where: {
+            $0.appRegion == RegionManager.shared.activeAppRegion &&
+            $0.appCountry == "US"
+        }).map { String($0.appRegion.prefix(2)) }
+    }
+    
     func getRegionEncodedTimezone() -> String? {
         guard let timezone = appRegions.first(where: { $0.appRegion == RegionManager.shared.activeAppRegion })?.timezone else { return nil }
         var allowed = CharacterSet.urlQueryAllowed

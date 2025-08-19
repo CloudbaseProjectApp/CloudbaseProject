@@ -25,6 +25,7 @@ func windSpeedColor(windSpeed: Int?, siteType: String) -> Color {
     switch siteType {
     case "Aloft", "Mountain": key = "windSpeedAloft"
     case "Soaring": key = "windSpeedSoaring"
+    case "Kiting": key = "windSpeedKiting"
     default: key = "windSpeed"
     }
     return LiftParametersViewModel.shared.colorFor(parameter: key, value: Double(windSpeed ?? 0))
@@ -34,8 +35,13 @@ func thermalColor(_ thermalVelocity: Double?) -> Color {
     LiftParametersViewModel.shared.colorFor(parameter: "thermal", value: thermalVelocity)
 }
 
-func gustFactorColor(_ gustFactor: Int?) -> Color {
-    LiftParametersViewModel.shared.colorFor(parameter: "gustFactor", value: Double(gustFactor ?? 0))
+func gustFactorColor(_ gustFactor: Int?, siteType: String) -> Color {
+    let key: String
+    switch siteType {
+    case "Kiting": key = "gustFactorKiting"
+    default: key = "gustFactor"
+    }
+    return LiftParametersViewModel.shared.colorFor(parameter: key, value: Double(gustFactor ?? 0))
 }
 
 func windDirectionColor(siteWindDirection: SiteWindDirection,

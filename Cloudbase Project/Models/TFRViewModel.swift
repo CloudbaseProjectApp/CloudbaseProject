@@ -31,7 +31,8 @@ class TFRViewModel: ObservableObject {
                 
                 switch result {
                 case .success(let tfrList):
-                    self.tfrs = tfrList.filter { $0.state == RegionManager.shared.activeAppRegion }
+                    let regionState = AppRegionManager.shared.getRegionState() ?? ""
+                    self.tfrs = tfrList.filter { $0.state == regionState }
                     self.isLoading = false
                     
                 case .failure(let error):

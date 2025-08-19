@@ -110,7 +110,15 @@ struct HourlyData: Codable {
     var potentialNotes: [String]?
 }
 
-// Structure used to store data that is common for all altitudes and pass to thermal calculation function
+// Store forecasts for the past four hours to compare with actuals on site detail
+struct PastHourlyData {
+    var time: [String]
+    var windSpeed: [Double]
+    var windGust: [Double]
+    var windDirection: [Double]
+}
+
+// Store data that is common for all altitudes and pass to thermal calculation function
 struct ForecastBaseData {
     var siteName: String
     var date: String
@@ -119,7 +127,7 @@ struct ForecastBaseData {
     var surfaceTemp: Double
 }
 
-// Used to prevent re-querying and processing forecast for a given site if recently processed
+// Prevent re-querying and processing forecast for a given site if recently processed
 private struct ForecastCacheEntry {
     let data: ForecastData
     let timestamp: Date
@@ -715,7 +723,7 @@ class SiteForecastViewModel: ObservableObject {
                             let CAPEColorValue = FlyingPotentialColor.value(for: CAPEColor(Int(data.hourly.cape[index])))
                             let surfaceWindColorValue = FlyingPotentialColor.value(for: windSpeedColor(windSpeed: Int(data.hourly.windspeed_10m[index]), siteType: siteType))
                             let surfaceGustColorValue = FlyingPotentialColor.value(for: windSpeedColor(windSpeed: Int(data.hourly.windgusts_10m[index]), siteType: siteType))
-                            let gustFactorColorValue = FlyingPotentialColor.value(for: gustFactorColor(gustFactor))
+                            let gustFactorColorValue = FlyingPotentialColor.value(for: gustFactorColor(gustFactor, siteType: siteType))
                             
                             // Winds aloft and thermals up to 6k ft (800 hpa) for all sites; higher altitude for mountain sites
                             // Note:  Not currently checking top of lift to limit winds aloft readings
@@ -760,7 +768,7 @@ class SiteForecastViewModel: ObservableObject {
                             
                             var potentialNote = ""
                             
-                            // For soaring sites, reduce the value if wind speed can is too low to soar
+                            // For soaring sites, reduce the value if wind speed is too low to soar
                             if siteType == "Soaring" {
                                 potentialNote = "Winds aloft and thermal strength evaluated up to 6k ft for soaring sites."
                                 if combinedColorValue <= FlyingPotentialColor.value(for: displayValueGreen) {
@@ -791,6 +799,23 @@ class SiteForecastViewModel: ObservableObject {
                                     potentialNote = "Thermal strength is less than soarable; winds aloft not evaluated."
                                 }
                             }
+                            
+                            // For kiting sites, reduce the value if wind speed is too low to kite
+                            if siteType == "Kiting" {
+                                potentialNote = "Winds aloft and thermal strength evaluated up to 6k ft for kiting sites."
+                                if combinedColorValue <= FlyingPotentialColor.value(for: displayValueGreen) {
+                                    // No warning conditions; base color on wind, including "downgrading" if there isn't enough surface wind
+                                    combinedColorValue = max(surfaceWindColorValue, surfaceGustColorValue)
+                                }
+                                // If wind strength is at least "green", then factor in winds aloft
+                                // (assumes a soaring site won't use only thermals to get above launch)
+                                if max(surfaceWindColorValue, surfaceGustColorValue) >= FlyingPotentialColor.value(for: displayValueGreen) {
+                                    combinedColorValue = max(combinedColorValue, windsAloftColorValue)
+                                } else {
+                                    potentialNote = "Light kiting conditions; winds aloft not evaluated."
+                                }
+                            }
+
                             
                             // Combine notes
                             potentialNote = (windDirectionNote.isEmpty == false ? windDirectionNote + "\n" : "") + potentialNote
