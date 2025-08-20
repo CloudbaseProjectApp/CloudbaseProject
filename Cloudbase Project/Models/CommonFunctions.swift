@@ -565,6 +565,12 @@ func windDirectionRanges(from siteWindDirection: SiteWindDirection)
     return (goodRanges, marginalRanges)
 }
 
+// Utility to check if the latest reading is recent
+func isReadingRecent(_ date: Date?) -> Bool {
+    guard let date = date else { return false }
+    return Date().timeIntervalSince(date) <= stationDownInterval
+}
+
 // To set sheet background color, call this whenever a sheet is presented:
 //    .sheet(isPresented: $showingSheet) {
 //        MySheetContent()

@@ -38,10 +38,9 @@ class StationReadingsHistoryDataModel: ObservableObject {
         do {
             switch readingsSource {
             case "Mesonet":
-                let readingsLink = AppURLManager.shared.getAppURL(URLName: "mesonetHistoryReadingsAPI")
+                let readingsLink = AppURLManager.shared.getAppURL(URLName: "mesonetHistoryReadingsAPIv2")
                     ?? "<Unknown Mesonet readings history API URL>"
                 let updatedReadingsLink = updateURL(url: readingsLink, parameter: "station", value: stationID) + synopticsAPIToken
-                
                 guard let url = URL(string: updatedReadingsLink) else {
                     await MainActor.run {
                         self.readingsHistoryData.errorMessage = "Invalid Mesonet readings URL"
@@ -60,29 +59,48 @@ class StationReadingsHistoryDataModel: ObservableObject {
                     return
                 }
                 
-                let recentTimes = Array(station.OBSERVATIONS.date_time.suffix(8))
+                let recentDateTimes = Array(station.OBSERVATIONS.date_time.suffix(8))
                 let recentWindSpeed = Array(station.OBSERVATIONS.wind_speed_set_1.suffix(8)).map { $0 ?? 0.0 }
                 let recentWindGust = station.OBSERVATIONS.wind_gust_set_1?.suffix(8).map { $0 ?? 0.0 }
                     ?? Array(repeating: nil, count: 8)
                 let recentWindDirection = Array((station.OBSERVATIONS.wind_direction_set_1 ?? Array(repeating: nil, count: 8))
                     .suffix(8).map { $0 ?? 0.0 })
                 
-                if let latestTimeString = recentTimes.last,
-                   let latestTime = ISO8601DateFormatter().date(from: latestTimeString),
-                   Date().timeIntervalSince(latestTime) > 2 * 60 * 60 {
+                // Parse latest timestamp and filter outdated readings
+                guard let latestDateString = recentDateTimes.last,
+                      let latestDate = ISO8601DateFormatter().date(from: latestDateString),
+                      isReadingRecent(latestDate) else {
                     await MainActor.run {
                         self.readingsHistoryData.errorMessage = "Station \(stationID) has not updated in the past 2 hours"
                     }
-                } else {
-                    await MainActor.run {
-                        self.readingsHistoryData = ReadingsHistoryData(
-                            times: recentTimes,
-                            windSpeed: recentWindSpeed,
-                            windGust: recentWindGust,
-                            windDirection: recentWindDirection,
-                            errorMessage: nil
-                        )
+                    return
+                }
+                
+                // Format reading display format
+                let isoFormatter = ISO8601DateFormatter()
+                let timeFormatter = DateFormatter()
+                timeFormatter.dateFormat = "h:mm"
+                let recentTimes: [String] = recentDateTimes.map { dateString in
+                    // If empty string, return blank
+                    guard !dateString.isEmpty else { return "" }
+                    // Try to parse ISO8601
+                    if let date = isoFormatter.date(from: dateString) {
+                        return timeFormatter.string(from: date)
+                    } else {
+                        // Not a valid date string → blank
+                        return ""
                     }
+                }
+                
+                // Add readings
+                await MainActor.run {
+                    self.readingsHistoryData = ReadingsHistoryData(
+                        times: recentTimes,
+                        windSpeed: recentWindSpeed,
+                        windGust: recentWindGust,
+                        windDirection: recentWindDirection,
+                        errorMessage: nil
+                    )
                 }
                 
             case "CUASA":
@@ -156,8 +174,8 @@ class StationReadingsHistoryDataModel: ObservableObject {
         let currentTime = Date().timeIntervalSince1970
         let twoHoursInSeconds: Double = 2 * 60 * 60
         if currentTime - latestEntry.timestamp > twoHoursInSeconds {
-            self.readingsHistoryData.errorMessage = "Station has not updated in the past 2 hours"
-            print("Station has not updated in the past 2 hours")
+            self.readingsHistoryData.errorMessage = "No readings in the past 2 hours"
+            print("No readings in the past 2 hours")
             return
         }
         let recentEntries = Array(readingsHistoryDataArray.suffix(8))
@@ -180,8 +198,7 @@ class StationReadingsHistoryDataModel: ObservableObject {
         let twoHoursInSeconds: Double = 2 * 60 * 60
         if let latestReadingTimestamp = formatter.date(from: latestEntry.timestamp) {
             if Date().timeIntervalSince(latestReadingTimestamp) > twoHoursInSeconds {
-                self.readingsHistoryData.errorMessage = "Station has not updated in the past 2 hours"
-                print("Station has not updated in the past 2 hours")
+                self.readingsHistoryData.errorMessage = "No readings in the past 2 hours"
                 return
             }
         } else {

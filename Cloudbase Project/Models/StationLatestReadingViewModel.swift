@@ -232,27 +232,46 @@ class StationLatestReadingViewModel: ObservableObject {
     
     // Mesonet
     func getLatestMesonetReadings(stationParameters: String) async -> [StationLatestReading] {
-        let baseURL = AppURLManager.shared.getAppURL(URLName: "mesonetLatestReadingsAPI") ?? ""
-        let updated = updateURL(url: baseURL, parameter: "stationlist", value: stationParameters) + synopticsAPIToken
-        guard let url = URL(string: updated) else { return [] }
-        
+        let baseURL = AppURLManager.shared.getAppURL(URLName: "mesonetLatestReadingsAPIv2") ?? ""
+        let updatedURL = updateURL(url: baseURL, parameter: "stationlist", value: stationParameters) + synopticsAPIToken
+        guard let url = URL(string: updatedURL) else { return [] }
+
         do {
             let data = try await AppNetwork.shared.fetchDataAsync(url: url)
             let decoded = try JSONDecoder().decode(MesonetLatestResponse.self, from: data)
             return decoded.station.compactMap { station in
-                guard let _ = station.observations.windSpeed?.value,
-                      let _ = station.observations.windSpeed?.dateTime else { return nil }
+                guard let value = station.observations.windSpeed?.value,
+                      let dateString = station.observations.windSpeed?.dateTime else {
+                    return nil
+                }
+                    
+                // Parse timestamp and filter outdated readings
+                guard let date = ISO8601DateFormatter().date(from: dateString), isReadingRecent(date) else {
+                    return nil
+                }
+                
+                // Make sure gust reading is current (Mesonet sends older gust readings if newer reading doesn't include a gust)
+                var windGust: Double?
+                if station.observations.windGust?.dateTime == station.observations.windSpeed?.dateTime {
+                    windGust = station.observations.windGust?.value
+                }
+                
+                // Format reading display format
+                let formatter = DateFormatter()
+                formatter.dateFormat = "h:mm"
+                let formattedTime = formatter.string(from: date)
+                
                 return StationLatestReading(
-                    stationID:          station.stationID,
-                    stationName:        station.stationName,
-                    readingsSource:     "Mesonet",
-                    stationElevation:   station.elevation,
-                    stationLatitude:    station.latitude,
-                    stationLongitude:   station.longitude,
-                    windSpeed:          station.observations.windSpeed?.value,
-                    windDirection:      station.observations.windDirection?.value,
-                    windGust:           station.observations.windGust?.value,
-                    windTime:           station.observations.windSpeed?.dateTime
+                    stationID:        station.stationID,
+                    stationName:      station.stationName,
+                    readingsSource:   "Mesonet",
+                    stationElevation: station.elevation,
+                    stationLatitude:  station.latitude,
+                    stationLongitude: station.longitude,
+                    windSpeed:        value,
+                    windDirection:    station.observations.windDirection?.value,
+                    windGust:         windGust,
+                    windTime:         formattedTime
                 )
             }
         } catch {
@@ -294,23 +313,26 @@ class StationLatestReadingViewModel: ObservableObject {
                 
                 if let latest = readingsArray.max(by: { $0.timestamp < $1.timestamp }) {
                     let date = Date(timeIntervalSince1970: latest.timestamp)
+                    guard isReadingRecent(date) else { continue }   // filter old readings
+                    
                     let formatter = DateFormatter()
                     formatter.dateFormat = "h:mm"
                     let formattedTime = formatter.string(from: date)
                     
                     results.append(StationLatestReading(
-                        stationID:              latest.ID,
-                        stationName:            stationInfo.name,
-                        readingsSource:         "CUASA",
-                        stationElevation:       station.readingsAlt,
-                        stationLatitude:        String(stationInfo.lat),
-                        stationLongitude:       String(stationInfo.lon),
-                        windSpeed:              convertKMToMiles(latest.windspeed_avg).rounded(),
-                        windDirection:          latest.wind_direction_avg,
-                        windGust:               convertKMToMiles(latest.windspeed_max).rounded(),
-                        windTime:               formattedTime
+                        stationID:        latest.ID,
+                        stationName:      stationInfo.name,
+                        readingsSource:   "CUASA",
+                        stationElevation: station.readingsAlt,
+                        stationLatitude:  String(stationInfo.lat),
+                        stationLongitude: String(stationInfo.lon),
+                        windSpeed:        convertKMToMiles(latest.windspeed_avg).rounded(),
+                        windDirection:    latest.wind_direction_avg,
+                        windGust:         convertKMToMiles(latest.windspeed_max).rounded(),
+                        windTime:         formattedTime
                     ))
                 }
+                
             } catch {
                 print("CUASA fetch error: \(error)")
             }
@@ -348,6 +370,9 @@ class StationLatestReadingViewModel: ObservableObject {
                 let inputFormatter = DateFormatter()
                 inputFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
                 inputFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+                
+                guard let readingDate = inputFormatter.date(from: reading.timestamp),
+                      isReadingRecent(readingDate) else { continue }  // filter old readings
                 
                 let outputFormatter = DateFormatter()
                 outputFormatter.dateFormat = "h:mm"

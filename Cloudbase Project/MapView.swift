@@ -170,103 +170,105 @@ struct MapView: UIViewRepresentable {
         
         // For each pilot, in sorted order:
         // For each track segment, draw a distinct line and annotations
-        for segment in pilotTrackSegments {
-            let tracksForSegment = segment.tracks
-            guard !tracksForSegment.isEmpty else { continue }
-            let pilotName = segment.pilotName
-            
-            // — extract coords for polyline
-            let coords = tracksForSegment.map {
-                CLLocationCoordinate2D(latitude: $0.latitude,
-                                       longitude: $0.longitude)
-            }
-            
-            // — add line if we have at least two points
-            if coords.count > 1 {
-                let polyline = MKPolyline(coordinates: coords, count: coords.count)
-                polyline.title = pilotName
-                mapView.addOverlay(polyline)
-            }
-            
-            // — partition into emergency / message / finish / first / normal
-            var emergencyTracks: [PilotTrack] = []
-            var messageTracks:   [PilotTrack] = []
-            var finishTracks:    [PilotTrack] = []
-            var firstTracks:     [PilotTrack] = []
-            var normalTracks:    [PilotTrack] = []
-            
-            for (i, track) in tracksForSegment.enumerated() {
-                // Determine node type based on its position within the segment
-                let isFirst   = (i == 0)
-                let isLast    = (i == tracksForSegment.count - 1)
-                let isEmerg   = track.inEmergency == true
-                let hasMsg    = !(track.message?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
-                let isNormal  = !isFirst && !isLast && !isEmerg && !hasMsg
+        if mapDisplayMode == .tracking {
+            for segment in pilotTrackSegments {
+                let tracksForSegment = segment.tracks
+                guard !tracksForSegment.isEmpty else { continue }
+                let pilotName = segment.pilotName
                 
-                // drop normal if zoomed out
-                if !showAllMarkers && isNormal { continue }
-                
-                switch true {
-                case isEmerg:
-                    emergencyTracks.append(track)
-                case hasMsg:
-                    messageTracks.append(track)
-                case isLast:
-                    finishTracks.append(track)
-                case isFirst:
-                    firstTracks.append(track)
-                default:
-                    normalTracks.append(track)
+                // extract coords for polyline
+                let coords = tracksForSegment.map {
+                    CLLocationCoordinate2D(latitude: $0.latitude,
+                                           longitude: $0.longitude)
                 }
-            }
-            
-            // — add track annotations in that priority order
-            for group in [emergencyTracks, messageTracks, finishTracks, firstTracks, normalTracks] {
-                for track in group {
-                    // Re-calculate isFirst/isLast relative to the segment
-                    let idx = tracksForSegment.firstIndex { $0.id == track.id } ?? 0
-                    let isFirst = idx == 0
-                    let isLast  = idx == tracksForSegment.count - 1
-                    let isEmerg = track.inEmergency == true
-                    let hasMsg  = !(track.message?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                
+                // add line if we have at least two points
+                if coords.count > 1 {
+                    let polyline = MKPolyline(coordinates: coords, count: coords.count)
+                    polyline.title = pilotName
+                    mapView.addOverlay(polyline)
+                }
+                
+                // — partition into emergency / message / finish / first / normal
+                var emergencyTracks: [PilotTrack] = []
+                var messageTracks:   [PilotTrack] = []
+                var finishTracks:    [PilotTrack] = []
+                var firstTracks:     [PilotTrack] = []
+                var normalTracks:    [PilotTrack] = []
+                
+                for (i, track) in tracksForSegment.enumerated() {
+                    // Determine node type based on its position within the segment
+                    let isFirst   = (i == 0)
+                    let isLast    = (i == tracksForSegment.count - 1)
+                    let isEmerg   = track.inEmergency == true
+                    let hasMsg    = !(track.message?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                    let isNormal  = !isFirst && !isLast && !isEmerg && !hasMsg
                     
-                    let annotation = PilotTrackAnnotation(
-                        coordinate: CLLocationCoordinate2D(
-                            latitude:  track.latitude,
-                            longitude: track.longitude
-                        ),
-                        title:      pilotName.components(separatedBy: " ").first ?? pilotName,
-                        subtitle:   DateFormatter
-                            .localizedString(from: track.dateTime,
-                                             dateStyle: .none,
-                                             timeStyle: .short),
-                        annotationType: "pilot",
-                        pilotTrack:     track,
-                        pilotName:      pilotName,
-                        isFirst:        isFirst,
-                        isLast:         isLast,
-                        isEmergency:    isEmerg,
-                        hasMessage:     hasMsg
-                    )
-                    mapView.addAnnotation(annotation)
+                    // drop normal if zoomed out
+                    if !showAllMarkers && isNormal { continue }
+                    
+                    switch true {
+                    case isEmerg:
+                        emergencyTracks.append(track)
+                    case hasMsg:
+                        messageTracks.append(track)
+                    case isLast:
+                        finishTracks.append(track)
+                    case isFirst:
+                        firstTracks.append(track)
+                    default:
+                        normalTracks.append(track)
+                    }
                 }
-            }
-            
-            // — if zoomed in, draw arrows between each consecutive pair
-            if showAllMarkers {
-                for i in 0..<coords.count - 1 {
-                    let start = coords[i]
-                    let end   = coords[i + 1]
-                    let mid   = CLLocationCoordinate2D(
-                        latitude:  (start.latitude  + end.latitude)  / 2,
-                        longitude: (start.longitude + end.longitude) / 2
-                    )
-                    let angle = bearing(from: start, to: end)
-                    let color = pilotColorMap[pilotName] ?? .gray
-                    let arrow = ArrowOverlay(center: mid,
-                                             angle: CGFloat(angle),
-                                             color: color)
-                    mapView.addOverlay(arrow)
+                
+                // — add track annotations in that priority order
+                for group in [emergencyTracks, messageTracks, finishTracks, firstTracks, normalTracks] {
+                    for track in group {
+                        // Re-calculate isFirst/isLast relative to the segment
+                        let idx = tracksForSegment.firstIndex { $0.id == track.id } ?? 0
+                        let isFirst = idx == 0
+                        let isLast  = idx == tracksForSegment.count - 1
+                        let isEmerg = track.inEmergency == true
+                        let hasMsg  = !(track.message?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                        
+                        let annotation = PilotTrackAnnotation(
+                            coordinate: CLLocationCoordinate2D(
+                                latitude:  track.latitude,
+                                longitude: track.longitude
+                            ),
+                            title:      pilotName.components(separatedBy: " ").first ?? pilotName,
+                            subtitle:   DateFormatter
+                                .localizedString(from: track.dateTime,
+                                                 dateStyle: .none,
+                                                 timeStyle: .short),
+                            annotationType: "pilot",
+                            pilotTrack:     track,
+                            pilotName:      pilotName,
+                            isFirst:        isFirst,
+                            isLast:         isLast,
+                            isEmergency:    isEmerg,
+                            hasMessage:     hasMsg
+                        )
+                        mapView.addAnnotation(annotation)
+                    }
+                }
+                
+                // — if zoomed in, draw arrows between each consecutive pair
+                if showAllMarkers {
+                    for i in 0..<coords.count - 1 {
+                        let start = coords[i]
+                        let end   = coords[i + 1]
+                        let mid   = CLLocationCoordinate2D(
+                            latitude:  (start.latitude  + end.latitude)  / 2,
+                            longitude: (start.longitude + end.longitude) / 2
+                        )
+                        let angle = bearing(from: start, to: end)
+                        let color = pilotColorMap[pilotName] ?? .gray
+                        let arrow = ArrowOverlay(center: mid,
+                                                 angle: CGFloat(angle),
+                                                 color: color)
+                        mapView.addOverlay(arrow)
+                    }
                 }
             }
         }

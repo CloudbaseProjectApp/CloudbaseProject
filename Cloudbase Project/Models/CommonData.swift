@@ -38,8 +38,9 @@ let toolbarItemSize: CGFloat                    = 14        // Height and width 
 let skewTButtonWidth: CGFloat                   = 100
 let defaultTopOfLiftAltitude                    = 18000.0   // Use in lift area graph when top of lift isn't reached in calculations
 let defaultMaxPressureReading: Int              = 1000      // Pressure to start displaying winds aloft (1000 hpa is sea level)
+let stationDownInterval: TimeInterval           = 7200      // Report a station is down if more than 2 hours since last reading
 let readingsRefreshInterval: TimeInterval       = 120       // Time in seconds to refresh wind readings (300 for 5 min)
-let pilotTrackRefreshInterval: TimeInterval     = 600       // Setting refresh to 10 min to prevent timeout errors on frequent refreshes
+let pilotTrackRefreshInterval: TimeInterval     = 600       // Refresh tracks every 10 min to prevent timeout errors on frequent refreshes
 let forecastCacheInterval: TimeInterval         = 1800      // 30 minute refresh interval for each forecast calls
 let pilotTrackSegmentThreshold: TimeInterval    = 7200      // 2 hour threshold to create separate pilot live track segments
 

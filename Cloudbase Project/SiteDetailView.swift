@@ -95,9 +95,10 @@ struct SiteDetailView: View {
                                     .scaleEffect(0.75)
                                     .frame(width: 20, height: 20)
                             } else if let errorMessage = viewModel.readingsHistoryData.errorMessage {
-                                Text("Error message:")
+                                Text("Error message: \(errorMessage)")
+                                    .font(.subheadline)
+                                    .foregroundColor(infoFontColor)
                                     .padding(.top, 8)
-                                Text(errorMessage)
                             } else if viewModel.readingsHistoryData.times.isEmpty {
                                 Text("Station down")
                                     .padding(.top, 8)
