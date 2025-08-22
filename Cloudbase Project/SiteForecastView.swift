@@ -36,9 +36,10 @@ struct ThermalCell: View {
 
 struct SiteForecastView: View {
     @EnvironmentObject var userSettingsViewModel: UserSettingsViewModel
-    @EnvironmentObject var siteForecastViewModel: SiteForecastViewModel
     @EnvironmentObject var sunriseSunsetViewModel: SunriseSunsetViewModel
     @EnvironmentObject var weatherCodesViewModel: WeatherCodeViewModel
+    @ObservedObject    var siteForecastViewModel: SiteForecastViewModel
+
     
     let id:                 String  // site/favorite/station id
     let siteName:           String
@@ -637,18 +638,6 @@ struct SiteForecastView: View {
                 }
             }
         }
-        .onAppear {
-            Task {
-                await siteForecastViewModel.fetchForecast(
-                    id: id,
-                    siteName: siteName,
-                    latitude: siteLat,
-                    longitude: siteLon,
-                    siteType: siteType,
-                    siteWindDirection: siteWindDirection
-                )
-            }
-        }
     }
     
     @ViewBuilder
@@ -677,6 +666,8 @@ struct SiteForecastView: View {
             .chartYScale(domain: (Double(surfaceAltitude) - 200)...topOfChartAltitude)
         } else {
             Text("No data available")
+                .font(.subheadline)
+                .foregroundColor(infoFontColor)
         }
     }
 

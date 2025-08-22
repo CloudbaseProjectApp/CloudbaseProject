@@ -17,6 +17,7 @@ struct Observations: Codable {
     let wind_direction_set_1: [Double?]?
 }
 
+// Most recent 5-8 readings to display on site detail bar chart
 struct ReadingsHistoryData {
     var times: [String]
     var windSpeed: [Double]
@@ -25,13 +26,29 @@ struct ReadingsHistoryData {
     var errorMessage: String?
 }
 
-class StationReadingsHistoryDataModel: ObservableObject {
+// All readings for the past several hours to compare with forecast on site detail
+struct PastReadingsData {
+    var timestamp: [Date]
+    var windSpeed: [Double]
+    var windGust: [Double]
+    var windDirection: [Double]
+}
+
+class StationReadingsHistoryViewModel: ObservableObject {
+    // Most recent 5-8 readings to display on site detail bar chart
     @Published var readingsHistoryData = ReadingsHistoryData(
         times: [],
         windSpeed: [],
         windGust: [],
         windDirection: [],
         errorMessage: nil
+    )
+    // All readings for the past several hours to compare with forecast on site detail
+    @Published var pastReadingsData = PastReadingsData(
+        timestamp: [],
+        windSpeed: [],
+        windGust: [],
+        windDirection: []
     )
  
     func GetReadingsHistoryData(stationID: String, readingsSource: String) async {
@@ -47,7 +64,7 @@ class StationReadingsHistoryDataModel: ObservableObject {
                     }
                     return
                 }
-                
+
                 let request = URLRequest(url: url)
                 let data = try await AppNetwork.shared.fetchDataAsync(request: request)
                 let decoded = try JSONDecoder().decode(ReadingsData.self, from: data)
@@ -66,7 +83,7 @@ class StationReadingsHistoryDataModel: ObservableObject {
                 let recentWindDirection = Array((station.OBSERVATIONS.wind_direction_set_1 ?? Array(repeating: nil, count: 8))
                     .suffix(8).map { $0 ?? 0.0 })
                 
-                // Parse latest timestamp and filter outdated readings
+                // Parse latest timestamp and filter stations with no recent readings
                 guard let latestDateString = recentDateTimes.last,
                       let latestDate = ISO8601DateFormatter().date(from: latestDateString),
                       isReadingRecent(latestDate) else {
@@ -76,23 +93,20 @@ class StationReadingsHistoryDataModel: ObservableObject {
                     return
                 }
                 
-                // Format reading display format
+                // Format recent readings for chart
                 let isoFormatter = ISO8601DateFormatter()
                 let timeFormatter = DateFormatter()
                 timeFormatter.dateFormat = "h:mm"
                 let recentTimes: [String] = recentDateTimes.map { dateString in
-                    // If empty string, return blank
                     guard !dateString.isEmpty else { return "" }
-                    // Try to parse ISO8601
                     if let date = isoFormatter.date(from: dateString) {
                         return timeFormatter.string(from: date)
                     } else {
-                        // Not a valid date string → blank
                         return ""
                     }
                 }
                 
-                // Add readings
+                // Update readingsHistoryData
                 await MainActor.run {
                     self.readingsHistoryData = ReadingsHistoryData(
                         times: recentTimes,
@@ -101,6 +115,23 @@ class StationReadingsHistoryDataModel: ObservableObject {
                         windDirection: recentWindDirection,
                         errorMessage: nil
                     )
+                }
+                
+                // Store last 6 hours of readings for forecast-to-actuals comparison
+                let pastData = buildPastReadingsData(
+                    entries: station.OBSERVATIONS.date_time.enumerated().map { idx, ts in
+                        (ts,
+                         station.OBSERVATIONS.wind_speed_set_1[idx] ?? 0.0,
+                         station.OBSERVATIONS.wind_gust_set_1?[idx] ?? 0.0,
+                         station.OBSERVATIONS.wind_direction_set_1?[idx] ?? 0.0)
+                    },
+                    timestampExtractor: { ISO8601DateFormatter().date(from: $0.0) },
+                    speedExtractor: { $0.1 },
+                    gustExtractor: { $0.2 },
+                    directionExtractor: { $0.3 }
+                )
+                await MainActor.run {
+                    self.pastReadingsData = pastData
                 }
                 
             case "CUASA":
@@ -160,7 +191,7 @@ class StationReadingsHistoryDataModel: ObservableObject {
             }
         } catch {
             await MainActor.run {
-                self.readingsHistoryData.errorMessage = "Error: \(error.localizedDescription)"
+                self.readingsHistoryData.errorMessage = "Error loading readings: \(error.localizedDescription)"
             }
         }
     }
@@ -168,33 +199,39 @@ class StationReadingsHistoryDataModel: ObservableObject {
     private func processCUASAReadingsHistoryData(_ readingsHistoryDataArray: [CUASAReadingsData]) {
         guard let latestEntry = readingsHistoryDataArray.last else {
             self.readingsHistoryData.errorMessage = "No data available"
-            print("No data available from CUASA")
             return
         }
         let currentTime = Date().timeIntervalSince1970
         let twoHoursInSeconds: Double = 2 * 60 * 60
         if currentTime - latestEntry.timestamp > twoHoursInSeconds {
             self.readingsHistoryData.errorMessage = "No readings in the past 2 hours"
-            print("No readings in the past 2 hours")
             return
         }
+        
         let recentEntries = Array(readingsHistoryDataArray.suffix(8))
         updateCUASAReadingsHistory(with: recentEntries)
+        
+        // Collect past 6 hours of readings
+        let pastData = buildPastReadingsData(
+            entries: readingsHistoryDataArray,
+            timestampExtractor: { Date(timeIntervalSince1970: $0.timestamp) },
+            speedExtractor: { convertKMToMiles($0.windspeed_avg) },
+            gustExtractor: { convertKMToMiles($0.windspeed_max) },
+            directionExtractor: { $0.wind_direction_avg }
+        )
+        self.pastReadingsData = pastData
     }
     
     private func processRMHPAReadingHistoryData(_ readingsHistoryDataArray: [RMHPAReadingData]) {
-
         guard let latestEntry = readingsHistoryDataArray.last else {
             self.readingsHistoryData.errorMessage = "No data available"
-            print("No data available from RMHPA")
             return
         }
-
+        
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
-        formatter.timeZone = TimeZone(secondsFromGMT: 0) // 'Z' means UTC
-
-        // Make sure there is a recent reading
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        
         let twoHoursInSeconds: Double = 2 * 60 * 60
         if let latestReadingTimestamp = formatter.date(from: latestEntry.timestamp) {
             if Date().timeIntervalSince(latestReadingTimestamp) > twoHoursInSeconds {
@@ -203,13 +240,25 @@ class StationReadingsHistoryDataModel: ObservableObject {
             }
         } else {
             self.readingsHistoryData.errorMessage = "Could not parse timestamp: \(latestEntry.timestamp)"
-            print("Failed to parse timestamp")
             return
         }
+        
         let recentEntries = Array(readingsHistoryDataArray.suffix(8))
         updateRMHPAReadingHistory(with: recentEntries)
-    }
+        
+        // Collect past 6 hours of readings
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
 
+        let pastData = buildPastReadingsData(
+            entries: readingsHistoryDataArray,
+            timestampExtractor: { formatter.date(from: $0.timestamp) },
+            speedExtractor: { $0.wind_speed ?? 0.0 },
+            gustExtractor: { $0.wind_gust ?? 0.0 },
+            directionExtractor: { $0.wind_direction ?? 0.0 }
+        )
+        self.pastReadingsData = pastData
+    }
     
     private func updateCUASAReadingsHistory(with readingsHistoryDataArray: [CUASAReadingsData]) {
         var times = [String]()
@@ -219,7 +268,7 @@ class StationReadingsHistoryDataModel: ObservableObject {
         for data in readingsHistoryDataArray {
             let date = Date(timeIntervalSince1970: data.timestamp)
             let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "H:mm"
+            dateFormatter.dateFormat = "h:mm"
             times.append(dateFormatter.string(from: date))
             windSpeed.append(convertKMToMiles(data.windspeed_avg))
             windGust.append(convertKMToMiles(data.windspeed_max))
@@ -267,5 +316,37 @@ class StationReadingsHistoryDataModel: ObservableObject {
             errorMessage: nil
         )
     }
-
+    
+    private func buildPastReadingsData<T>(
+        entries: [T],
+        timestampExtractor: (T) -> Date?,
+        speedExtractor: (T) -> Double,
+        gustExtractor: (T) -> Double,
+        directionExtractor: (T) -> Double
+    ) -> PastReadingsData {
+        let now = Date()
+        let sixHoursAgo = now.addingTimeInterval(-6 * 60 * 60)
+        
+        var pastTimestamps: [Date] = []
+        var pastWindSpeed: [Double] = []
+        var pastWindGust: [Double] = []
+        var pastWindDirection: [Double] = []
+        
+        for entry in entries {
+            guard let date = timestampExtractor(entry) else { continue }
+            if date >= sixHoursAgo && date <= now {
+                pastTimestamps.append(date)
+                pastWindSpeed.append(speedExtractor(entry))
+                pastWindGust.append(gustExtractor(entry))
+                pastWindDirection.append(directionExtractor(entry))
+            }
+        }
+        
+        return PastReadingsData(
+            timestamp: pastTimestamps,
+            windSpeed: pastWindSpeed,
+            windGust: pastWindGust,
+            windDirection: pastWindDirection
+        )
+    }
 }

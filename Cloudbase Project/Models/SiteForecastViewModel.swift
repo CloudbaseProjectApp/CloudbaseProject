@@ -111,7 +111,7 @@ struct HourlyData: Codable {
     var potentialNotes: [String]?
 }
 
-// Store forecasts for the past four hours to compare with actuals on site detail
+// Store forecasts for the past several hours to compare with actuals on site detail
 struct PastHourlyData {
     var timestamp: [Date]
     var windSpeed: [Double]
@@ -389,10 +389,14 @@ class SiteForecastViewModel: ObservableObject {
             print("Sunrise/sunset not available")
             if logThermalCalcs {logToFile("Sunrise/sunset times not available") }
         }
-        
+                
         let currentDate = Date()
         let startOfDay = Calendar.current.startOfDay(for: currentDate)
         let oneHourAgo = Calendar.current.date(byAdding: .hour, value: -1, to: currentDate)!
+        // Using 7 hours to include partial hours in the forecast to actual comparison
+        let sevenHoursAgo = Calendar.current.date(byAdding: .hour, value: -7, to: currentDate)!
+        // One hour later to include partial hours in the forecast to actual comparison
+        let oneHourLater = Calendar.current.date(byAdding: .hour, value: 1, to: currentDate)!
         var priorReadingFormattedDate: String?
         var newDateFlag: Bool = true
         var thermalTriggerReachedForDay: Bool = false
@@ -861,8 +865,11 @@ class SiteForecastViewModel: ObservableObject {
                         }
                     }
                     
-                    // Store today's past hourly forecasts to allow site detail view to compare to actuals
-                    if timeObj >= startOfDay && timeObj <= currentDate {
+                    // Store today's past forecasts for prior 6 hours to allow site detail view to compare to actuals
+                    // (using 7 hours and one hour from now to make sure partial hour forecasts are included)
+                    if Calendar.current.isDate(timeObj, inSameDayAs: startOfDay) &&
+                       timeObj >= sevenHoursAgo &&
+                       timeObj <= oneHourLater {
                         processedPastHourly.timestamp.append(timeObj)
                         processedPastHourly.windSpeed.append(data.hourly.windspeed_10m[index].rounded())
                         processedPastHourly.windGust.append(data.hourly.windgusts_10m[index].rounded())
