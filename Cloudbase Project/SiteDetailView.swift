@@ -172,7 +172,6 @@ struct SiteDetailView: View {
                         Text("Forecast vs. actual readings for past 6 hours")
                             .font(.footnote)
                             .foregroundColor(infoFontColor)
-                        
                         SiteForecastActualCompareView(siteForecastViewModel: siteForecastViewModel,
                                                       stationReadingsHistoryViewModel: stationReadingsHistoryViewModel)
                     }
@@ -422,7 +421,7 @@ struct WindArrow: View {
         Image(systemName: "arrow.up")
             .resizable()
             .frame(width: 10, height: 18)
-            .rotationEffect(.degrees(direction))  // rotate arrow to wind dir
+            .rotationEffect(.degrees(direction+180))  // rotate arrow to wind dir
             .foregroundColor(color)
     }
 }
@@ -517,20 +516,22 @@ struct SiteForecastActualCompareView: View {
         }
 
         if let f = forecast {
-            points.append(contentsOf: f.timestamp.indices.compactMap { i in
-                guard f.windSpeed.indices.contains(i) else { return nil }
-                let t = f.timestamp[i]
-                guard t >= actualMin && t <= actualMax else { return nil }
+            // Forecast wind points
+            let windPoints: [WindSeriesPoint] = f.timestamp.enumerated().compactMap { i, t in
+                guard i < f.windSpeed.count else { return nil }
                 return WindSeriesPoint(time: t, value: f.windSpeed[i], series: "Forecast Wind")
-            })
-            points.append(contentsOf: f.timestamp.indices.compactMap { i in
-                guard f.windGust.indices.contains(i) else { return nil }
-                let t = f.timestamp[i]
-                guard t >= actualMin && t <= actualMax else { return nil }
-                return WindSeriesPoint(time: t, value: f.windGust[i], series: "Forecast Gust")
-            })
-        }
+            }
 
+            // Forecast gust points
+            let gustPoints: [WindSeriesPoint] = f.timestamp.enumerated().compactMap { i, t in
+                guard i < f.windGust.count else { return nil }
+                return WindSeriesPoint(time: t, value: f.windGust[i], series: "Forecast Gust")
+            }
+
+            points.append(contentsOf: extrapolateToDomainEdges(points: windPoints, domain: actualMin...actualMax))
+            points.append(contentsOf: extrapolateToDomainEdges(points: gustPoints, domain: actualMin...actualMax))
+        }
+        
         let actualWindPoints = points.filter { $0.series == "Actual Wind" }
         let allLinePoints = points
 
@@ -615,9 +616,9 @@ struct SiteForecastActualCompareView: View {
                         }
                     }
             }
-            .frame(height: 260) // chart + arrows
-
-            // Legend unchanged
+            .frame(height: 210) // chart + arrows
+            Spacer()
+            // Legend
             HStack(spacing: 20) {
                 Spacer()
                 VStack(spacing: 6) {
@@ -631,8 +632,9 @@ struct SiteForecastActualCompareView: View {
                 }
                 Spacer()
             }
-            .padding(.top, 30)
+            .padding(.top, 50)
             .font(.caption)
+            Spacer()
         }
 
         return AnyView(container)
@@ -681,6 +683,47 @@ struct SiteForecastActualCompareView: View {
                 .interpolationMethod(.monotone)
             }
         }
+    }
+    
+    func extrapolateToDomainEdges(points: [WindSeriesPoint], domain: ClosedRange<Date>) -> [WindSeriesPoint] {
+        guard !points.isEmpty else { return [] }
+        var result: [WindSeriesPoint] = []
+
+        // Sort by time
+        let sorted = points.sorted { $0.time < $1.time }
+
+        // --- Left edge ---
+        if let firstIn = sorted.first(where: { $0.time >= domain.lowerBound }),
+           let idx = sorted.firstIndex(where: { $0.id == firstIn.id }), idx > 0 {
+            let before = sorted[idx - 1]
+            if let x0 = before.value, let x1 = firstIn.value {
+                let t0 = before.time.timeIntervalSinceReferenceDate
+                let t1 = firstIn.time.timeIntervalSinceReferenceDate
+                let tEdge = domain.lowerBound.timeIntervalSinceReferenceDate
+                let frac = (tEdge - t0) / (t1 - t0)
+                let vEdge = x0 + (x1 - x0) * frac
+                result.append(WindSeriesPoint(time: domain.lowerBound, value: vEdge, series: before.series))
+            }
+        }
+
+        // All in-domain points
+        result.append(contentsOf: sorted.filter { $0.time >= domain.lowerBound && $0.time <= domain.upperBound })
+
+        // --- Right edge ---
+        if let lastIn = sorted.last(where: { $0.time <= domain.upperBound }),
+           let idx = sorted.firstIndex(where: { $0.id == lastIn.id }), idx < sorted.count - 1 {
+            let after = sorted[idx + 1]
+            if let x0 = lastIn.value, let x1 = after.value {
+                let t0 = lastIn.time.timeIntervalSinceReferenceDate
+                let t1 = after.time.timeIntervalSinceReferenceDate
+                let tEdge = domain.upperBound.timeIntervalSinceReferenceDate
+                let frac = (tEdge - t0) / (t1 - t0)
+                let vEdge = x0 + (x1 - x0) * frac
+                result.append(WindSeriesPoint(time: domain.upperBound, value: vEdge, series: lastIn.series))
+            }
+        }
+
+        return result
     }
 }
 
