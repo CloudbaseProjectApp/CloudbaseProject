@@ -135,9 +135,11 @@ class StationReadingsHistoryViewModel: ObservableObject {
                 }
                 
             case "CUASA":
+                // Get readings at 5 minute intervals
                 let readingInterval: Double = 5 * 60
                 let readingEnd = Date().timeIntervalSince1970
-                let readingStart = readingEnd - (readingInterval * 10)
+                // Start readings at 6 hours ago for forecast to actual chart
+                let readingStart = readingEnd - (readingInterval * 12 * 6)
                 
                 let readingsLink = AppURLManager.shared.getAppURL(URLName: "CUASAHistoryReadingsAPI")
                     ?? "<Unknown CUASA readings history API URL>"

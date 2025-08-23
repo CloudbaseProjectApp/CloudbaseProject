@@ -301,7 +301,10 @@ struct SiteDetailView: View {
     }
 
     // Used to open URL links as an in-app sheet using Safari
-    func openLink(_ url: URL) { externalURL = url; showWebView = true }
+    func openLink(_ url: URL) {
+        externalURL = url
+        showWebView = true
+    }
     
     // Reload readings data when page is active for a time interval
     private func startTimer() {
@@ -410,10 +413,24 @@ struct WindSeriesPoint: Identifiable {
     let series: String
 }
 
+struct WindArrow: View {
+    let speed: Double
+    let direction: Double   // degrees from north
+    let color: Color
+
+    var body: some View {
+        Image(systemName: "arrow.up")
+            .resizable()
+            .frame(width: 10, height: 18)
+            .rotationEffect(.degrees(direction))  // rotate arrow to wind dir
+            .foregroundColor(color)
+    }
+}
+
 struct SiteForecastActualCompareView: View {
     @ObservedObject var siteForecastViewModel: SiteForecastViewModel
     @ObservedObject var stationReadingsHistoryViewModel: StationReadingsHistoryViewModel
-
+    
     var body: some View {
         VStack {
             if let chart = buildChart() {
@@ -422,7 +439,7 @@ struct SiteForecastActualCompareView: View {
                 Text("No data available")
                     .font(.subheadline)
                     .foregroundColor(infoFontColor)
-
+                
             }
         }
         .onDisappear {
@@ -435,155 +452,112 @@ struct SiteForecastActualCompareView: View {
             )
         }
     }
-
+    
+    // Use to show actual reading arrows up to a limit of 3 arrows per hour
+    func sampledActuals(times: [Date], speeds: [Double], dirs: [Double]) -> [(Date, Double, Double)] {
+        guard times.count == speeds.count, times.count == dirs.count else { return [] }
+        
+        // Group by 20-minute intervals
+        let grouped = Dictionary(grouping: zip(times, zip(speeds, dirs))) { t, _ in
+            let comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: t)
+            let minute = (comps.minute ?? 0) / 20 * 20  // round down to nearest 15 min
+            return Calendar.current.date(from: DateComponents(
+                year: comps.year,
+                month: comps.month,
+                day: comps.day,
+                hour: comps.hour,
+                minute: minute
+            )) ?? t
+        }
+        var result: [(Date, Double, Double)] = []
+        
+        // Take first reading in each 20-min interval
+        for (_, vals) in grouped {
+            if let (t, (s, d)) = vals.first {
+                result.append((t, s, d))
+            }
+        }
+        return result.sorted { $0.0 < $1.0 }
+    }
+    
+    func xPosition(for time: Date, width: CGFloat, domainMin: Date, domainMax: Date) -> CGFloat {
+        let totalSeconds = domainMax.timeIntervalSince(domainMin)
+        let secondsFromStart = time.timeIntervalSince(domainMin)
+        return CGFloat(secondsFromStart / totalSeconds) * width
+    }
+    
     private func buildChart() -> AnyView? {
         let actual = stationReadingsHistoryViewModel.pastReadingsData
-        guard !actual.timestamp.isEmpty else {
-            return nil
-        }
-
+        guard !actual.timestamp.isEmpty else { return nil }
         let forecast = siteForecastViewModel.forecastData?.pastHourly
 
-        // Build typed points for Actuals
-        // Build typed points for Actuals
-        var points: [WindSeriesPoint] = []
-        for (i, t) in actual.timestamp.enumerated() {
-            if i < actual.windSpeed.count {
-                points.append(WindSeriesPoint(time: t,
-                                              value: actual.windSpeed[i],
-                                              series: "Actual Wind"))
-            }
-            if i < actual.windGust.count {
-                let gust = actual.windGust[i]
-                points.append(WindSeriesPoint(time: t,
-                                              value: gust == 0 ? nil : gust,
-                                              series: "Actual Gust"))
-            }
-        }
-        
-        // X domain = actual min/max
         let actualMin = actual.timestamp.min() ?? Date()
         let actualMax = actual.timestamp.max() ?? Date()
 
-        if let f = forecast {
-            // Pairwise clipper: emits points that are guaranteed to form visible segments
-            func clipSegments(times: [Date], values: [Double], series: String,
-                              domainMin: Date, domainMax: Date) -> [WindSeriesPoint] {
-                guard times.count == values.count, times.count >= 2 else { return [] }
-
-                var out: [WindSeriesPoint] = []
-
-                for i in 1 ..< times.count {
-                    let t0 = times[i - 1]
-                    let t1 = times[i]
-                    var v0: Double? = values[i - 1] == 0 ? nil : values[i - 1]
-                    var v1: Double? = values[i] == 0 ? nil : values[i]
-
-                    // Skip degenerate segments
-                    let dt = t1.timeIntervalSince(t0)
-                    if dt == 0 { continue }
-
-                    // If both ends are nil (no data), skip
-                    if v0 == nil && v1 == nil { continue }
-
-                    // Replace nils with neighbor for interpolation if possible
-                    if v0 == nil { v0 = v1 }
-                    if v1 == nil { v1 = v0 }
-
-                    guard let v0u = v0, let v1u = v1 else { continue }
-
-                    // If segment ends before domain, keep scanning
-                    if t1 <= domainMin { continue }
-                    if t0 >= domainMax { break }
-
-                    func interp(at boundary: Date) -> Double {
-                        let r = boundary.timeIntervalSince(t0) / dt
-                        return v0u + r * (v1u - v0u)
-                    }
-
-                    if t0 < domainMin && t1 > domainMax {
-                        out.append(WindSeriesPoint(time: domainMin, value: interp(at: domainMin), series: series))
-                        out.append(WindSeriesPoint(time: domainMax, value: interp(at: domainMax), series: series))
-                    } else if t0 < domainMin && t1 >= domainMin && t1 <= domainMax {
-                        out.append(WindSeriesPoint(time: domainMin, value: interp(at: domainMin), series: series))
-                        out.append(WindSeriesPoint(time: t1, value: v1u, series: series))
-                    } else if t0 >= domainMin && t0 <= domainMax && t1 > domainMax {
-                        out.append(WindSeriesPoint(time: t0, value: v0u, series: series))
-                        out.append(WindSeriesPoint(time: domainMax, value: interp(at: domainMax), series: series))
-                    } else if t0 >= domainMin && t1 <= domainMax {
-                        out.append(WindSeriesPoint(time: t0, value: v0u, series: series))
-                        out.append(WindSeriesPoint(time: t1, value: v1u, series: series))
-                    }
-                }
-
-                // Dedup consecutive duplicates
-                var dedup: [WindSeriesPoint] = []
-                for p in out {
-                    if let last = dedup.last, last.time == p.time && last.series == p.series {
-                        dedup[dedup.count - 1] = p
-                    } else {
-                        dedup.append(p)
-                    }
-                }
-                return dedup
-            }
-            
-            // Clip forecast wind + gust and merge
-            points.append(contentsOf: clipSegments(
-                times: f.timestamp,
-                values: f.windSpeed,
-                series: "Forecast Wind",
-                domainMin: actualMin,
-                domainMax: actualMax
-            ))
-            points.append(contentsOf: clipSegments(
-                times: f.timestamp,
-                values: f.windGust,
-                series: "Forecast Gust",
-                domainMin: actualMin,
-                domainMax: actualMax
-            ))
-
-            // Keep chronological order for all series
-            points.sort { $0.time < $1.time }
-        }
-
-        // Shared Y domain with padding (actual + forecast)
         let yDomain: ClosedRange<Double>? = {
-            var allValues: [Double] = []
-            allValues.append(contentsOf: actual.windSpeed)
-            allValues.append(contentsOf: actual.windGust)
+            var allValues = actual.windSpeed + actual.windGust
             if let f = forecast {
-                allValues.append(contentsOf: f.windSpeed)
-                allValues.append(contentsOf: f.windGust)
+                allValues += f.windSpeed + f.windGust
             }
             guard let minV = allValues.min(), let maxV = allValues.max() else { return nil }
             let range = maxV - minV
             let padding = (range == 0) ? max(1, maxV) * 0.1 : range * 0.1
-            return (minV - padding) ... (maxV + padding)
+            return (minV - padding)...(maxV + padding)
         }()
 
-        let timeFormatter: DateFormatter = {
+        var points: [WindSeriesPoint] = []
+        for (i, t) in actual.timestamp.enumerated() {
+            if i < actual.windSpeed.count {
+                points.append(WindSeriesPoint(time: t, value: actual.windSpeed[i], series: "Actual Wind"))
+            }
+            if i < actual.windGust.count {
+                let gust = actual.windGust[i]
+                points.append(WindSeriesPoint(time: t, value: gust == 0 ? nil : gust, series: "Actual Gust"))
+            }
+        }
+
+        if let f = forecast {
+            points.append(contentsOf: f.timestamp.indices.compactMap { i in
+                guard f.windSpeed.indices.contains(i) else { return nil }
+                let t = f.timestamp[i]
+                guard t >= actualMin && t <= actualMax else { return nil }
+                return WindSeriesPoint(time: t, value: f.windSpeed[i], series: "Forecast Wind")
+            })
+            points.append(contentsOf: f.timestamp.indices.compactMap { i in
+                guard f.windGust.indices.contains(i) else { return nil }
+                let t = f.timestamp[i]
+                guard t >= actualMin && t <= actualMax else { return nil }
+                return WindSeriesPoint(time: t, value: f.windGust[i], series: "Forecast Gust")
+            })
+        }
+
+        let actualWindPoints = points.filter { $0.series == "Actual Wind" }
+        let allLinePoints = points
+
+        let actualArrows = sampledActuals(
+            times: actual.timestamp,
+            speeds: actual.windSpeed,
+            dirs: actual.windDirection
+        ).filter { $0.0 >= actualMin && $0.0 <= actualMax }
+
+        let forecastArrows: [(Date, Double, Double)] = {
+            guard let f = forecast else { return [] }
+            return Array(zip(f.timestamp, zip(f.windSpeed, f.windDirection)))
+                .map { ($0.0, $0.1.0, $0.1.1) }
+                .filter { $0.0 >= actualMin && $0.0 <= actualMax }
+        }()
+
+        let _: DateFormatter = {
             let df = DateFormatter()
             df.dateFormat = "ha"
             return df
         }()
 
-        // Small legend circle size
-        let imageScale: CGFloat = 10
-
-        // Build base Chart
         let baseChart = Chart {
-            ForEach(points) { p in
-                if let v = p.value {
-                    LineMark(
-                        x: .value("Time", p.time),
-                        y: .value("Speed", v)
-                    )
-                    .foregroundStyle(by: .value("Series", p.series))
-                    .interpolationMethod(.monotone)
-                }
+            if let domain = yDomain {
+                areaMarks(points: actualWindPoints, domain: domain)
             }
+            lineMarks(points: allLinePoints)
         }
         .chartForegroundStyleScale([
             "Actual Wind": Color.white,
@@ -591,43 +565,74 @@ struct SiteForecastActualCompareView: View {
             "Forecast Wind": Color.blue,
             "Forecast Gust": Color.blue.opacity(0.5)
         ])
-        .chartLegend(.hidden)   // using custom legend below
-        .chartXScale(domain: actualMin ... actualMax)
+        .chartLegend(.hidden)
+        .chartXScale(domain: actualMin...actualMax)
         .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 6)) { value in
-                if let date = value.as(Date.self) {
-                    AxisValueLabel { Text(timeFormatter.string(from: date)) }
-                }
+            AxisMarks(values: .stride(by: .hour)) { value in
+                AxisGridLine()
+                AxisTick()
+                AxisValueLabel(anchor: .top)
             }
         }
         .chartYAxis { AxisMarks(position: .leading) }
         .frame(height: 200)
-
-        var chartView: AnyView = AnyView(baseChart)
-        if let domain = yDomain {
-            chartView = AnyView(chartView.chartYScale(domain: domain))
+        .ifLet(yDomain) { view, domain in
+            view.chartYScale(domain: domain)
         }
 
-        // Custom legend
-        let legend = HStack(spacing: 20) {
-            Spacer()
-            VStack(spacing: 6) {
-                legendRow(color: .gray, title: "Actual gust", imageScale: imageScale)
-                legendRow(color: .white, title: "Actual wind", imageScale: imageScale)
-            }
-            Spacer()
-            VStack(spacing: 6) {
-                legendRow(color: Color.blue.opacity(0.5), title: "Forecast gust", imageScale: imageScale)
-                legendRow(color: .blue, title: "Forecast wind", imageScale: imageScale)
-            }
-            Spacer()
-        }
-        .padding(.top, 6)
-        .font(.caption)
+        let container = VStack(alignment: .leading, spacing: 0) {
+            ZStack {
+                baseChart
+                    .chartOverlay { proxy in
+                        GeometryReader { geo in
+                            if let plotFrame = proxy.plotFrame {
+                                let plotRect = geo[plotFrame]
 
-        let container = VStack(alignment: .leading, spacing: 4) {
-            chartView
-            legend
+                                ZStack(alignment: .topLeading) {
+                                    // Actual arrows row
+                                    ForEach(actualArrows, id: \.0) { t, speed, dir in
+                                        if let x = proxy.position(forX: t) {
+                                            WindArrow(speed: speed, direction: dir, color: chartActualWindColor)
+                                                .position(
+                                                    x: x + plotRect.minX,   // align with data, not axis
+                                                    y: plotRect.maxY + 35   // below X-axis labels
+                                                )
+                                        }
+                                    }
+
+                                    // Forecast arrows row (a bit lower)
+                                    ForEach(forecastArrows, id: \.0) { t, speed, dir in
+                                        if let x = proxy.position(forX: t) {
+                                            WindArrow(speed: speed, direction: dir, color: chartForecastWindColor)
+                                                .position(
+                                                    x: x + plotRect.minX,
+                                                    y: plotRect.maxY + 60
+                                                )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+            }
+            .frame(height: 260) // chart + arrows
+
+            // Legend unchanged
+            HStack(spacing: 20) {
+                Spacer()
+                VStack(spacing: 6) {
+                    legendRow(color: chartActualGustColor, title: "Actual gust", imageScale: 10)
+                    legendRow(color: chartActualWindColor, title: "Actual wind", imageScale: 10)
+                }
+                Spacer()
+                VStack(spacing: 6) {
+                    legendRow(color: chartForecastGustColor, title: "Forecast gust", imageScale: 10)
+                    legendRow(color: chartForecastWindColor, title: "Forecast wind", imageScale: 10)
+                }
+                Spacer()
+            }
+            .padding(.top, 30)
+            .font(.caption)
         }
 
         return AnyView(container)
@@ -644,5 +649,61 @@ struct SiteForecastActualCompareView: View {
                 .foregroundColor(.white)
                 .font(.caption2)
         }
+    }
+    
+    private func areaMarks(points: [WindSeriesPoint], domain: ClosedRange<Double>) -> some ChartContent {
+        ForEach(points, id: \.id) { p in
+            if let v = p.value {
+                AreaMark(
+                    x: .value("Time", p.time),
+                    yStart: .value("Baseline", domain.lowerBound),
+                    yEnd: .value("Speed", v)
+                )
+                .interpolationMethod(.monotone)
+                .foregroundStyle(
+                    .linearGradient(
+                        colors: [Color.white.opacity(0.4), Color.clear],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
+            }
+        }
+    }
+    
+    private func lineMarks(points: [WindSeriesPoint]) -> some ChartContent {
+        ForEach(points, id: \.id) { p in
+            if let v = p.value {
+                LineMark(
+                    x: .value("Time", p.time),
+                    y: .value("Speed", v)
+                )
+                .foregroundStyle(by: .value("Series", p.series))
+                .interpolationMethod(.monotone)
+            }
+        }
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func ifLet<T, Content: View>(
+        _ value: T?,
+        transform: (Self, T) -> Content
+    ) -> some View {
+        if let value = value {
+            transform(self, value)
+        } else {
+            self
+        }
+    }
+}
+
+extension ChartProxy {
+    static func valueToX(_ time: Date, in domain: ClosedRange<Date>, width: CGFloat) -> CGFloat? {
+        guard domain.upperBound > domain.lowerBound else { return nil }
+        let total = domain.upperBound.timeIntervalSince(domain.lowerBound)
+        let offset = time.timeIntervalSince(domain.lowerBound)
+        let fraction = offset / total
+        return CGFloat(fraction) * width
     }
 }

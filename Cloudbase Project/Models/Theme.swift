@@ -51,6 +51,10 @@ let chartCurrentNodeColor           : Color = .white
 let sectionBackgroundColor          : Color = .gunmetal       // To emulate color scheme used in sheets
 let potentialChartBackgroundColor   : Color = .potentialchartgray
 let repeatDateTimeColor             : Color = .titanium
+let chartActualWindColor            : Color = .white
+let chartActualGustColor            : Color = .titanium
+let chartForecastWindColor          : Color = .mediumsky
+let chartForecastGustColor          : Color = .sky
 
 // Colors of forecast and reading values
 let displayValueWhite               : Color = .displayValueWhite
