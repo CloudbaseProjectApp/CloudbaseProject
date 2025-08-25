@@ -79,7 +79,7 @@ struct SiteDetailView: View {
             
             List {
                 
-                Section(header: Text("Wind Readings")
+                Section(header: Text("Actual Wind Readings")
                     .font(.subheadline)
                     .foregroundColor(sectionHeaderColor)
                     .bold())
@@ -163,7 +163,7 @@ struct SiteDetailView: View {
                     }
                 }
                 
-                Section (header: Text("Forecast Accuracy")
+                Section (header: Text("Forecast vs Actuals")
                     .font(.subheadline)
                     .foregroundColor(sectionHeaderColor)
                     .bold())
