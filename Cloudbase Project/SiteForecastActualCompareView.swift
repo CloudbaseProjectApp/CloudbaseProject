@@ -52,6 +52,12 @@ struct SiteForecastActualCompareView: View {
     @ObservedObject var siteForecastViewModel: SiteForecastViewModel
     @ObservedObject var stationReadingsHistoryViewModel: StationReadingsHistoryViewModel
     
+    private let hourFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h a"  // This gives "3 PM", "11 AM", etc.
+        return formatter
+    }()
+    
     var body: some View {
         VStack {
             if let chart = buildChart() {
@@ -205,18 +211,24 @@ struct SiteForecastActualCompareView: View {
         ])
         .chartLegend(.hidden)
         .chartXScale(domain: actualMin...actualMax)
-            .chartXAxis {
-                AxisMarks(values: .stride(by: .hour)) { value in
-                    AxisGridLine()
-                    AxisTick()
-                    AxisValueLabel(anchor: .top)
+        .chartXAxis {
+            AxisMarks(values: .stride(by: .hour)) { value in
+                AxisGridLine(centered: true, stroke: StrokeStyle(lineWidth: 1))
+                    .foregroundStyle(Color.gray.opacity(0.3))
+                AxisTick()
+                AxisValueLabel(anchor: .top) {
+                    // Custom formatting: show only hour (e.g., "3 PM")
+                    if let date = value.as(Date.self) {
+                        Text(hourFormatter.string(from: date))
+                    }
                 }
             }
-            .chartYAxis { AxisMarks(position: .leading) }
-            .frame(height: 200)
-            .ifLet(yDomain) { view, domain in
-                view.chartYScale(domain: domain)
-            }
+        }
+        .chartYAxis { AxisMarks(position: .leading) }
+        .frame(height: 200)
+        .ifLet(yDomain) { view, domain in
+            view.chartYScale(domain: domain)
+        }
         
         let container = VStack(alignment: .leading, spacing: 0) {
             ZStack {
