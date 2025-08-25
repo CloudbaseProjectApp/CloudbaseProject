@@ -32,6 +32,8 @@ struct PastReadingsData {
     var windSpeed: [Double]
     var windGust: [Double]
     var windDirection: [Double]
+    var windSpeedColor: [Color]
+    var windGustColor: [Color]
 }
 
 class StationReadingsHistoryViewModel: ObservableObject {
@@ -48,10 +50,12 @@ class StationReadingsHistoryViewModel: ObservableObject {
         timestamp: [],
         windSpeed: [],
         windGust: [],
-        windDirection: []
+        windDirection: [],
+        windSpeedColor: [],
+        windGustColor: []
     )
  
-    func GetReadingsHistoryData(stationID: String, readingsSource: String) async {
+    func GetReadingsHistoryData(stationID: String, siteType: String, readingsSource: String) async {
         do {
             switch readingsSource {
             case "Mesonet":
@@ -119,16 +123,17 @@ class StationReadingsHistoryViewModel: ObservableObject {
                 
                 // Store last 6 hours of readings for forecast-to-actuals comparison
                 let pastData = buildPastReadingsData(
-                    entries: station.OBSERVATIONS.date_time.enumerated().map { idx, ts in
-                        (ts,
-                         station.OBSERVATIONS.wind_speed_set_1[idx] ?? 0.0,
-                         station.OBSERVATIONS.wind_gust_set_1?[idx] ?? 0.0,
-                         station.OBSERVATIONS.wind_direction_set_1?[idx] ?? 0.0)
-                    },
-                    timestampExtractor: { ISO8601DateFormatter().date(from: $0.0) },
-                    speedExtractor: { $0.1 },
-                    gustExtractor: { $0.2 },
-                    directionExtractor: { $0.3 }
+                    entries:                station.OBSERVATIONS.date_time.enumerated().map { idx, ts in
+                                                (ts,
+                                                 station.OBSERVATIONS.wind_speed_set_1[idx] ?? 0.0,
+                                                 station.OBSERVATIONS.wind_gust_set_1?[idx] ?? 0.0,
+                                                 station.OBSERVATIONS.wind_direction_set_1?[idx] ?? 0.0)
+                                            },
+                    timestampExtractor:     { ISO8601DateFormatter().date(from: $0.0) },
+                    speedExtractor:         { $0.1 },
+                    gustExtractor:          { $0.2 },
+                    directionExtractor:     { $0.3 },
+                    siteType:               siteType
                 )
                 await MainActor.run {
                     self.pastReadingsData = pastData
@@ -161,7 +166,7 @@ class StationReadingsHistoryViewModel: ObservableObject {
                 let decoded = try JSONDecoder().decode([CUASAReadingsData].self, from: data)
                 
                 await MainActor.run {
-                    self.processCUASAReadingsHistoryData(decoded)
+                    self.processCUASAReadingsHistoryData(readingsData: decoded, siteType: siteType)
                 }
                 
             case "RMHPA":
@@ -185,7 +190,7 @@ class StationReadingsHistoryViewModel: ObservableObject {
                 let decoded = try JSONDecoder().decode(RMHPAAPIResponse.self, from: data)
                 
                 await MainActor.run {
-                    self.processRMHPAReadingHistoryData(decoded.data)
+                    self.processRMHPAReadingHistoryData(readingsData: decoded.data, siteType: siteType)
                 }
                 
             default:
@@ -198,7 +203,8 @@ class StationReadingsHistoryViewModel: ObservableObject {
         }
     }
     
-    private func processCUASAReadingsHistoryData(_ readingsHistoryDataArray: [CUASAReadingsData]) {
+    private func processCUASAReadingsHistoryData(readingsData readingsHistoryDataArray: [CUASAReadingsData],
+                                                 siteType: String) {
         guard let latestEntry = readingsHistoryDataArray.last else {
             self.readingsHistoryData.errorMessage = "No data available"
             return
@@ -215,16 +221,18 @@ class StationReadingsHistoryViewModel: ObservableObject {
         
         // Collect past 6 hours of readings
         let pastData = buildPastReadingsData(
-            entries: readingsHistoryDataArray,
+            entries:            readingsHistoryDataArray,
             timestampExtractor: { Date(timeIntervalSince1970: $0.timestamp) },
-            speedExtractor: { convertKMToMiles($0.windspeed_avg) },
-            gustExtractor: { convertKMToMiles($0.windspeed_max) },
-            directionExtractor: { $0.wind_direction_avg }
+            speedExtractor:     { convertKMToMiles($0.windspeed_avg) },
+            gustExtractor:      { convertKMToMiles($0.windspeed_max) },
+            directionExtractor: { $0.wind_direction_avg },
+            siteType:           siteType
         )
         self.pastReadingsData = pastData
     }
     
-    private func processRMHPAReadingHistoryData(_ readingsHistoryDataArray: [RMHPAReadingData]) {
+    private func processRMHPAReadingHistoryData(readingsData readingsHistoryDataArray: [RMHPAReadingData],
+                                                siteType: String) {
         guard let latestEntry = readingsHistoryDataArray.last else {
             self.readingsHistoryData.errorMessage = "No data available"
             return
@@ -253,11 +261,12 @@ class StationReadingsHistoryViewModel: ObservableObject {
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
 
         let pastData = buildPastReadingsData(
-            entries: readingsHistoryDataArray,
+            entries:            readingsHistoryDataArray,
             timestampExtractor: { formatter.date(from: $0.timestamp) },
-            speedExtractor: { $0.wind_speed ?? 0.0 },
-            gustExtractor: { $0.wind_gust ?? 0.0 },
-            directionExtractor: { $0.wind_direction ?? 0.0 }
+            speedExtractor:     { $0.wind_speed ?? 0.0 },
+            gustExtractor:      { $0.wind_gust ?? 0.0 },
+            directionExtractor: { $0.wind_direction ?? 0.0 },
+            siteType: siteType
         )
         self.pastReadingsData = pastData
     }
@@ -324,7 +333,8 @@ class StationReadingsHistoryViewModel: ObservableObject {
         timestampExtractor: (T) -> Date?,
         speedExtractor: (T) -> Double,
         gustExtractor: (T) -> Double,
-        directionExtractor: (T) -> Double
+        directionExtractor: (T) -> Double,
+        siteType: String
     ) -> PastReadingsData {
         let now = Date()
         let sixHoursAgo = now.addingTimeInterval(-6 * 60 * 60)
@@ -333,14 +343,23 @@ class StationReadingsHistoryViewModel: ObservableObject {
         var pastWindSpeed: [Double] = []
         var pastWindGust: [Double] = []
         var pastWindDirection: [Double] = []
+        var pastWindSpeedColor: [Color] = []
+        var pastWindGustColor: [Color] = []
         
         for entry in entries {
             guard let date = timestampExtractor(entry) else { continue }
             if date >= sixHoursAgo && date <= now {
+                let speed = speedExtractor(entry)
+                let gust  = gustExtractor(entry)
+                
                 pastTimestamps.append(date)
-                pastWindSpeed.append(speedExtractor(entry))
-                pastWindGust.append(gustExtractor(entry))
+                pastWindSpeed.append(speed)
+                pastWindGust.append(gust)
                 pastWindDirection.append(directionExtractor(entry))
+                
+                // ✅ compute colors
+                pastWindSpeedColor.append(windSpeedColor(windSpeed: Int(speed), siteType: siteType))
+                pastWindGustColor.append(windSpeedColor(windSpeed: Int(gust), siteType: siteType))
             }
         }
         
@@ -348,7 +367,9 @@ class StationReadingsHistoryViewModel: ObservableObject {
             timestamp: pastTimestamps,
             windSpeed: pastWindSpeed,
             windGust: pastWindGust,
-            windDirection: pastWindDirection
+            windDirection: pastWindDirection,
+            windSpeedColor: pastWindSpeedColor,
+            windGustColor: pastWindGustColor
         )
     }
 }
